@@ -1,17 +1,18 @@
 services:
-  business-operation-db:
-    image: mariadb:11.8
-    container_name: business-operation-db
+  business-operation:
+    container_name: business-operation
+    build:
+      context: .
+      dockerfile: Dockerfile
     restart: unless-stopped
-    environment:
-      MARIADB_ROOT_PASSWORD: business_root_password
-      MARIADB_DATABASE: business_operation
-      MARIADB_USER: business_user
-      MARIADB_PASSWORD: business_password
+    env_file:
+      - .env
     ports:
-      - "3307:3306"
-    volumes:
-      - business_operation_db_data:/var/lib/mysql
+      - "3002:3001"
+    networks:
+      - quantara-network
 
-volumes:
-  business_operation_db_data:
+networks:
+  quantara-network:
+    external: true
+    name: quantara_quantara-network
