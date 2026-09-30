@@ -1,0 +1,17 @@
+services:
+  business-operation-db:
+    image: mariadb:11.8
+    container_name: business-operation-db
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: business_root_password
+      MARIADB_DATABASE: business_operation
+      MARIADB_USER: business_user
+      MARIADB_PASSWORD: business_password
+    ports:
+      - "3307:3306"
+    volumes:
+      - business_operation_db_data:/var/lib/mysql
+
+volumes:
+  business_operation_db_data:

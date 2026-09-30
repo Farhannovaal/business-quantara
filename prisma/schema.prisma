@@ -1,0 +1,462 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+/**
+ * =========================================================
+ * AUTH
+ * =========================================================
+ */
+
+model User {
+  id           Int        @id @default(autoincrement())
+  name         String     @db.VarChar(150)
+  email        String     @unique @db.VarChar(255)
+  passwordHash String     @db.VarChar(255)
+  status       UserStatus @default(ACTIVE)
+  roleId       Int?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  activityLogs     ActivityLog[]
+  scannedDocuments ScannedDocument[]
+  sessions         Session[]
+  transactions     Transaction[]
+  tailorBills      TailorBill[]
+
+  role Role? @relation(fields: [roleId], references: [id])
+
+  @@index([roleId])
+  @@index([status])
+}
+
+model Role {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique @db.VarChar(100)
+  description String?  @db.VarChar(255)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  permissions RolePermission[]
+  users       User[]
+}
+
+model Permission {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique @db.VarChar(100)
+  name        String   @db.VarChar(150)
+  description String?  @db.VarChar(255)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  roles RolePermission[]
+}
+
+model RolePermission {
+  id           Int @id @default(autoincrement())
+  roleId       Int
+  permissionId Int
+
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([permissionId])
+}
+
+model Session {
+  id        String   @id @db.VarChar(128)
+  userId    Int
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+/**
+ * =========================================================
+ * MASTER DATA
+ * =========================================================
+ */
+
+model Product {
+  id        Int      @id @default(autoincrement())
+  code      String   @unique @db.VarChar(100)
+  name      String   @db.VarChar(255)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  spks            SPK[]
+  transactions    Transaction[]
+  tailorRates     TailorRate[]
+  tailorBillItems TailorBillItem[]
+
+  @@index([name])
+  @@index([isActive])
+}
+
+model Tailor {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique @db.VarChar(150)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  spks         SPK[]
+  transactions Transaction[]
+  rates        TailorRate[]
+  bills        TailorBill[]
+
+  @@index([isActive])
+}
+
+model Employee {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(150)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  transactions Transaction[]
+
+  @@index([name])
+  @@index([isActive])
+}
+
+/**
+ * =========================================================
+ * SPK
+ * =========================================================
+ */
+
+model SPK {
+  id        Int       @id @default(autoincrement())
+  spkNumber String    @unique @db.VarChar(100)
+  productId Int
+  tailorId  Int
+  status    SPKStatus @default(ACTIVE)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  product         Product          @relation(fields: [productId], references: [id])
+  tailor          Tailor           @relation(fields: [tailorId], references: [id])
+  transactions    Transaction[]
+  tailorBillItems TailorBillItem[]
+
+  @@index([productId])
+  @@index([tailorId])
+  @@index([status])
+}
+
+/**
+ * =========================================================
+ * TRANSACTION
+ * =========================================================
+ */
+
+model TransactionType {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique @db.VarChar(100)
+  name        String   @unique @db.VarChar(150)
+  description String?  @db.Text
+  sequence    Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  transactions  Transaction[]
+  workflowSteps WorkflowStep[]
+
+  @@index([sequence])
+  @@index([isActive])
+}
+
+model Transaction {
+  id                Int      @id @default(autoincrement())
+  transactionNumber String   @unique @db.VarChar(100)
+  spkId             Int
+  transactionTypeId Int
+  productId         Int
+  tailorId          Int
+  employeeId        Int
+  quantity          Int
+  createdById       Int?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  scannedDocuments ScannedDocument[]
+
+  createdBy       User?           @relation(fields: [createdById], references: [id])
+  employee        Employee        @relation(fields: [employeeId], references: [id])
+  product         Product         @relation(fields: [productId], references: [id])
+  spk             SPK             @relation(fields: [spkId], references: [id])
+  tailor          Tailor          @relation(fields: [tailorId], references: [id])
+  transactionType TransactionType @relation(fields: [transactionTypeId], references: [id])
+
+  @@index([spkId])
+  @@index([transactionTypeId])
+  @@index([productId])
+  @@index([tailorId])
+  @@index([employeeId])
+  @@index([createdById])
+  @@index([createdAt])
+}
+
+/**
+ * =========================================================
+ * WORKFLOW
+ * =========================================================
+ */
+
+model Workflow {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique @db.VarChar(150)
+  code        String   @unique @db.VarChar(100)
+  description String?  @db.Text
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  rules WorkflowRule[]
+  steps WorkflowStep[]
+
+  @@index([isActive])
+}
+
+model WorkflowStep {
+  id                Int      @id @default(autoincrement())
+  workflowId        Int
+  transactionTypeId Int
+  sequence          Int
+  isRequired        Boolean  @default(true)
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  transactionType TransactionType @relation(fields: [transactionTypeId], references: [id])
+  workflow        Workflow        @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@unique([workflowId, sequence])
+  @@unique([workflowId, transactionTypeId])
+  @@index([transactionTypeId])
+  @@index([isActive])
+}
+
+model WorkflowRule {
+  id          Int      @id @default(autoincrement())
+  workflowId  Int
+  name        String   @db.VarChar(150)
+  description String?  @db.Text
+  condition   String   @db.Text
+  action      String   @db.Text
+  priority    Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@index([workflowId])
+  @@index([priority])
+  @@index([isActive])
+}
+
+/**
+ * =========================================================
+ * ACTIVITY LOG
+ * =========================================================
+ */
+
+model ActivityLog {
+  id          Int      @id @default(autoincrement())
+  userId      Int?
+  action      String   @db.VarChar(100)
+  entityType  String   @db.VarChar(100)
+  entityId    String   @db.VarChar(100)
+  description String?  @db.Text
+  createdAt   DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+/**
+ * =========================================================
+ * SCANNER
+ * =========================================================
+ */
+
+model ScannedDocument {
+  id                Int        @id @default(autoincrement())
+  documentNumber    String     @unique @db.VarChar(100)
+  documentType      String?    @db.VarChar(100)
+  source            ScanSource
+  status            ScanStatus @default(PENDING)
+  imageUrl          String?    @db.VarChar(500)
+  rawText           String?    @db.Text
+  extractedData     String?    @db.LongText
+  normalizedData    String?    @db.LongText
+  validationMessage String?    @db.Text
+  transactionId     Int?
+  scannedByUserId   Int?
+  scannedAt         DateTime   @default(now())
+  processedAt       DateTime?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  scannedBy   User?        @relation(fields: [scannedByUserId], references: [id])
+  transaction Transaction? @relation(fields: [transactionId], references: [id])
+
+  @@index([status])
+  @@index([source])
+  @@index([transactionId])
+  @@index([scannedByUserId])
+  @@index([scannedAt])
+}
+
+/**
+ * =========================================================
+ * SEQUENCE
+ * =========================================================
+ */
+
+model TransactionSequence {
+  id        Int      @id @default(autoincrement())
+  date      String   @unique @db.VarChar(8)
+  lastValue Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([date])
+}
+
+/**
+ * =========================================================
+ * TAILOR RATE
+ * =========================================================
+ */
+
+model TailorRate {
+  id            Int       @id @default(autoincrement())
+  tailorId      Int
+  productId     Int
+  rate          Decimal   @db.Decimal(15, 2)
+  isActive      Boolean   @default(true)
+  effectiveFrom DateTime  @default(now())
+  effectiveTo   DateTime?
+
+  tailor  Tailor  @relation(fields: [tailorId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tailorId])
+  @@index([productId])
+  @@index([tailorId, productId])
+  @@index([isActive])
+  @@index([effectiveFrom])
+}
+
+/**
+ * =========================================================
+ * TAILOR BILLING
+ * =========================================================
+ */
+
+enum TailorBillStatus {
+  DRAFT
+  SUBMITTED
+  PAID
+  CANCELLED
+}
+
+model TailorBill {
+  id          Int              @id @default(autoincrement())
+  billNumber  String           @unique @db.VarChar(100)
+  tailorId    Int
+  status      TailorBillStatus @default(DRAFT)
+  subtotal    Decimal          @db.Decimal(15, 2)
+  totalAmount Decimal          @db.Decimal(15, 2)
+  notes       String?          @db.Text
+
+  tailor Tailor           @relation(fields: [tailorId], references: [id])
+  items  TailorBillItem[]
+
+  createdById Int?
+  createdBy   User? @relation(fields: [createdById], references: [id])
+
+  paidAt    DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([tailorId])
+  @@index([status])
+  @@index([createdById])
+  @@index([createdAt])
+}
+
+model TailorBillItem {
+  id        Int     @id @default(autoincrement())
+  billId    Int
+  spkId     Int
+  productId Int
+  quantity  Decimal @db.Decimal(15, 2)
+  rate      Decimal @db.Decimal(15, 2)
+  amount    Decimal @db.Decimal(15, 2)
+
+  bill    TailorBill @relation(fields: [billId], references: [id], onDelete: Cascade)
+  spk     SPK        @relation(fields: [spkId], references: [id])
+  product Product    @relation(fields: [productId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([billId])
+  @@index([spkId])
+  @@index([productId])
+}
+
+/**
+ * =========================================================
+ * ENUMS
+ * =========================================================
+ */
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum SPKStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum ScanStatus {
+  PENDING
+  VALID
+  INVALID
+  PROCESSED
+  DUPLICATE
+  REVIEW_REQUIRED
+}
+
+enum ScanSource {
+  QR
+  BARCODE
+  OCR
+  MANUAL
+}

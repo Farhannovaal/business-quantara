@@ -1,26 +1,155 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f8fafc;
+  --foreground: #0f172a;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ============================================================
+   GLOBAL BOX MODEL
+   ============================================================ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* ============================================================
+   ROOT
+   ============================================================ */
+
+html {
+  width: 100%;
+  min-height: 100%;
+  max-width: 100%;
+  background: #f8fafc;
+
+  /*
+   * Prevent horizontal viewport scrolling.
+   * Individual tables/components may still scroll
+   * horizontally inside their own overflow-x-auto wrapper.
+   */
+  overflow-x: clip;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  width: 100%;
+  min-height: 100vh;
+  max-width: 100%;
+  margin: 0;
+
+  /*
+   * Important:
+   * Do NOT use overflow-x-auto here.
+   * The application itself should never become horizontally scrollable.
+   */
+  overflow-x: clip;
+
+  background:
+    radial-gradient(
+      circle at 85% 0%,
+      rgba(99, 102, 241, 0.08),
+      transparent 28%
+    ),
+    radial-gradient(
+      circle at 15% 20%,
+      rgba(139, 92, 246, 0.05),
+      transparent 25%
+    ),
+    #f8fafc;
+
+  color: #0f172a;
+
+  font-family:
+    var(--font-geist-sans),
+    Arial,
+    Helvetica,
+    sans-serif;
+
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ============================================================
+   FORM ELEMENTS
+   ============================================================ */
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  max-width: 100%;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+/* ============================================================
+   MEDIA
+   ============================================================ */
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
+/* ============================================================
+   TABLE
+   ============================================================ */
+
+/*
+ * Jangan memaksa table mengecil.
+ *
+ * Table yang terlalu lebar harus dibungkus:
+ *
+ * <div className="overflow-x-auto">
+ *   <table>...</table>
+ * </div>
+ *
+ * Jadi yang scroll hanya tabelnya,
+ * bukan seluruh halaman.
+ */
+
+table {
+  max-width: 100%;
+}
+
+/* ============================================================
+   MOBILE / TABLET
+   ============================================================ */
+
+@media (max-width: 1279px) {
+  html,
+  body {
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: clip;
+  }
+}
+
+/* ============================================================
+   SAFE AREA - MOBILE DEVICES
+   ============================================================ */
+
+@supports (padding: env(safe-area-inset-bottom)) {
+  body {
+    padding-bottom: 0;
+  }
 }
