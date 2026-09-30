@@ -12,82 +12,13 @@ import {
   CircleDollarSign,
   ClipboardList,
   Factory,
-  LayoutDashboard,
   Loader2,
-  Menu,
-  Package,
-  Plus,
-  RefreshCw,
-  Settings,
-  Users,
   Workflow,
   X,
 } from "lucide-react";
 
 import PermissionGate from "@/components/auth/permission-gate";
 
-const menuGroups = [
-  {
-    title: "OPERATIONS",
-    items: [
-      {
-        label: "Dashboard",
-        href: "/",
-        icon: LayoutDashboard,
-      },
-      {
-        label: "SPK",
-        href: "/operations/spk",
-        icon: ClipboardList,
-      },
-      {
-        label: "Transactions",
-        href: "/operations/transactions",
-        icon: Activity,
-      },
-      {
-        label: "Tracking",
-        href: "/operations/tracking",
-        icon: BarChart3,
-      },
-    ],
-  },
-  {
-    title: "MASTER DATA",
-    items: [
-      {
-        label: "Products",
-        href: "/master/products",
-        icon: Package,
-      },
-      {
-        label: "Tailors",
-        href: "/master/tailors",
-        icon: Users,
-      },
-      {
-        label: "Employees",
-        href: "/master/employees",
-        icon: Users,
-      },
-    ],
-  },
-  {
-    title: "AUTOMATION",
-    items: [
-      {
-        label: "Workflows",
-        href: "/automation/workflows",
-        icon: Workflow,
-      },
-      {
-        label: "Business Rules",
-        href: "/automation/rules",
-        icon: Settings,
-      },
-    ],
-  },
-];
 
 type Product = {
   id: number;
@@ -598,172 +529,11 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50/10 to-violet-50/10">
-      {/* ====================================================== */}
-      {/* DESKTOP SIDEBAR */}
-      {/* ====================================================== */}
-
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r border-slate-200/80 bg-white lg:block">
-        <div className="flex h-full flex-col">
-          {/* Logo */}
-
-          <div className="flex h-20 items-center border-b border-slate-100 px-6">
-            <Link
-              href="/"
-              className="flex items-center gap-3"
-            >
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-200">
-                <Factory className="h-5 w-5" />
-              </div>
-
-              <div>
-                <p className="text-sm font-bold text-slate-800">
-                  Business
-                </p>
-
-                <p className="text-xs font-semibold text-indigo-600">
-                  Operations
-                </p>
-              </div>
-            </Link>
-          </div>
-
-          {/* Navigation */}
-
-          <nav className="flex-1 overflow-y-auto px-4 py-5">
-            {menuGroups.map((group) => (
-              <div
-                key={group.title}
-                className="mb-6"
-              >
-                <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400">
-                  {group.title}
-                </p>
-
-                <div className="space-y-1">
-                  {group.items.map((item) => {
-                    const Icon = item.icon;
-
-                    const active =
-                      item.href === "/";
-
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition ${
-                          active
-                            ? "bg-gradient-to-r from-indigo-50 to-violet-50 text-indigo-700"
-                            : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
-                        }`}
-                      >
-                        <Icon
-                          className={`h-4 w-4 ${
-                            active
-                              ? "text-indigo-600"
-                              : "text-slate-400 group-hover:text-indigo-500"
-                          }`}
-                        />
-
-                        {item.label}
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </nav>
-
-          {/* Bottom */}
-
-          <div className="border-t border-slate-100 p-4">
-            <div className="rounded-2xl bg-gradient-to-br from-indigo-50 to-violet-50 p-4">
-              <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-emerald-500" />
-
-                <span className="text-xs font-bold text-slate-700">
-                  System Online
-                </span>
-              </div>
-
-              <p className="mt-1 text-[10px] text-slate-400">
-                Business Operation Platform
-              </p>
-            </div>
-          </div>
-        </div>
-      </aside>
-
-      {/* ====================================================== */}
-      {/* MAIN */}
-      {/* ====================================================== */}
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50/10 to-violet-50/10">      {/* ====================================================== */}
 
       <main className="min-h-screen pb-24 lg:ml-64 lg:pb-0">
-        {/* ================================================== */}
-        {/* HEADER */}
-        {/* ================================================== */}
+     
 
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200/70 bg-white/95 px-4 shadow-sm backdrop-blur-xl sm:h-20 sm:px-6 lg:px-8">
-          <div className="flex min-w-0 items-center gap-3">
-            {/* Mobile menu visual */}
-
-            <button
-              type="button"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 lg:hidden"
-            >
-              <Menu className="h-4 w-4" />
-            </button>
-
-            <div className="min-w-0">
-              <p className="hidden text-xs font-semibold uppercase tracking-wider text-indigo-500 sm:block">
-                Overview
-              </p>
-
-              <h1 className="truncate text-base font-bold text-slate-800 sm:mt-0.5 sm:text-lg">
-                Operations Dashboard
-              </h1>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 sm:gap-3">
-            <button
-              onClick={() =>
-                loadDashboard(false)
-              }
-              disabled={refreshing}
-              aria-label="Refresh dashboard"
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 sm:h-auto sm:w-auto sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm sm:font-semibold"
-            >
-              <RefreshCw
-                className={`h-4 w-4 ${
-                  refreshing
-                    ? "animate-spin"
-                    : ""
-                }`}
-              />
-
-              <span className="hidden sm:inline">
-                Refresh
-              </span>
-            </button>
-
-            <Link
-              href="/operations/transactions"
-              aria-label="New transaction"
-              className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-200 transition hover:from-indigo-700 hover:to-violet-700 sm:h-auto sm:w-auto sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm sm:font-semibold"
-            >
-              <Plus className="h-4 w-4" />
-
-              <span className="hidden sm:inline">
-                New Transaction
-              </span>
-            </Link>
-          </div>
-        </header>
-
-        {/* ================================================== */}
-        {/* CONTENT */}
-        {/* ================================================== */}
 
         <div className="relative p-4 sm:p-6 lg:p-8">
           {/* Ambient decoration */}
@@ -772,9 +542,7 @@ export default function Home() {
 
           <div className="pointer-events-none absolute left-0 top-40 h-64 w-64 rounded-full bg-violet-300/10 blur-3xl" />
 
-          {/* ================================================== */}
-          {/* WELCOME */}
-          {/* ================================================== */}
+
 
           <div className="relative mb-6 sm:mb-8">
             <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-indigo-100 bg-white/80 px-3 py-1.5 text-[10px] font-semibold text-indigo-600 shadow-sm sm:text-xs">
@@ -793,7 +561,6 @@ export default function Home() {
             </p>
           </div>
 
-          {/* ERROR */}
 
           {error && (
             <div className="relative mb-6 flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
@@ -812,10 +579,6 @@ export default function Home() {
               </button>
             </div>
           )}
-
-          {/* ================================================== */}
-          {/* STATS */}
-          {/* ================================================== */}
 
           <div className="relative mb-6 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
             {stats.map((stat) => {
@@ -1398,47 +1161,6 @@ export default function Home() {
       </main>
 
       {/* ====================================================== */}
-      {/* MOBILE BOTTOM NAVIGATION */}
-      {/* ====================================================== */}
-
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200/80 bg-white/95 px-2 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl lg:hidden">
-        <div className="mx-auto flex h-16 max-w-lg items-center justify-around">
-          <MobileNavItem
-            href="/"
-            icon={LayoutDashboard}
-            label="Home"
-            active
-          />
-
-          <MobileNavItem
-            href="/operations/spk"
-            icon={ClipboardList}
-            label="SPK"
-          />
-
-          <Link
-            href="/operations/transactions"
-            aria-label="New transaction"
-            className="-mt-7 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-xl shadow-indigo-300 ring-4 ring-white transition active:scale-95"
-          >
-            <Plus className="h-6 w-6" />
-          </Link>
-
-          <MobileNavItem
-            href="/operations/tracking"
-            icon={BarChart3}
-            label="Tracking"
-          />
-
-          <MobileNavItem
-            href="/master/tailor-billing"
-            icon={CircleDollarSign}
-            label="Billing"
-          />
-        </div>
-      </nav>
-
-      {/* ====================================================== */}
       {/* BILLING CONFIRMATION MODAL */}
       {/* ====================================================== */}
 
@@ -1638,35 +1360,6 @@ function QuickAction({
       </div>
 
       <ArrowRight className="ml-auto h-4 w-4 shrink-0 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-indigo-500" />
-    </Link>
-  );
-}
-
-function MobileNavItem({
-  href,
-  icon: Icon,
-  label,
-  active = false,
-}: {
-  href: string;
-  icon: typeof Activity;
-  label: string;
-  active?: boolean;
-}) {
-  return (
-    <Link
-      href={href}
-      className={`flex min-w-[58px] flex-col items-center justify-center gap-1 rounded-xl px-2 py-1.5 transition ${
-        active
-          ? "text-indigo-600"
-          : "text-slate-400 hover:text-slate-600"
-      }`}
-    >
-      <Icon className="h-5 w-5" />
-
-      <span className="text-[9px] font-semibold">
-        {label}
-      </span>
     </Link>
   );
 }

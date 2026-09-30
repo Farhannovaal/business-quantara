@@ -323,31 +323,35 @@ export async function createTailorBill(
      * kalau ingin counter BILL benar-benar terpisah dari TRX.
      */
 
-    const sequenceDate = new Date()
-      .toISOString()
-      .slice(0, 10);
+    const now = new Date();
+
+    const sequenceDate =
+    `${now.getFullYear()}${String(
+        now.getMonth() + 1,
+    ).padStart(2, "0")}${String(
+        now.getDate(),
+    ).padStart(2, "0")}`;
 
     const sequence =
-      await tx.transactionSequence.upsert({
+    await tx.tailorBillSequence.upsert({
         where: {
-          date: sequenceDate,
+        date: sequenceDate,
         },
-
-        create: {
-          date: sequenceDate,
-          lastValue: 1,
-        },
-
         update: {
-          lastValue: {
+        lastValue: {
             increment: 1,
-          },
         },
-      });
+        },
+        create: {
+        date: sequenceDate,
+        lastValue: 1,
+        },
+    });
 
-    const billNumber = generateBillNumber(
-      sequence.lastValue,
-    );
+    const billNumber =
+    `BILL-${sequenceDate}-${String(
+        sequence.lastValue,
+    ).padStart(6, "0")}`;
 
     /*
      * ============================================================

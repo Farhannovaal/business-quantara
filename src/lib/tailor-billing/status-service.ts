@@ -5,22 +5,48 @@ export type TailorBillAction =
   | "PAY"
   | "CANCEL";
 
-type StatusActionResult = {
-  id: number;
-  billNumber: string;
-  status: string;
-  paidAt: Date | null;
-};
+const tailorBillInclude = {
+  tailor: {
+    select: {
+      id: true,
+      name: true,
+    },
+  },
+  createdBy: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+    },
+  },
+  items: {
+    include: {
+      spk: {
+        select: {
+          id: true,
+          spkNumber: true,
+        },
+      },
+      product: {
+        select: {
+          id: true,
+          code: true,
+          name: true,
+        },
+      },
+    },
+  },
+} as const;
 
 export async function submitTailorBill(
   billId: number,
   userId: number,
-): Promise<StatusActionResult> {
+) {
   if (!Number.isInteger(billId) || billId <= 0) {
     throw new Error("ID tagihan tidak valid.");
   }
 
-  return prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx) => {
     const bill = await tx.tailorBill.findUnique({
       where: {
         id: billId,
@@ -37,20 +63,12 @@ export async function submitTailorBill(
       );
     }
 
-    const updated = await tx.tailorBill.update({
+    await tx.tailorBill.update({
       where: {
         id: bill.id,
       },
-
       data: {
         status: "SUBMITTED",
-      },
-
-      select: {
-        id: true,
-        billNumber: true,
-        status: true,
-        paidAt: true,
       },
     });
 
@@ -63,20 +81,31 @@ export async function submitTailorBill(
         description: `Mengajukan tagihan penjahit ${bill.billNumber}`,
       },
     });
-
-    return updated;
   });
+
+  const result = await prisma.tailorBill.findUnique({
+    where: {
+      id: billId,
+    },
+    include: tailorBillInclude,
+  });
+
+  if (!result) {
+    throw new Error("Tagihan tidak ditemukan setelah submit.");
+  }
+
+  return result;
 }
 
 export async function payTailorBill(
   billId: number,
   userId: number,
-): Promise<StatusActionResult> {
+) {
   if (!Number.isInteger(billId) || billId <= 0) {
     throw new Error("ID tagihan tidak valid.");
   }
 
-  return prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx) => {
     const bill = await tx.tailorBill.findUnique({
       where: {
         id: billId,
@@ -95,21 +124,13 @@ export async function payTailorBill(
 
     const paidAt = new Date();
 
-    const updated = await tx.tailorBill.update({
+    await tx.tailorBill.update({
       where: {
         id: bill.id,
       },
-
       data: {
         status: "PAID",
         paidAt,
-      },
-
-      select: {
-        id: true,
-        billNumber: true,
-        status: true,
-        paidAt: true,
       },
     });
 
@@ -122,20 +143,31 @@ export async function payTailorBill(
         description: `Membayar tagihan penjahit ${bill.billNumber}`,
       },
     });
-
-    return updated;
   });
+
+  const result = await prisma.tailorBill.findUnique({
+    where: {
+      id: billId,
+    },
+    include: tailorBillInclude,
+  });
+
+  if (!result) {
+    throw new Error("Tagihan tidak ditemukan setelah pembayaran.");
+  }
+
+  return result;
 }
 
 export async function cancelTailorBill(
   billId: number,
   userId: number,
-): Promise<StatusActionResult> {
+) {
   if (!Number.isInteger(billId) || billId <= 0) {
     throw new Error("ID tagihan tidak valid.");
   }
 
-  return prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx) => {
     const bill = await tx.tailorBill.findUnique({
       where: {
         id: billId,
@@ -155,20 +187,12 @@ export async function cancelTailorBill(
       );
     }
 
-    const updated = await tx.tailorBill.update({
+    await tx.tailorBill.update({
       where: {
         id: bill.id,
       },
-
       data: {
         status: "CANCELLED",
-      },
-
-      select: {
-        id: true,
-        billNumber: true,
-        status: true,
-        paidAt: true,
       },
     });
 
@@ -181,7 +205,18 @@ export async function cancelTailorBill(
         description: `Membatalkan tagihan penjahit ${bill.billNumber}`,
       },
     });
-
-    return updated;
   });
+
+  const result = await prisma.tailorBill.findUnique({
+    where: {
+      id: billId,
+    },
+    include: tailorBillInclude,
+  });
+
+  if (!result) {
+    throw new Error("Tagihan tidak ditemukan setelah pembatalan.");
+  }
+
+  return result;
 }

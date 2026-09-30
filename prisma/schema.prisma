@@ -460,3 +460,10 @@ enum ScanSource {
   OCR
   MANUAL
 }
+
+model TailorBillSequence {
+  date      String   @id @db.VarChar(8)
+  lastValue Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
