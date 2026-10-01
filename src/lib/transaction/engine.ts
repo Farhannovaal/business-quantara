@@ -250,29 +250,35 @@ export async function createTransaction(
     );
   }
 
-  let maxQuantity: number | null = null;
+    let maxQuantity: number | null = null;
 
-  switch (transactionType.code) {
-    case "PENERIMAAN_DARI_PENJAHIT":
-      maxQuantity = status.sisaJahit;
-      break;
+    switch (transactionType.code) {
+      case "PENERIMAAN_DARI_PENJAHIT":
+        maxQuantity = status.sisaJahit;
+        break;
 
-    case "QUALITY_CONTROL":
-    case "QC_RIJEK":
-    case "QC_ACC_DIKIRIM_KE_GUDANG":
-      maxQuantity = status.barangDiQc;
-      break;
+      case "QUALITY_CONTROL":
+      case "QC_RIJEK":
+      case "QC_ACC_DIKIRIM_KE_GUDANG":
+        maxQuantity = status.barangDiQc;
+        break;
 
-    case "PENGIRIMAN_RIJEK":
-      maxQuantity = status.jumlahRijek;
-      break;
+      case "PENGIRIMAN_RIJEK":
+        maxQuantity = Math.max(
+          status.totalQcRijek -
+            status.totalPengirimanRijek,
+          0,
+        );
+        break;
 
-    case "PENERIMAAN_RIJEK":
-      maxQuantity =
-        status.totalPengirimanRijek -
-        status.totalPenerimaanRijek;
-      break;
-  }
+      case "PENERIMAAN_RIJEK":
+        maxQuantity = Math.max(
+          status.totalPengirimanRijek -
+            status.totalPenerimaanRijek,
+          0,
+        );
+        break;
+    }
 
   if (
     maxQuantity !== null &&
