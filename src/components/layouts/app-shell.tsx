@@ -16,6 +16,7 @@ import {
   History,
   LayoutDashboard,
   LogOut,
+  ShieldCheck,
   Menu,
   Package,
   ScanLine,
@@ -94,6 +95,12 @@ const menuGroups: MenuGroup[] = [
         icon: History,
         permission: "scanner.view",
       },
+      {
+        label: "Quality Control",
+        href: "/qc",
+        icon: ShieldCheck,
+        permission: "qc.view",
+      }
     ],
   },
 
@@ -377,29 +384,20 @@ export default function AppShell({
    * ==========================================================
    */
 
-  function canAccess(
-    permission: string,
-  ) {
-    if (authLoading) {
-      return true;
-    }
-
-    if (!authUser) {
-      return true;
-    }
-
-    if (
-      authUser.role?.name
-        ?.toLowerCase() ===
-      "administrator"
-    ) {
-      return true;
-    }
-
-    return authUser.permissions.includes(
-      permission,
-    );
+ function canAccess(permission: string) {
+  if (authLoading || !authUser) {
+    return false;
   }
+
+  if (
+    authUser.role?.name?.toLowerCase() ===
+    "administrator"
+  ) {
+    return true;
+  }
+
+  return authUser.permissions.includes(permission);
+}
 
   /*
    * ==========================================================
@@ -430,6 +428,57 @@ export default function AppShell({
           b.href.length -
           a.href.length,
       )[0]?.href;
+  }
+
+  function getMobileNavItems() {
+    const candidates: MenuItem[] = [
+      {
+        label: "Home",
+        href: "/",
+        icon: LayoutDashboard,
+        permission: "dashboard.view",
+      },
+      {
+        label: "SPK",
+        href: "/operations/spk",
+        icon: ClipboardList,
+        permission: "spk.view",
+      },
+      {
+        label: "Transaction",
+        href: "/operations/transactions",
+        icon: Activity,
+        permission: "transaction.view",
+      },
+      {
+        label: "Tracking",
+        href: "/operations/tracking",
+        icon: BarChart3,
+        permission: "tracking.view",
+      },
+      {
+        label: "QC",
+        href: "/qc",
+        icon: ShieldCheck,
+        permission: "qc.view",
+      },
+      {
+        label: "Billing",
+        href: "/master/tailor-billing",
+        icon: CircleDollarSign,
+        permission: "tailor-billing.view",
+      },
+      {
+        label: "Scanner",
+        href: "/operations/scanner",
+        icon: ScanLine,
+        permission: "scanner.view",
+      },
+    ];
+
+    return candidates
+      .filter((item) => canAccess(item.permission))
+      .slice(0, 5);
   }
 
   /*
@@ -876,66 +925,29 @@ export default function AppShell({
 
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200/80 bg-white/95 px-2 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl xl:hidden">
         <div className="mx-auto flex h-16 max-w-lg items-center justify-around">
-
-          <MobileNavItem
-            href="/"
-            icon={LayoutDashboard}
-            label="Home"
-            active={
-              pathname === "/"
-            }
-          />
-
-          <MobileNavItem
-            href="/operations/spk"
-            icon={ClipboardList}
-            label="SPK"
-            active={isActivePath(
-              pathname,
-              "/operations/spk",
-            )}
-          />
-
-          <Link
-            href="/operations/transactions"
-            aria-label="New transaction"
-            className="-mt-7 flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-xl shadow-indigo-300 ring-4 ring-white transition active:scale-95"
-          >
-            <Activity className="h-6 w-6" />
-          </Link>
-
-          <MobileNavItem
-            href="/operations/tracking"
-            icon={BarChart3}
-            label="Tracking"
-            active={isActivePath(
-              pathname,
-              "/operations/tracking",
-            )}
-          />
-
-          {canAccess(
-            "tailor-billing.view",
-          ) ? (
-            <MobileNavItem
-              href="/master/tailor-billing"
-              icon={CircleDollarSign}
-              label="Billing"
-              active={isActivePath(
-                pathname,
-                "/master/tailor-billing",
-              )}
-            />
+          {authLoading ? (
+            <div className="flex w-full items-center justify-center">
+              <div className="h-5 w-24 animate-pulse rounded-lg bg-slate-100" />
+            </div>
           ) : (
-            <MobileNavItem
-              href="/operations/scanner"
-              icon={ScanLine}
-              label="Scanner"
-              active={isActivePath(
+            getMobileNavItems().map((item) => {
+              const Icon = item.icon;
+
+              const active = isActivePath(
                 pathname,
-                "/operations/scanner",
-              )}
-            />
+                item.href,
+              );
+
+              return (
+                <MobileNavItem
+                  key={item.href}
+                  href={item.href}
+                  icon={Icon}
+                  label={item.label}
+                  active={active}
+                />
+              );
+            })
           )}
         </div>
       </nav>

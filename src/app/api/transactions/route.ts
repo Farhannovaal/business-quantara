@@ -10,6 +10,10 @@ import {
   TransactionEngineError,
 } from "@/lib/transaction/engine";
 
+import {
+  canCreateTransactionType,
+} from "@/lib/transaction/permissions";
+
 export async function GET(request: NextRequest) {
   const { user, response } = await requireAuth();
 
@@ -188,15 +192,6 @@ export async function POST(request: NextRequest) {
     return response;
   }
 
-  const permission = requirePermission(
-    user,
-    "transaction.create",
-  );
-
-  if (permission.response) {
-    return permission.response;
-  }
-
   try {
     const body = await request.json();
 
@@ -212,18 +207,9 @@ export async function POST(request: NextRequest) {
       Number(body?.quantity);
 
     /*
-     * Basic request validation.
-     *
-     * Business validation seperti:
-     * - SPK aktif
-     * - transaction type aktif
-     * - employee aktif
-     * - product SPK
-     * - tailor SPK
-     * - transaction type yang diperbolehkan
-     * - quantity maksimum
-     *
-     * semuanya ditangani oleh Transaction Engine.
+     * ============================================================
+     * BASIC REQUEST VALIDATION
+     * ============================================================
      */
 
     if (
@@ -281,15 +267,99 @@ export async function POST(request: NextRequest) {
     }
 
     /*
-     * Product dan tailor tidak diterima
-     * dari client.
+     * ============================================================
+     * LOAD TRANSACTION TYPE
+     * ============================================================
      *
-     * Keduanya diambil dari SPK.
+     * Kita mengambil code transaction type dari database.
      *
-     * Ini menjaga agar operator tidak bisa
-     * membuat transaction dengan product/tailor
-     * yang berbeda dari SPK.
+     * Client hanya mengirim transactionTypeId.
+     * Authorization role tidak boleh mempercayai
+     * transaction type code dari client.
      */
+
+    const transactionType =
+      await prisma.transactionType.findUnique({
+        where: {
+          id: transactionTypeId,
+        },
+
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          isActive: true,
+        },
+      });
+
+    if (!transactionType) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Transaction type not found.",
+        },
+        { status: 404 },
+      );
+    }
+
+    if (!transactionType.isActive) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Transaction type is inactive.",
+        },
+        { status: 400 },
+      );
+    }
+
+    /*
+     * ============================================================
+     * ROLE-BASED TRANSACTION AUTHORIZATION
+     * ============================================================
+     *
+     * Business workflow menentukan apakah transaksi
+     * boleh dilakukan oleh SPK.
+     *
+     * Role permission menentukan apakah USER
+     * boleh melakukan jenis transaksi tersebut.
+     *
+     * Keduanya harus lolos.
+     */
+
+    const allowedByRole =
+      canCreateTransactionType(
+        user,
+        transactionType.code,
+      );
+
+    if (!allowedByRole) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Anda tidak memiliki akses untuk melakukan jenis transaksi ini.",
+          transactionType: {
+            id: transactionType.id,
+            code: transactionType.code,
+            name: transactionType.name,
+          },
+        },
+        { status: 403 },
+      );
+    }
+
+    /*
+     * ============================================================
+     * PRODUCT DAN TAILOR DIAMBIL DARI SPK
+     * ============================================================
+     *
+     * Client tidak boleh menentukan product/tailor.
+     *
+     * Ini menjaga agar transaction selalu mengikuti
+     * product dan tailor yang sudah ditentukan oleh SPK.
+     */
+
     const result =
       await prisma.$transaction(
         async (tx) => {
@@ -314,9 +384,25 @@ export async function POST(request: NextRequest) {
           }
 
           /*
-           * Semua business rule transaction
-           * diproses melalui Transaction Engine.
+           * ======================================================
+           * TRANSACTION ENGINE
+           * ======================================================
+           *
+           * Semua business rule transaction tetap diproses
+           * oleh Transaction Engine.
+           *
+           * Termasuk:
+           *
+           * - SPK aktif
+           * - transaction type valid
+           * - employee valid
+           * - product SPK
+           * - tailor SPK
+           * - transaction flow
+           * - quantity maksimum
+           * - status SPK
            */
+
           const transaction =
             await createTransaction(tx, {
               spkId,
@@ -342,18 +428,11 @@ export async function POST(request: NextRequest) {
       );
 
     /*
-     * Response dibuat tetap mirip dengan
-     * response API sebelumnya:
-     *
-     * success
-     * data
-     * transaction
-     * SPK
-     * transaction type
-     * product
-     * tailor
-     * employee
+     * ============================================================
+     * RESPONSE
+     * ============================================================
      */
+
     return NextResponse.json(
       {
         success: true,
@@ -394,10 +473,11 @@ export async function POST(request: NextRequest) {
     );
 
     /*
-     * Error dari Transaction Engine
-     * dikembalikan ke client dengan status
-     * dan message yang sesuai.
+     * ============================================================
+     * TRANSACTION ENGINE ERROR
+     * ============================================================
      */
+
     if (
       error instanceof
       TransactionEngineError
@@ -422,8 +502,11 @@ export async function POST(request: NextRequest) {
     }
 
     /*
-     * Unexpected error.
+     * ============================================================
+     * UNEXPECTED ERROR
+     * ============================================================
      */
+
     return NextResponse.json(
       {
         success: false,

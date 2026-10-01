@@ -164,7 +164,7 @@ export default function TransactionsPage() {
       const [spkRes, typeRes, employeeRes, transactionRes] =
         await Promise.all([
           fetch(`${API_BASE}/api/spks`),
-          fetch(`${API_BASE}/api/transaction-types`),
+          fetch("/api/transaction-types?forTransaction=true"),
           fetch(`${API_BASE}/api/employees`),
           fetch(`${API_BASE}/api/transactions`),
         ]);
