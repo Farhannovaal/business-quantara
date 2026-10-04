@@ -108,6 +108,7 @@ export async function createTransaction(
     where: {
       id: spkId,
     },
+
     include: {
       tailor: true,
 
@@ -289,6 +290,7 @@ export async function createTransaction(
   const status =
     calculateSPKStatus(
       spkTransactions as SPKTransactionForStatus[],
+      spkItem.quantity,
     );
 
   // =========================================================
@@ -313,10 +315,11 @@ export async function createTransaction(
 
   let maxQuantity: number | null = null;
 
+  // ---------------------------------------------------------
+  // PENGIRIMAN SIAP JAHIT
+  // ---------------------------------------------------------
+
   switch (transactionType.code) {
-    // -------------------------------------------------------
-    // PENGIRIMAN SIAP JAHIT
-    // -------------------------------------------------------
     case "PENGIRIMAN_SIAP_JAHIT":
       maxQuantity = Math.max(
         spkItem.quantity -
@@ -328,6 +331,7 @@ export async function createTransaction(
     // -------------------------------------------------------
     // PENERIMAAN DARI PENJAHIT
     // -------------------------------------------------------
+
     case "PENERIMAAN_DARI_PENJAHIT":
       maxQuantity =
         status.sisaJahit;
@@ -336,6 +340,7 @@ export async function createTransaction(
     // -------------------------------------------------------
     // QC
     // -------------------------------------------------------
+
     case "QUALITY_CONTROL":
     case "QC_RIJEK":
     case "QC_ACC_DIKIRIM_KE_GUDANG":
@@ -346,6 +351,7 @@ export async function createTransaction(
     // -------------------------------------------------------
     // PENGIRIMAN RIJEK
     // -------------------------------------------------------
+
     case "PENGIRIMAN_RIJEK":
       maxQuantity = Math.max(
         status.totalQcRijek -
@@ -357,6 +363,7 @@ export async function createTransaction(
     // -------------------------------------------------------
     // PENERIMAAN RIJEK
     // -------------------------------------------------------
+
     case "PENERIMAAN_RIJEK":
       maxQuantity = Math.max(
         status.totalPengirimanRijek -
@@ -365,6 +372,10 @@ export async function createTransaction(
       );
       break;
   }
+
+  // =========================================================
+  // VALIDATE MAX QUANTITY
+  // =========================================================
 
   if (
     maxQuantity !== null &&
@@ -431,12 +442,15 @@ export async function createTransaction(
     await tx.transaction.create({
       data: {
         transactionNumber,
+
         spkId,
         transactionTypeId,
         productId,
         tailorId,
         employeeId,
+
         quantity,
+
         createdById,
       },
 
@@ -467,8 +481,11 @@ export async function createTransaction(
   await tx.activityLog.create({
     data: {
       userId: createdById,
+
       action: "CREATE",
+
       entityType: "Transaction",
+
       entityId: String(
         transaction.id,
       ),

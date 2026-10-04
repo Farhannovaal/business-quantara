@@ -1,7 +1,10 @@
 import { requirePermission } from "@/lib/auth/authorization";
 import { requireAuth } from "@/lib/auth/require-auth";
+
 import { NextRequest, NextResponse } from "next/server";
+
 import { prisma } from "@/lib/prisma";
+
 import { calculateSPKStatus } from "@/lib/spk-status";
 
 type RouteContext = {
@@ -64,6 +67,7 @@ export async function GET(
       where: {
         id: spkId,
       },
+
       include: {
         items: {
           include: {
@@ -76,6 +80,7 @@ export async function GET(
               },
             },
           },
+
           orderBy: {
             id: "asc",
           },
@@ -92,6 +97,7 @@ export async function GET(
           orderBy: {
             createdAt: "desc",
           },
+
           include: {
             transactionType: {
               select: {
@@ -139,21 +145,38 @@ export async function GET(
     }
 
     /**
-     * Overall summary.
+     * ==========================================================
+     * OVERALL SUMMARY
+     * ==========================================================
      *
-     * Untuk kompatibilitas dengan logic lama,
-     * summary keseluruhan dihitung dari seluruh
-     * transaction SPK.
+     * Summary keseluruhan SPK dihitung dari seluruh transaksi.
+     *
+     * Jangan memberikan quantity dari salah satu SPKItem di sini,
+     * karena satu SPK dapat mempunyai beberapa product dengan
+     * quantity yang berbeda.
      */
     const summary = calculateSPKStatus(
       spk.transactions,
     );
 
     /**
-     * Summary per product.
+     * ==========================================================
+     * PRODUCT SUMMARY
+     * ==========================================================
      *
-     * Ini penting karena sekarang satu SPK
-     * bisa mempunyai beberapa product.
+     * Business state dihitung PER PRODUCT.
+     *
+     * Contoh:
+     *
+     * Product A
+     * Qty SPK = 100
+     * Pengiriman = 50
+     *
+     * Product B
+     * Qty SPK = 200
+     * Pengiriman = 100
+     *
+     * Kedua product harus mempunyai status masing-masing.
      */
     const productSummaries = spk.items.map(
       (item) => {
@@ -167,12 +190,16 @@ export async function GET(
         const productSummary =
           calculateSPKStatus(
             productTransactions,
+            item.quantity,
           );
 
         return {
           productId: item.productId,
+
           product: item.product,
+
           quantity: item.quantity,
+
           summary: productSummary,
         };
       },
@@ -180,9 +207,12 @@ export async function GET(
 
     return NextResponse.json({
       success: true,
+
       data: {
         ...spk,
+
         summary,
+
         productSummaries,
       },
     });
@@ -251,7 +281,10 @@ export async function PATCH(
     const { id } = await context.params;
     const spkId = Number(id);
 
-    if (!Number.isInteger(spkId) || spkId <= 0) {
+    if (
+      !Number.isInteger(spkId) ||
+      spkId <= 0
+    ) {
       return NextResponse.json(
         {
           success: false,
@@ -263,20 +296,22 @@ export async function PATCH(
       );
     }
 
-    const existing = await prisma.sPK.findUnique({
-      where: {
-        id: spkId,
-      },
-      include: {
-        items: true,
+    const existing =
+      await prisma.sPK.findUnique({
+        where: {
+          id: spkId,
+        },
 
-        _count: {
-          select: {
-            transactions: true,
+        include: {
+          items: true,
+
+          _count: {
+            select: {
+              transactions: true,
+            },
           },
         },
-      },
-    });
+      });
 
     if (!existing) {
       return NextResponse.json(
@@ -293,9 +328,9 @@ export async function PATCH(
     const body = await request.json();
 
     /**
-     * ==========================================
+     * ==========================================================
      * SPK NUMBER
-     * ==========================================
+     * ==========================================================
      */
 
     let spkNumber:
@@ -345,9 +380,9 @@ export async function PATCH(
     }
 
     /**
-     * ==========================================
+     * ==========================================================
      * TAILOR
-     * ==========================================
+     * ==========================================================
      */
 
     let tailorId:
@@ -408,9 +443,9 @@ export async function PATCH(
     }
 
     /**
-     * ==========================================
+     * ==========================================================
      * STATUS
-     * ==========================================
+     * ==========================================================
      */
 
     let status:
@@ -447,9 +482,9 @@ export async function PATCH(
     }
 
     /**
-     * ==========================================
+     * ==========================================================
      * ITEMS
-     * ==========================================
+     * ==========================================================
      *
      * Multi-product SPK:
      *
@@ -503,6 +538,7 @@ export async function PATCH(
               productId: Number(
                 raw.productId,
               ),
+
               quantity: Number(
                 raw.quantity,
               ),
@@ -574,6 +610,7 @@ export async function PATCH(
               in: productIds,
             },
           },
+
           select: {
             id: true,
             code: true,
@@ -595,7 +632,9 @@ export async function PATCH(
       const missingProductIds =
         productIds.filter(
           (productId) =>
-            !productMap.has(productId),
+            !productMap.has(
+              productId,
+            ),
         );
 
       if (
@@ -632,6 +671,7 @@ export async function PATCH(
             success: false,
             error:
               "One or more selected products are inactive.",
+
             products:
               inactiveProducts.map(
                 (product) => ({
@@ -651,9 +691,9 @@ export async function PATCH(
     }
 
     /**
-     * ==========================================
+     * ==========================================================
      * LEGACY productId SUPPORT
-     * ==========================================
+     * ==========================================================
      *
      * Kalau frontend lama masih mengirim:
      *
@@ -696,6 +736,7 @@ export async function PATCH(
           where: {
             id: productId,
           },
+
           select: {
             id: true,
             code: true,
@@ -753,9 +794,9 @@ export async function PATCH(
     }
 
     /**
-     * ==========================================
+     * ==========================================================
      * PREVENT ITEM CHANGES AFTER TRANSACTION
-     * ==========================================
+     * ==========================================================
      *
      * Kalau SPK sudah punya transaction,
      * product/quantity tidak boleh diganti
@@ -772,6 +813,7 @@ export async function PATCH(
           .map((item) => ({
             productId:
               item.productId,
+
             quantity:
               item.quantity,
           }))
@@ -817,9 +859,9 @@ export async function PATCH(
     }
 
     /**
-     * ==========================================
+     * ==========================================================
      * UPDATE
-     * ==========================================
+     * ==========================================================
      */
 
     const spk =

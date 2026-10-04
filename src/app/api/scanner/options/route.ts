@@ -54,7 +54,6 @@ export async function GET() {
         transactions: {
           select: {
             quantity: true,
-
             productId: true,
 
             transactionType: {
@@ -119,107 +118,119 @@ export async function GET() {
      *
      * SPK + Product
      */
-    const spkOptions = spks.flatMap((spk) => {
-      return spk.items.map((item) => {
-        /*
-         * Hanya gunakan transaksi untuk product
-         * yang sedang diproses.
-         */
-        const productTransactions =
-          spk.transactions.filter(
-            (transaction) =>
-              transaction.productId ===
-              item.productId,
-          );
+    const spkOptions = spks.flatMap(
+      (spk) => {
+        return spk.items.map(
+          (item) => {
+            /*
+             * Hanya gunakan transaksi untuk product
+             * yang sedang diproses.
+             */
+            const productTransactions =
+              spk.transactions.filter(
+                (transaction) =>
+                  transaction.productId ===
+                  item.productId,
+              );
 
-        /*
-         * Hitung business state untuk product ini.
-         */
-        const summary =
-          calculateSPKStatus(
-            productTransactions,
-          );
+            /*
+             * Hitung business state untuk product ini.
+             *
+             * spkItem.quantity digunakan sebagai
+             * Qty SPK product tersebut.
+             */
+            const summary =
+              calculateSPKStatus(
+                productTransactions,
+                item.quantity,
+              );
 
-        /*
-         * Filter transaction type berdasarkan
-         * business state product.
-         */
-        const nextTransactionTypes =
-          transactionTypes.filter(
-            (transactionType) =>
-              summary.nextTransactionTypes.includes(
-                transactionType.code,
-              ),
-          );
+            /*
+             * Filter transaction type berdasarkan
+             * business state product.
+             */
+            const nextTransactionTypes =
+              transactionTypes.filter(
+                (transactionType) =>
+                  summary.nextTransactionTypes.includes(
+                    transactionType.code,
+                  ),
+              );
 
-        return {
-          /*
-           * SPK identity
-           */
-          id: spk.id,
-          spkId: spk.id,
-          spkNumber: spk.spkNumber,
-          status: spk.status,
+            return {
+              /*
+               * SPK identity
+               */
+              id: spk.id,
+              spkId: spk.id,
+              spkNumber: spk.spkNumber,
+              status: spk.status,
 
-          /*
-           * Product identity
-           */
-          productId: item.productId,
+              /*
+               * Product identity
+               */
+              productId: item.productId,
 
-          product: {
-            id: item.product.id,
-            code: item.product.code,
-            name: item.product.name,
-            quantity: item.quantity,
+              product: {
+                id: item.product.id,
+                code: item.product.code,
+                name: item.product.name,
+                quantity: item.quantity,
+              },
+
+              /*
+               * Tailor
+               */
+              tailor: {
+                id: spk.tailor.id,
+                name: spk.tailor.name,
+              },
+
+              /*
+               * Product-specific business state
+               */
+              summary: {
+                totalPengiriman:
+                  summary.totalPengiriman,
+
+                totalPenerimaan:
+                  summary.totalPenerimaan,
+
+                totalQcRijek:
+                  summary.totalQcRijek,
+
+                totalQcAcc:
+                  summary.totalQcAcc,
+
+                totalPengirimanRijek:
+                  summary.totalPengirimanRijek,
+
+                totalPenerimaanRijek:
+                  summary.totalPenerimaanRijek,
+
+                sisaJahit:
+                  summary.sisaJahit,
+
+                barangDiQc:
+                  summary.barangDiQc,
+
+                jumlahRijek:
+                  summary.jumlahRijek,
+
+                jumlahBarang:
+                  summary.jumlahBarang,
+              },
+
+              /*
+               * Transaction yang masih diperbolehkan
+               * untuk product ini.
+               */
+              nextTransactionTypes,
+            };
           },
-
-          /*
-           * Tailor
-           */
-          tailor: {
-            id: spk.tailor.id,
-            name: spk.tailor.name,
-          },
-
-          /*
-           * Product-specific business state
-           */
-          summary: {
-            totalPengiriman:
-              summary.totalPengiriman,
-
-            totalPenerimaan:
-              summary.totalPenerimaan,
-
-            totalQcRijek:
-              summary.totalQcRijek,
-
-            totalQcAcc:
-              summary.totalQcAcc,
-
-            totalPengirimanRijek:
-              summary.totalPengirimanRijek,
-
-            totalPenerimaanRijek:
-              summary.totalPenerimaanRijek,
-
-            sisaJahit:
-              summary.sisaJahit,
-
-            barangDiQc:
-              summary.barangDiQc,
-
-            jumlahRijek:
-              summary.jumlahRijek,
-
-            jumlahBarang:
-              summary.jumlahBarang,
-          },
-
-          nextTransactionTypes,
-        };
-      });
-    });
+        );
+      },
+    );
 
     return NextResponse.json({
       success: true,

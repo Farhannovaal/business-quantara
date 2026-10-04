@@ -22,7 +22,8 @@ export type SPKStatusSummary = {
 };
 
 export function calculateSPKStatus(
-  transactions: SPKTransactionForStatus[]
+  transactions: SPKTransactionForStatus[],
+  spkQuantity?: number,
 ): SPKStatusSummary {
   let totalPengiriman = 0;
   let totalPenerimaan = 0;
@@ -64,17 +65,20 @@ export function calculateSPKStatus(
 
   const sisaJahit = Math.max(
     totalPengiriman - totalPenerimaan,
-    0
+    0,
   );
 
   const barangDiQc = Math.max(
-    totalPenerimaan - totalQcRijek - totalQcAcc,
-    0
+    totalPenerimaan -
+      totalQcRijek -
+      totalQcAcc,
+    0,
   );
 
   const jumlahRijek = Math.max(
-    totalPengirimanRijek - totalPenerimaanRijek,
-    0
+    totalPengirimanRijek -
+      totalPenerimaanRijek,
+    0,
   );
 
   const jumlahBarang =
@@ -84,41 +88,71 @@ export function calculateSPKStatus(
 
   const nextTransactionTypes: string[] = [];
 
-  if (totalPengiriman === 0) {
+  /**
+   * Pengiriman Siap Jahit dapat dilakukan
+   * berkali-kali selama total pengiriman
+   * belum mencapai Qty SPK produk.
+   */
+  if (
+    spkQuantity !== undefined &&
+    totalPengiriman < spkQuantity
+  ) {
     nextTransactionTypes.push(
-      "PENGIRIMAN_SIAP_JAHIT"
+      "PENGIRIMAN_SIAP_JAHIT",
     );
   }
 
+  /**
+   * Barang yang sudah dikirim tetapi
+   * belum diterima penjahit.
+   */
   if (sisaJahit > 0) {
     nextTransactionTypes.push(
-      "PENERIMAAN_DARI_PENJAHIT"
+      "PENERIMAAN_DARI_PENJAHIT",
     );
   }
 
+  /**
+   * Barang yang sudah diterima dan
+   * masih berada di proses QC.
+   */
   if (barangDiQc > 0) {
     nextTransactionTypes.push(
-      "QUALITY_CONTROL"
+      "QUALITY_CONTROL",
     );
 
     nextTransactionTypes.push(
-      "QC_RIJEK"
+      "QC_RIJEK",
     );
 
     nextTransactionTypes.push(
-      "QC_ACC_DIKIRIM_KE_GUDANG"
-    );
-  }
-
-  if (totalQcRijek > totalPengirimanRijek) {
-    nextTransactionTypes.push(
-      "PENGIRIMAN_RIJEK"
+      "QC_ACC_DIKIRIM_KE_GUDANG",
     );
   }
 
-  if (totalPengirimanRijek > totalPenerimaanRijek) {
+  /**
+   * Barang rijek yang sudah selesai QC
+   * tetapi belum dikirim kembali.
+   */
+  if (
+    totalQcRijek >
+    totalPengirimanRijek
+  ) {
     nextTransactionTypes.push(
-      "PENERIMAAN_RIJEK"
+      "PENGIRIMAN_RIJEK",
+    );
+  }
+
+  /**
+   * Barang rijek yang sudah dikirim kembali
+   * tetapi belum diterima.
+   */
+  if (
+    totalPengirimanRijek >
+    totalPenerimaanRijek
+  ) {
+    nextTransactionTypes.push(
+      "PENERIMAAN_RIJEK",
     );
   }
 
@@ -129,10 +163,12 @@ export function calculateSPKStatus(
     totalQcAcc,
     totalPengirimanRijek,
     totalPenerimaanRijek,
+
     sisaJahit,
     barangDiQc,
     jumlahRijek,
     jumlahBarang,
+
     nextTransactionTypes,
   };
 }

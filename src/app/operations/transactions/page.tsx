@@ -146,66 +146,51 @@ const API_BASE = "";
 
 
 function getMaxQuantity(
+  productQuantity: number,
   summary: SPKSummary,
   transactionTypeCode: string,
-): number | null {
-
-
-
+): number {
   switch (transactionTypeCode) {
-
     case "PENGIRIMAN_SIAP_JAHIT":
-
-      return null;
-
-
+      return Math.max(
+        productQuantity - summary.totalPengiriman,
+        0,
+      );
 
     case "PENERIMAAN_DARI_PENJAHIT":
-
-      return summary.sisaJahit;
-
-
+      return Math.max(
+        summary.totalPengiriman -
+          summary.totalPenerimaan,
+        0,
+      );
 
     case "QUALITY_CONTROL":
-
     case "QC_RIJEK":
-
     case "QC_ACC_DIKIRIM_KE_GUDANG":
-
-      return summary.barangDiQc;
-
-
+      return Math.max(
+        summary.totalPenerimaan -
+          summary.totalQcRijek -
+          summary.totalQcAcc,
+        0,
+      );
 
     case "PENGIRIMAN_RIJEK":
-
       return Math.max(
-
-        summary.totalQcRijek - summary.totalPengirimanRijek,
-
+        summary.totalQcRijek -
+          summary.totalPengirimanRijek,
         0,
-
       );
-
-
 
     case "PENERIMAAN_RIJEK":
-
       return Math.max(
-
-        summary.totalPengirimanRijek - summary.totalPenerimaanRijek,
-
+        summary.totalPengirimanRijek -
+          summary.totalPenerimaanRijek,
         0,
-
       );
 
-
-
     default:
-
-      return null;
-
+      return 0;
   }
-
 }
 
 
@@ -559,6 +544,7 @@ export default function TransactionsPage() {
     }
 
     return getMaxQuantity(
+      selectedProductSummary.quantity,
       selectedProductSummary.summary,
       selectedTransactionType.code,
     );
@@ -1228,6 +1214,10 @@ export default function TransactionsPage() {
                     </div>
                     <div className="mt-1 text-xs text-slate-500">
                       {selectedProduct?.code ?? "-"}
+                    </div>
+                    <div className="mt-2 text-xs font-medium text-indigo-600">
+                      Qty SPK:{" "}
+                      {selectedProductSummary?.quantity ?? 0}
                     </div>
                   </div>
 
