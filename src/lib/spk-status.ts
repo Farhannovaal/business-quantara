@@ -68,13 +68,18 @@ export function calculateSPKStatus(
     0,
   );
 
+  // Barang yang kembali dari proses rijek
+  // masuk kembali ke antrean QC.
   const barangDiQc = Math.max(
-    totalPenerimaan -
+    totalPenerimaan +
+      totalPenerimaanRijek -
       totalQcRijek -
       totalQcAcc,
     0,
   );
 
+  // Barang yang saat ini masih berada
+  // di penjahit untuk proses rework.
   const jumlahRijek = Math.max(
     totalPengirimanRijek -
       totalPenerimaanRijek,
@@ -88,7 +93,7 @@ export function calculateSPKStatus(
 
   const nextTransactionTypes: string[] = [];
 
-  /**
+  /*
    * Pengiriman Siap Jahit dapat dilakukan
    * berkali-kali selama total pengiriman
    * belum mencapai Qty SPK produk.
@@ -102,7 +107,7 @@ export function calculateSPKStatus(
     );
   }
 
-  /**
+  /*
    * Barang yang sudah dikirim tetapi
    * belum diterima penjahit.
    */
@@ -112,9 +117,12 @@ export function calculateSPKStatus(
     );
   }
 
-  /**
-   * Barang yang sudah diterima dan
-   * masih berada di proses QC.
+  /*
+   * Barang yang tersedia untuk proses QC.
+   *
+   * Ini termasuk barang normal yang baru
+   * diterima dari penjahit dan barang rijek
+   * yang sudah kembali dari proses rework.
    */
   if (barangDiQc > 0) {
     nextTransactionTypes.push(
@@ -130,22 +138,30 @@ export function calculateSPKStatus(
     );
   }
 
-  /**
+  /*
    * Barang rijek yang sudah selesai QC
-   * tetapi belum dikirim kembali.
+   * tetapi belum dikirim kembali ke penjahit.
+   *
+   * Yang tersedia untuk dikirim adalah:
+   *
+   * total QC Rijek
+   * - total Pengiriman Rijek
    */
-  if (
-    totalQcRijek >
-    totalPengirimanRijek
-  ) {
+  const rijekBelumDikirim = Math.max(
+    totalQcRijek -
+      totalPengirimanRijek,
+    0,
+  );
+
+  if (rijekBelumDikirim > 0) {
     nextTransactionTypes.push(
       "PENGIRIMAN_RIJEK",
     );
   }
 
-  /**
-   * Barang rijek yang sudah dikirim kembali
-   * tetapi belum diterima.
+  /*
+   * Barang rijek yang sudah dikirim
+   * tetapi belum diterima kembali.
    */
   if (
     totalPengirimanRijek >

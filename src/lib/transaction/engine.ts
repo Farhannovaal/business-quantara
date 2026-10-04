@@ -180,12 +180,11 @@ export async function createTransaction(
   // PRODUCT
   // =========================================================
 
-  const product =
-    await tx.product.findUnique({
-      where: {
-        id: productId,
-      },
-    });
+  const product = await tx.product.findUnique({
+    where: {
+      id: productId,
+    },
+  });
 
   if (!product) {
     throw new TransactionEngineError(
@@ -206,12 +205,11 @@ export async function createTransaction(
   // TAILOR
   // =========================================================
 
-  const tailor =
-    await tx.tailor.findUnique({
-      where: {
-        id: tailorId,
-      },
-    });
+  const tailor = await tx.tailor.findUnique({
+    where: {
+      id: tailorId,
+    },
+  });
 
   if (!tailor) {
     throw new TransactionEngineError(
@@ -232,12 +230,11 @@ export async function createTransaction(
   // EMPLOYEE
   // =========================================================
 
-  const employee =
-    await tx.employee.findUnique({
-      where: {
-        id: employeeId,
-      },
-    });
+  const employee = await tx.employee.findUnique({
+    where: {
+      id: employeeId,
+    },
+  });
 
   if (!employee) {
     throw new TransactionEngineError(
@@ -287,11 +284,14 @@ export async function createTransaction(
       },
     });
 
-  const status =
-    calculateSPKStatus(
-      spkTransactions as SPKTransactionForStatus[],
-      spkItem.quantity,
-    );
+  // =========================================================
+  // CALCULATE CURRENT STATUS
+  // =========================================================
+
+  const status = calculateSPKStatus(
+    spkTransactions as SPKTransactionForStatus[],
+    spkItem.quantity,
+  );
 
   // =========================================================
   // CHECK TRANSACTION TYPE
@@ -333,19 +333,19 @@ export async function createTransaction(
     // -------------------------------------------------------
 
     case "PENERIMAAN_DARI_PENJAHIT":
-      maxQuantity =
-        status.sisaJahit;
+      maxQuantity = status.sisaJahit;
       break;
 
     // -------------------------------------------------------
-    // QC
+    // QUALITY CONTROL
     // -------------------------------------------------------
 
     case "QUALITY_CONTROL":
+
     case "QC_RIJEK":
+
     case "QC_ACC_DIKIRIM_KE_GUDANG":
-      maxQuantity =
-        status.barangDiQc;
+      maxQuantity = status.barangDiQc;
       break;
 
     // -------------------------------------------------------
@@ -395,21 +395,17 @@ export async function createTransaction(
 
   const now = new Date();
 
-  const year =
-    now.getFullYear();
+  const year = now.getFullYear();
 
-  const month =
-    String(
-      now.getMonth() + 1,
-    ).padStart(2, "0");
+  const month = String(
+    now.getMonth() + 1,
+  ).padStart(2, "0");
 
-  const day =
-    String(
-      now.getDate(),
-    ).padStart(2, "0");
+  const day = String(
+    now.getDate(),
+  ).padStart(2, "0");
 
-  const dateKey =
-    `${year}${month}${day}`;
+  const dateKey = `${year}${month}${day}`;
 
   const sequence =
     await tx.transactionSequence.upsert({
