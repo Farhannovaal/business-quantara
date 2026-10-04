@@ -52,13 +52,16 @@ export async function GET() {
 
     for (const spk of spks) {
       try {
-        const summary = await calculateTailorBilling(spk.id);
+        const summaries =
+          await calculateTailorBilling(spk.id);
 
-        if (summary.billableQuantity > 0) {
-          results.push(summary);
+        for (const summary of summaries) {
+          if (summary.billableQuantity > 0) {
+            results.push(summary);
+          }
         }
       } catch (error) {
-        /*
+        /**
          * SPK tanpa tarif tidak membuat seluruh halaman gagal.
          * Nanti UI bisa menunjukkan bahwa tarif belum tersedia.
          */
@@ -74,12 +77,16 @@ export async function GET() {
       data: results,
     });
   } catch (error) {
-    console.error("Get eligible tailor billing error:", error);
+    console.error(
+      "Get eligible tailor billing error:",
+      error,
+    );
 
     return NextResponse.json(
       {
         success: false,
-        error: "Gagal mengambil data SPK yang dapat ditagihkan.",
+        error:
+          "Gagal mengambil data SPK yang dapat ditagihkan.",
       },
       { status: 500 },
     );

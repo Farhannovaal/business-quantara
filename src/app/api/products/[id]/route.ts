@@ -1,7 +1,5 @@
 import { requirePermission } from "@/lib/auth/authorization";
-
 import { requireAuth } from "@/lib/auth/require-auth";
-
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
@@ -13,34 +11,39 @@ type RouteContext = {
 
 export async function PATCH(
   request: Request,
-  context: RouteContext
+  context: RouteContext,
 ) {
   const { user, response } = await requireAuth();
 
   if (response) {
     return response;
   }
+
   const permission = requirePermission(
     user,
-    "product.manage"
+    "product.manage",
   );
 
   if (permission.response) {
     return permission.response;
   }
 
-
   try {
     const { id } = await context.params;
     const productId = Number(id);
 
-    if (!Number.isInteger(productId)) {
+    if (
+      !Number.isInteger(productId) ||
+      productId <= 0
+    ) {
       return NextResponse.json(
         {
           success: false,
           error: "Invalid product ID",
         },
-        { status: 400 }
+        {
+          status: 400,
+        },
       );
     }
 
@@ -61,7 +64,9 @@ export async function PATCH(
             success: false,
             error: "Product code cannot be empty",
           },
-          { status: 400 }
+          {
+            status: 400,
+          },
         );
       }
 
@@ -77,7 +82,9 @@ export async function PATCH(
             success: false,
             error: "Product name cannot be empty",
           },
-          { status: 400 }
+          {
+            status: 400,
+          },
         );
       }
 
@@ -100,56 +107,71 @@ export async function PATCH(
       data: product,
     });
   } catch (error) {
-    console.error("PATCH /api/products/[id] error:", error);
+    console.error(
+      "PATCH /api/products/[id] error:",
+      error,
+    );
 
     return NextResponse.json(
       {
         success: false,
         error: "Failed to update product",
       },
-      { status: 500 }
+      {
+        status: 500,
+      },
     );
   }
 }
 
 export async function DELETE(
   _request: Request,
-  context: RouteContext
+  context: RouteContext,
 ) {
   const { user, response } = await requireAuth();
 
   if (response) {
     return response;
   }
+
   const permission = requirePermission(
     user,
-    "product.manage"
+    "product.manage",
   );
 
   if (permission.response) {
     return permission.response;
   }
 
-
   try {
     const { id } = await context.params;
     const productId = Number(id);
 
-    if (!Number.isInteger(productId)) {
+    if (
+      !Number.isInteger(productId) ||
+      productId <= 0
+    ) {
       return NextResponse.json(
         {
           success: false,
           error: "Invalid product ID",
         },
-        { status: 400 }
+        {
+          status: 400,
+        },
       );
     }
 
-    const transactionCount = await prisma.transaction.count({
-      where: {
-        productId,
-      },
-    });
+    // ==================================================
+    // CHECK TRANSACTIONS
+    // ==================================================
+
+    const transactionCount =
+      await prisma.transaction.count({
+        where: {
+          productId,
+        },
+      });
 
     if (transactionCount > 0) {
       return NextResponse.json(
@@ -158,13 +180,23 @@ export async function DELETE(
           error:
             "Product cannot be deleted because it is already used by transactions. Deactivate it instead.",
         },
-        { status: 409 }
+        {
+          status: 409,
+        },
       );
     }
 
+    // ==================================================
+    // CHECK SPK ITEMS
+    // ==================================================
+
     const spkCount = await prisma.sPK.count({
       where: {
-        productId,
+        items: {
+          some: {
+            productId,
+          },
+        },
       },
     });
 
@@ -175,9 +207,15 @@ export async function DELETE(
           error:
             "Product cannot be deleted because it is already used by SPK. Deactivate it instead.",
         },
-        { status: 409 }
+        {
+          status: 409,
+        },
       );
     }
+
+    // ==================================================
+    // DELETE PRODUCT
+    // ==================================================
 
     await prisma.product.delete({
       where: {
@@ -189,14 +227,19 @@ export async function DELETE(
       success: true,
     });
   } catch (error) {
-    console.error("DELETE /api/products/[id] error:", error);
+    console.error(
+      "DELETE /api/products/[id] error:",
+      error,
+    );
 
     return NextResponse.json(
       {
         success: false,
         error: "Failed to delete product",
       },
-      { status: 500 }
+      {
+        status: 500,
+      },
     );
   }
 }

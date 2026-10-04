@@ -29,6 +29,7 @@ export class TransactionEngineError extends Error {
     maxQuantity?: number,
   ) {
     super(message);
+
     this.name = "TransactionEngineError";
     this.code = code;
     this.status = status;
@@ -49,6 +50,10 @@ export async function createTransaction(
     quantity,
     createdById,
   } = input;
+
+  // =========================================================
+  // BASIC VALIDATION
+  // =========================================================
 
   if (!Number.isInteger(spkId) || spkId <= 0) {
     throw new TransactionEngineError(
@@ -95,13 +100,22 @@ export async function createTransaction(
     );
   }
 
+  // =========================================================
+  // LOAD SPK
+  // =========================================================
+
   const spk = await tx.sPK.findUnique({
     where: {
       id: spkId,
     },
     include: {
-      product: true,
       tailor: true,
+
+      items: {
+        include: {
+          product: true,
+        },
+      },
     },
   });
 
@@ -119,6 +133,25 @@ export async function createTransaction(
       "SPK is not active",
     );
   }
+
+  // =========================================================
+  // FIND PRODUCT INSIDE SPK
+  // =========================================================
+
+  const spkItem = spk.items.find(
+    (item) => item.productId === productId,
+  );
+
+  if (!spkItem) {
+    throw new TransactionEngineError(
+      "PRODUCT_NOT_IN_SPK",
+      "Product does not belong to this SPK",
+    );
+  }
+
+  // =========================================================
+  // TRANSACTION TYPE
+  // =========================================================
 
   const transactionType =
     await tx.transactionType.findUnique({
@@ -142,11 +175,16 @@ export async function createTransaction(
     );
   }
 
-  const product = await tx.product.findUnique({
-    where: {
-      id: productId,
-    },
-  });
+  // =========================================================
+  // PRODUCT
+  // =========================================================
+
+  const product =
+    await tx.product.findUnique({
+      where: {
+        id: productId,
+      },
+    });
 
   if (!product) {
     throw new TransactionEngineError(
@@ -163,11 +201,16 @@ export async function createTransaction(
     );
   }
 
-  const tailor = await tx.tailor.findUnique({
-    where: {
-      id: tailorId,
-    },
-  });
+  // =========================================================
+  // TAILOR
+  // =========================================================
+
+  const tailor =
+    await tx.tailor.findUnique({
+      where: {
+        id: tailorId,
+      },
+    });
 
   if (!tailor) {
     throw new TransactionEngineError(
@@ -184,11 +227,16 @@ export async function createTransaction(
     );
   }
 
-  const employee = await tx.employee.findUnique({
-    where: {
-      id: employeeId,
-    },
-  });
+  // =========================================================
+  // EMPLOYEE
+  // =========================================================
+
+  const employee =
+    await tx.employee.findUnique({
+      where: {
+        id: employeeId,
+      },
+    });
 
   if (!employee) {
     throw new TransactionEngineError(
@@ -205,12 +253,9 @@ export async function createTransaction(
     );
   }
 
-  if (spk.productId !== productId) {
-    throw new TransactionEngineError(
-      "PRODUCT_NOT_MATCH_SPK",
-      "Product does not match the SPK",
-    );
-  }
+  // =========================================================
+  // TAILOR MUST MATCH SPK
+  // =========================================================
 
   if (spk.tailorId !== tailorId) {
     throw new TransactionEngineError(
@@ -219,13 +264,20 @@ export async function createTransaction(
     );
   }
 
+  // =========================================================
+  // GET TRANSACTIONS FOR THIS SPK + PRODUCT ONLY
+  // =========================================================
+
   const spkTransactions =
     await tx.transaction.findMany({
       where: {
         spkId,
+        productId,
       },
+
       select: {
         quantity: true,
+
         transactionType: {
           select: {
             code: true,
@@ -234,9 +286,14 @@ export async function createTransaction(
       },
     });
 
-  const status = calculateSPKStatus(
-    spkTransactions as SPKTransactionForStatus[],
-  );
+  const status =
+    calculateSPKStatus(
+      spkTransactions as SPKTransactionForStatus[],
+    );
+
+  // =========================================================
+  // CHECK TRANSACTION TYPE
+  // =========================================================
 
   const isAllowed =
     status.nextTransactionTypes.includes(
@@ -246,39 +303,68 @@ export async function createTransaction(
   if (!isAllowed) {
     throw new TransactionEngineError(
       "TRANSACTION_TYPE_NOT_ALLOWED",
-      "This transaction type is not allowed for the current SPK status",
+      "This transaction type is not allowed for the current SPK product status",
     );
   }
 
-    let maxQuantity: number | null = null;
+  // =========================================================
+  // MAX QUANTITY
+  // =========================================================
 
-    switch (transactionType.code) {
-      case "PENERIMAAN_DARI_PENJAHIT":
-        maxQuantity = status.sisaJahit;
-        break;
+  let maxQuantity: number | null = null;
 
-      case "QUALITY_CONTROL":
-      case "QC_RIJEK":
-      case "QC_ACC_DIKIRIM_KE_GUDANG":
-        maxQuantity = status.barangDiQc;
-        break;
+  switch (transactionType.code) {
+    // -------------------------------------------------------
+    // PENGIRIMAN SIAP JAHIT
+    // -------------------------------------------------------
+    case "PENGIRIMAN_SIAP_JAHIT":
+      maxQuantity = Math.max(
+        spkItem.quantity -
+          status.totalPengiriman,
+        0,
+      );
+      break;
 
-      case "PENGIRIMAN_RIJEK":
-        maxQuantity = Math.max(
-          status.totalQcRijek -
-            status.totalPengirimanRijek,
-          0,
-        );
-        break;
+    // -------------------------------------------------------
+    // PENERIMAAN DARI PENJAHIT
+    // -------------------------------------------------------
+    case "PENERIMAAN_DARI_PENJAHIT":
+      maxQuantity =
+        status.sisaJahit;
+      break;
 
-      case "PENERIMAAN_RIJEK":
-        maxQuantity = Math.max(
-          status.totalPengirimanRijek -
-            status.totalPenerimaanRijek,
-          0,
-        );
-        break;
-    }
+    // -------------------------------------------------------
+    // QC
+    // -------------------------------------------------------
+    case "QUALITY_CONTROL":
+    case "QC_RIJEK":
+    case "QC_ACC_DIKIRIM_KE_GUDANG":
+      maxQuantity =
+        status.barangDiQc;
+      break;
+
+    // -------------------------------------------------------
+    // PENGIRIMAN RIJEK
+    // -------------------------------------------------------
+    case "PENGIRIMAN_RIJEK":
+      maxQuantity = Math.max(
+        status.totalQcRijek -
+          status.totalPengirimanRijek,
+        0,
+      );
+      break;
+
+    // -------------------------------------------------------
+    // PENERIMAAN RIJEK
+    // -------------------------------------------------------
+    case "PENERIMAAN_RIJEK":
+      maxQuantity = Math.max(
+        status.totalPengirimanRijek -
+          status.totalPenerimaanRijek,
+        0,
+      );
+      break;
+  }
 
   if (
     maxQuantity !== null &&
@@ -292,15 +378,24 @@ export async function createTransaction(
     );
   }
 
+  // =========================================================
+  // GENERATE TRANSACTION NUMBER
+  // =========================================================
+
   const now = new Date();
 
-  const year = now.getFullYear();
-  const month = String(
-    now.getMonth() + 1,
-  ).padStart(2, "0");
-  const day = String(
-    now.getDate(),
-  ).padStart(2, "0");
+  const year =
+    now.getFullYear();
+
+  const month =
+    String(
+      now.getMonth() + 1,
+    ).padStart(2, "0");
+
+  const day =
+    String(
+      now.getDate(),
+    ).padStart(2, "0");
 
   const dateKey =
     `${year}${month}${day}`;
@@ -310,10 +405,12 @@ export async function createTransaction(
       where: {
         date: dateKey,
       },
+
       create: {
         date: dateKey,
         lastValue: 1,
       },
+
       update: {
         lastValue: {
           increment: 1,
@@ -325,6 +422,10 @@ export async function createTransaction(
     `TRX-${dateKey}-${String(
       sequence.lastValue,
     ).padStart(6, "0")}`;
+
+  // =========================================================
+  // CREATE TRANSACTION
+  // =========================================================
 
   const transaction =
     await tx.transaction.create({
@@ -338,13 +439,20 @@ export async function createTransaction(
         quantity,
         createdById,
       },
+
       include: {
         spk: {
           include: {
-            product: true,
             tailor: true,
+
+            items: {
+              include: {
+                product: true,
+              },
+            },
           },
         },
+
         transactionType: true,
         product: true,
         tailor: true,
@@ -352,12 +460,19 @@ export async function createTransaction(
       },
     });
 
+  // =========================================================
+  // ACTIVITY LOG
+  // =========================================================
+
   await tx.activityLog.create({
     data: {
       userId: createdById,
       action: "CREATE",
       entityType: "Transaction",
-      entityId: String(transaction.id),
+      entityId: String(
+        transaction.id,
+      ),
+
       description:
         `Transaction ${transaction.transactionNumber} created.`,
     },

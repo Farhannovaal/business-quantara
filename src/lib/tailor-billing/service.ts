@@ -3,6 +3,7 @@ import { calculateSPKStatus } from "@/lib/spk-status";
 
 type CreateTailorBillItemInput = {
   spkId: number;
+  productId: number;
   quantity: number;
 };
 
@@ -26,29 +27,90 @@ export async function createTailorBill(
   input: CreateTailorBillInput,
   userId: number,
 ) {
-  if (!Number.isInteger(input.tailorId) || input.tailorId <= 0) {
+  if (
+    !Number.isInteger(input.tailorId) ||
+    input.tailorId <= 0
+  ) {
     throw new Error("Penjahit tidak valid.");
   }
 
   if (!Array.isArray(input.items) || input.items.length === 0) {
-    throw new Error("Minimal satu SPK harus dipilih.");
+    throw new Error("Minimal satu item harus dipilih.");
   }
 
   /*
-   * Hilangkan duplicate SPK.
-   *
-   * Contoh:
-   * [
-   *   { spkId: 1, quantity: 10 },
-   *   { spkId: 1, quantity: 20 }
-   * ]
-   *
-   * menjadi satu item saja.
+   * ============================================================
+   * VALIDASI INPUT ITEM
+   * ============================================================
    */
+
+  const normalizedItems = input.items.map((item) => ({
+    spkId: Number(item.spkId),
+    productId: Number(item.productId),
+    quantity: Number(item.quantity),
+  }));
+
+  for (const item of normalizedItems) {
+    if (
+      !Number.isInteger(item.spkId) ||
+      item.spkId <= 0
+    ) {
+      throw new Error("SPK tidak valid.");
+    }
+
+    if (
+      !Number.isInteger(item.productId) ||
+      item.productId <= 0
+    ) {
+      throw new Error(
+        `Product untuk SPK ${item.spkId} tidak valid.`,
+      );
+    }
+
+    if (
+      !Number.isInteger(item.quantity) ||
+      item.quantity <= 0
+    ) {
+      throw new Error(
+        `Quantity SPK ${item.spkId} / product ${item.productId} harus berupa angka bulat lebih dari 0.`,
+      );
+    }
+  }
+
+  /*
+   * ============================================================
+   * HILANGKAN DUPLICATE SPK + PRODUCT
+   * ============================================================
+   *
+   * Satu bill tidak boleh memiliki dua item dengan kombinasi:
+   *
+   * SPK 1 + Product 10
+   *
+   * Jika dikirim dua kali, kita gabungkan quantity-nya.
+   * ============================================================
+   */
+
+  const uniqueItemMap = new Map<
+    string,
+    CreateTailorBillItemInput
+  >();
+
+  for (const item of normalizedItems) {
+    const key = `${item.spkId}:${item.productId}`;
+
+    const existing = uniqueItemMap.get(key);
+
+    if (existing) {
+      existing.quantity += item.quantity;
+    } else {
+      uniqueItemMap.set(key, {
+        ...item,
+      });
+    }
+  }
+
   const uniqueItems = Array.from(
-    new Map(
-      input.items.map((item) => [item.spkId, item]),
-    ).values(),
+    uniqueItemMap.values(),
   );
 
   return prisma.$transaction(async (tx) => {
@@ -88,33 +150,34 @@ export async function createTailorBill(
 
     /*
      * ============================================================
-     * 3. VALIDASI SETIAP SPK
+     * 3. VALIDASI SETIAP SPK + PRODUCT
      * ============================================================
      */
 
     for (const item of uniqueItems) {
-      const quantity = Number(item.quantity);
-
-      if (!Number.isInteger(quantity) || quantity <= 0) {
-        throw new Error(
-          `Quantity SPK ${item.spkId} harus berupa angka bulat lebih dari 0.`,
-        );
-      }
-
-      /*
-       * Ambil SPK beserta transaksi produksinya.
-       */
       const spk = await tx.sPK.findUnique({
         where: {
           id: item.spkId,
         },
+
         include: {
-          product: true,
           tailor: true,
+
+          items: {
+            include: {
+              product: true,
+            },
+          },
+
           transactions: {
+            where: {
+              productId: item.productId,
+            },
+
             include: {
               transactionType: true,
             },
+
             orderBy: {
               createdAt: "asc",
             },
@@ -131,6 +194,7 @@ export async function createTailorBill(
       /*
        * SPK CANCELLED tidak boleh ditagihkan.
        */
+
       if (spk.status === "CANCELLED") {
         throw new Error(
           `SPK ${spk.spkNumber} sudah dibatalkan.`,
@@ -138,8 +202,9 @@ export async function createTailorBill(
       }
 
       /*
-       * SPK harus milik penjahit yang dipilih.
+       * SPK harus milik tailor yang dipilih.
        */
+
       if (spk.tailorId !== input.tailorId) {
         throw new Error(
           `SPK ${spk.spkNumber} bukan milik penjahit yang dipilih.`,
@@ -148,8 +213,27 @@ export async function createTailorBill(
 
       /*
        * ==========================================================
-       * 4. HITUNG STATUS PRODUKSI SPK
+       * VALIDASI PRODUCT ADA DI SPK
        * ==========================================================
+       */
+
+      const spkItem = spk.items.find(
+        (value) =>
+          value.productId === item.productId,
+      );
+
+      if (!spkItem) {
+        throw new Error(
+          `Product ${item.productId} tidak terdapat pada SPK ${spk.spkNumber}.`,
+        );
+      }
+
+      /*
+       * ==========================================================
+       * 4. HITUNG STATUS PRODUK
+       * ==========================================================
+       *
+       * Transactions yang sudah difilter berdasarkan productId.
        */
 
       const status = calculateSPKStatus(
@@ -163,19 +247,21 @@ export async function createTailorBill(
 
       /*
        * ==========================================================
-       * 5. HITUNG QUANTITY YANG SUDAH DITAGIHKAN
+       * 5. HITUNG QUANTITY SUDAH DITAGIHKAN
        * ==========================================================
        *
-       * CANCELLED tidak dihitung.
+       * Hanya item dengan SPK + PRODUCT yang sama.
        *
-       * DRAFT tetap dihitung supaya dua operator tidak dapat
-       * membuat draft yang mengklaim quantity yang sama.
+       * CANCELLED tidak dihitung.
+       * DRAFT tetap dihitung agar quantity tidak bisa
+       * diklaim oleh billing lain.
        */
 
       const alreadyBilled =
         await tx.tailorBillItem.aggregate({
           where: {
             spkId: spk.id,
+            productId: item.productId,
 
             bill: {
               status: {
@@ -198,27 +284,28 @@ export async function createTailorBill(
        * 6. HITUNG QUANTITY YANG MASIH BISA DITAGIHKAN
        * ==========================================================
        *
-       * Yang dibayar adalah QC ACC.
+       * Yang dibayar adalah:
        *
-       * BUKAN:
+       * QC ACC DIKIRIM KE GUDANG
+       *
+       * Bukan:
        * - Sisa Jahit
        * - Barang di QC
        * - Jumlah Barang
-       *
-       * Rumus:
        *
        * Billable =
        * Total QC ACC - Sudah Ditagihkan
        */
 
       const billableQuantity = Math.max(
-        status.totalQcAcc - totalAlreadyBilled,
+        status.totalQcAcc -
+          totalAlreadyBilled,
         0,
       );
 
       if (billableQuantity <= 0) {
         throw new Error(
-          `SPK ${spk.spkNumber} tidak memiliki quantity yang dapat ditagihkan.`,
+          `SPK ${spk.spkNumber} - ${spkItem.product.name} tidak memiliki quantity yang dapat ditagihkan.`,
         );
       }
 
@@ -228,51 +315,52 @@ export async function createTailorBill(
        * ==========================================================
        */
 
-      if (quantity > billableQuantity) {
+      if (item.quantity > billableQuantity) {
         throw new Error(
-          `SPK ${spk.spkNumber} hanya dapat ditagihkan ${billableQuantity} pcs.`,
+          `SPK ${spk.spkNumber} - ${spkItem.product.name} hanya dapat ditagihkan ${billableQuantity} pcs.`,
         );
       }
 
       /*
        * ==========================================================
-       * 8. CARI TARIF PENJAHIT
+       * 8. CARI TARIF PENJAHIT + PRODUCT
        * ==========================================================
        */
 
       const now = new Date();
 
-      const tailorRate = await tx.tailorRate.findFirst({
-        where: {
-          tailorId: spk.tailorId,
-          productId: spk.productId,
+      const tailorRate =
+        await tx.tailorRate.findFirst({
+          where: {
+            tailorId: spk.tailorId,
+            productId: item.productId,
 
-          isActive: true,
+            isActive: true,
 
-          effectiveFrom: {
-            lte: now,
+            effectiveFrom: {
+              lte: now,
+            },
+
+            OR: [
+              {
+                effectiveTo: null,
+              },
+              {
+                effectiveTo: {
+                  gte: now,
+                },
+              },
+            ],
           },
 
-          OR: [
-            {
-              effectiveTo: null,
-            },
-            {
-              effectiveTo: {
-                gte: now,
-              },
-            },
-          ],
-        },
-
-        orderBy: {
-          effectiveFrom: "desc",
-        },
-      });
+          orderBy: {
+            effectiveFrom: "desc",
+          },
+        });
 
       if (!tailorRate) {
         throw new Error(
-          `Tarif ${spk.tailor.name} - ${spk.product.name} belum tersedia.`,
+          `Tarif ${tailor.name} - ${spkItem.product.name} belum tersedia.`,
         );
       }
 
@@ -283,13 +371,12 @@ export async function createTailorBill(
        */
 
       const rate = Number(tailorRate.rate);
-
-      const amount = quantity * rate;
+      const amount = item.quantity * rate;
 
       preparedItems.push({
         spkId: spk.id,
-        productId: spk.productId,
-        quantity,
+        productId: item.productId,
+        quantity: item.quantity,
         rate,
         amount,
       });
@@ -302,7 +389,8 @@ export async function createTailorBill(
      */
 
     const subtotal = preparedItems.reduce(
-      (total, item) => total + item.amount,
+      (total, item) =>
+        total + item.amount,
       0,
     );
 
@@ -311,47 +399,43 @@ export async function createTailorBill(
      * 11. GENERATE NOMOR TAGIHAN
      * ============================================================
      *
-     * Untuk sementara menggunakan TransactionSequence
-     * yang sudah tersedia.
-     *
      * Format:
      *
      * BILL-YYYYMMDD-000001
-     *
-     * Catatan:
-     * Nanti bisa kita pisahkan menjadi TailorBillSequence
-     * kalau ingin counter BILL benar-benar terpisah dari TRX.
+     * ============================================================
      */
 
     const now = new Date();
 
     const sequenceDate =
-    `${now.getFullYear()}${String(
+      `${now.getFullYear()}${String(
         now.getMonth() + 1,
-    ).padStart(2, "0")}${String(
+      ).padStart(2, "0")}${String(
         now.getDate(),
-    ).padStart(2, "0")}`;
+      ).padStart(2, "0")}`;
 
     const sequence =
-    await tx.tailorBillSequence.upsert({
+      await tx.tailorBillSequence.upsert({
         where: {
-        date: sequenceDate,
+          date: sequenceDate,
         },
+
         update: {
-        lastValue: {
+          lastValue: {
             increment: 1,
+          },
         },
-        },
+
         create: {
-        date: sequenceDate,
-        lastValue: 1,
+          date: sequenceDate,
+          lastValue: 1,
         },
-    });
+      });
 
     const billNumber =
-    `BILL-${sequenceDate}-${String(
+      generateBillNumber(
         sequence.lastValue,
-    ).padStart(6, "0")}`;
+      );
 
     /*
      * ============================================================
@@ -359,49 +443,52 @@ export async function createTailorBill(
      * ============================================================
      */
 
-    const bill = await tx.tailorBill.create({
-      data: {
-        billNumber,
+    const bill =
+      await tx.tailorBill.create({
+        data: {
+          billNumber,
 
-        tailorId: input.tailorId,
+          tailorId:
+            input.tailorId,
 
-        status: "DRAFT",
+          status: "DRAFT",
 
-        subtotal,
+          subtotal,
 
-        totalAmount: subtotal,
+          totalAmount: subtotal,
 
-        notes: input.notes ?? null,
+          notes:
+            input.notes ?? null,
 
-        createdById: userId,
+          createdById: userId,
 
-        items: {
-          create: preparedItems.map((item) => ({
-            spkId: item.spkId,
-
-            productId: item.productId,
-
-            quantity: item.quantity,
-
-            rate: item.rate,
-
-            amount: item.amount,
-          })),
-        },
-      },
-
-      include: {
-        tailor: true,
-
-        items: {
-          include: {
-            spk: true,
-
-            product: true,
+          items: {
+            create: preparedItems.map(
+              (item) => ({
+                spkId: item.spkId,
+                productId:
+                  item.productId,
+                quantity:
+                  item.quantity,
+                rate: item.rate,
+                amount:
+                  item.amount,
+              }),
+            ),
           },
         },
-      },
-    });
+
+        include: {
+          tailor: true,
+
+          items: {
+            include: {
+              spk: true,
+              product: true,
+            },
+          },
+        },
+      });
 
     /*
      * ============================================================
@@ -409,14 +496,21 @@ export async function createTailorBill(
      * ============================================================
      */
 
-   await tx.activityLog.create({
-    data: {
+    await tx.activityLog.create({
+      data: {
         userId,
+
         action: "CREATE",
-        entityType: "TAILOR_BILL",
-        entityId: String(bill.id),
-        description: `Membuat tagihan penjahit ${bill.billNumber}`,
-    },
+
+        entityType:
+          "TAILOR_BILL",
+
+        entityId:
+          String(bill.id),
+
+        description:
+          `Membuat tagihan penjahit ${bill.billNumber}`,
+      },
     });
 
     /*

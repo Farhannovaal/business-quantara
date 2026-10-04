@@ -94,7 +94,7 @@ model Product {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  spks            SPK[]
+  spkItems        SPKItem[]
   transactions    Transaction[]
   tailorRates     TailorRate[]
   tailorBillItems TailorBillItem[]
@@ -140,20 +140,38 @@ model Employee {
 model SPK {
   id        Int       @id @default(autoincrement())
   spkNumber String    @unique @db.VarChar(100)
-  productId Int
   tailorId  Int
   status    SPKStatus @default(ACTIVE)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
 
-  product         Product          @relation(fields: [productId], references: [id])
-  tailor          Tailor           @relation(fields: [tailorId], references: [id])
+  tailor Tailor @relation(fields: [tailorId], references: [id])
+
+  items SPKItem[]
+
   transactions    Transaction[]
   tailorBillItems TailorBillItem[]
 
-  @@index([productId])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([tailorId])
   @@index([status])
+}
+
+model SPKItem {
+  id        Int @id @default(autoincrement())
+  spkId     Int
+  productId Int
+  quantity  Int
+
+  spk     SPK     @relation(fields: [spkId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([spkId, productId])
+  @@index([spkId])
+  @@index([productId])
 }
 
 /**

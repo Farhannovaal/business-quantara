@@ -27,7 +27,9 @@ export async function GET(
         success: false,
         error: "Unauthorized",
       },
-      { status: 401 },
+      {
+        status: 401,
+      },
     );
   }
 
@@ -37,7 +39,9 @@ export async function GET(
         success: false,
         error: "Forbidden",
       },
-      { status: 403 },
+      {
+        status: 403,
+      },
     );
   }
 
@@ -46,50 +50,69 @@ export async function GET(
 
     const billId = Number(id);
 
-    if (!Number.isInteger(billId) || billId <= 0) {
+    if (
+      !Number.isInteger(billId) ||
+      billId <= 0
+    ) {
       return NextResponse.json(
         {
           success: false,
           error: "ID tagihan tidak valid.",
         },
-        { status: 400 },
+        {
+          status: 400,
+        },
       );
     }
 
-    const bill = await prisma.tailorBill.findUnique({
-      where: {
-        id: billId,
-      },
-
-      include: {
-        tailor: true,
-
-        createdBy: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
+    const bill =
+      await prisma.tailorBill.findUnique({
+        where: {
+          id: billId,
         },
 
-        items: {
-          include: {
-            spk: {
-              include: {
-                product: true,
-                tailor: true,
+        include: {
+          tailor: true,
+
+          createdBy: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+
+          items: {
+            include: {
+              /*
+               * SPK sekarang tidak memiliki
+               * product langsung.
+               *
+               * Product untuk billing sudah
+               * tersimpan langsung di
+               * TailorBillItem.product.
+               */
+              spk: {
+                include: {
+                  tailor: true,
+
+                  items: {
+                    include: {
+                      product: true,
+                    },
+                  },
+                },
               },
+
+              product: true,
             },
 
-            product: true,
-          },
-
-          orderBy: {
-            id: "asc",
+            orderBy: {
+              id: "asc",
+            },
           },
         },
-      },
-    });
+      });
 
     if (!bill) {
       return NextResponse.json(
@@ -97,7 +120,9 @@ export async function GET(
           success: false,
           error: "Tagihan tidak ditemukan.",
         },
-        { status: 404 },
+        {
+          status: 404,
+        },
       );
     }
 
@@ -106,14 +131,20 @@ export async function GET(
       data: bill,
     });
   } catch (error) {
-    console.error("Get tailor bill detail error:", error);
+    console.error(
+      "Get tailor bill detail error:",
+      error,
+    );
 
     return NextResponse.json(
       {
         success: false,
-        error: "Gagal mengambil detail tagihan.",
+        error:
+          "Gagal mengambil detail tagihan.",
       },
-      { status: 500 },
+      {
+        status: 500,
+      },
     );
   }
 }

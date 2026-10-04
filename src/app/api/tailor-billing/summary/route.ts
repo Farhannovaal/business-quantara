@@ -19,7 +19,9 @@ export async function GET() {
         success: false,
         error: "Unauthorized",
       },
-      { status: 401 },
+      {
+        status: 401,
+      },
     );
   }
 
@@ -29,13 +31,34 @@ export async function GET() {
         success: false,
         error: "Forbidden",
       },
-      { status: 403 },
+      {
+        status: 403,
+      },
     );
   }
 
   try {
     const now = new Date();
 
+    /*
+     * =========================================================
+     * LOAD SPK
+     * =========================================================
+     *
+     * Satu SPK sekarang bisa mempunyai banyak product:
+     *
+     * SPK
+     * ├── items[]
+     * │   └── product
+     * ├── transactions[]
+     * │   └── product
+     * └── tailorBillItems[]
+     *     └── productId
+     *
+     * Karena itu billing dihitung per:
+     *
+     * SPK + Product
+     */
     const spks = await prisma.sPK.findMany({
       where: {
         status: {
@@ -44,7 +67,16 @@ export async function GET() {
       },
 
       include: {
-        product: true,
+        items: {
+          include: {
+            product: true,
+          },
+
+          orderBy: {
+            id: "asc",
+          },
+        },
+
         tailor: true,
 
         transactions: {
@@ -72,6 +104,12 @@ export async function GET() {
         createdAt: "desc",
       },
     });
+
+    /*
+     * =========================================================
+     * SUMMARY
+     * =========================================================
+     */
 
     let readySpkCount = 0;
     let missingRateSpkCount = 0;
@@ -105,126 +143,271 @@ export async function GET() {
       billableQuantity: number;
     }[] = [];
 
+    /*
+     * =========================================================
+     * LOOP SPK
+     * =========================================================
+     */
+
     for (const spk of spks) {
-      const status = calculateSPKStatus(
-        spk.transactions.map((transaction) => ({
-          quantity: transaction.quantity,
+      /*
+       * Proses setiap product di dalam SPK.
+       */
+      for (const spkItem of spk.items) {
+        const productId = spkItem.productId;
 
-          transactionType: {
-            code: transaction.transactionType.code,
-          },
-        })),
-      );
+        /*
+         * -----------------------------------------------------
+         * TRANSACTIONS UNTUK PRODUCT INI SAJA
+         * -----------------------------------------------------
+         */
+        const productTransactions =
+          spk.transactions.filter(
+            (transaction) =>
+              transaction.productId ===
+              productId,
+          );
 
-      const totalAlreadyBilled =
-        spk.tailorBillItems.reduce(
-          (total, item) =>
-            total + Number(item.quantity),
-          0,
+        /*
+         * -----------------------------------------------------
+         * HITUNG STATUS PRODUCT
+         * -----------------------------------------------------
+         */
+        const status = calculateSPKStatus(
+          productTransactions.map(
+            (transaction) => ({
+              quantity:
+                transaction.quantity,
+
+              transactionType: {
+                code:
+                  transaction
+                    .transactionType.code,
+              },
+            }),
+          ),
         );
 
-      const billableQuantity = Math.max(
-        status.totalQcAcc -
-          totalAlreadyBilled,
-        0,
-      );
+        /*
+         * -----------------------------------------------------
+         * TOTAL SUDAH DIBAYAR UNTUK PRODUCT INI
+         * -----------------------------------------------------
+         *
+         * Penting:
+         * jangan menjumlahkan seluruh TailorBillItem
+         * dari SPK karena satu SPK bisa punya banyak product.
+         */
+        const totalAlreadyBilled =
+          spk.tailorBillItems
+            .filter(
+              (item) =>
+                item.productId ===
+                productId,
+            )
+            .reduce(
+              (total, item) =>
+                total +
+                Number(item.quantity),
+              0,
+            );
 
-      if (billableQuantity <= 0) {
-        continue;
-      }
+        /*
+         * -----------------------------------------------------
+         * BILLABLE QUANTITY
+         * -----------------------------------------------------
+         *
+         * Hanya QC ACC yang menjadi barang yang
+         * bisa dibayar ke penjahit.
+         */
+        const billableQuantity =
+          Math.max(
+            status.totalQcAcc -
+              totalAlreadyBilled,
+            0,
+          );
 
-      const tailorRate =
-        await prisma.tailorRate.findFirst({
-          where: {
-            tailorId: spk.tailorId,
-            productId: spk.productId,
-            isActive: true,
+        if (billableQuantity <= 0) {
+          continue;
+        }
 
-            effectiveFrom: {
-              lte: now,
+        /*
+         * -----------------------------------------------------
+         * CARI TARIF PENJAHIT + PRODUCT
+         * -----------------------------------------------------
+         */
+        const tailorRate =
+          await prisma.tailorRate.findFirst({
+            where: {
+              tailorId:
+                spk.tailorId,
+
+              productId,
+
+              isActive: true,
+
+              effectiveFrom: {
+                lte: now,
+              },
+
+              OR: [
+                {
+                  effectiveTo: null,
+                },
+                {
+                  effectiveTo: {
+                    gte: now,
+                  },
+                },
+              ],
             },
 
-            OR: [
-              {
-                effectiveTo: null,
-              },
-              {
-                effectiveTo: {
-                  gte: now,
-                },
-              },
-            ],
-          },
+            orderBy: {
+              effectiveFrom: "desc",
+            },
+          });
 
-          orderBy: {
-            effectiveFrom: "desc",
-          },
-        });
+        /*
+         * -----------------------------------------------------
+         * BELUM ADA TARIF
+         * -----------------------------------------------------
+         */
+        if (!tailorRate) {
+          missingRateQuantity +=
+            billableQuantity;
 
-      if (!tailorRate) {
-        missingRateSpkCount++;
-        missingRateQuantity +=
+          missingRateItems.push({
+            spkId: spk.id,
+
+            spkNumber:
+              spk.spkNumber,
+
+            tailorId:
+              spk.tailorId,
+
+            tailorName:
+              spk.tailor.name,
+
+            productId,
+
+            productName:
+              spkItem.product.name,
+
+            billableQuantity,
+          });
+
+          continue;
+        }
+
+        /*
+         * -----------------------------------------------------
+         * ADA TARIF
+         * -----------------------------------------------------
+         */
+        const rate = Number(
+          tailorRate.rate,
+        );
+
+        const amount =
+          billableQuantity * rate;
+
+        readyQuantity +=
           billableQuantity;
 
-        missingRateItems.push({
+        readyAmount += amount;
+
+        tailorIds.add(
+          spk.tailorId,
+        );
+
+        readyItems.push({
           spkId: spk.id,
-          spkNumber: spk.spkNumber,
 
-          tailorId: spk.tailorId,
-          tailorName: spk.tailor.name,
+          spkNumber:
+            spk.spkNumber,
 
-          productId: spk.productId,
-          productName: spk.product.name,
+          tailorId:
+            spk.tailorId,
+
+          tailorName:
+            spk.tailor.name,
+
+          productId,
+
+          productName:
+            spkItem.product.name,
 
           billableQuantity,
+
+          rate,
+
+          amount,
         });
-
-        continue;
       }
-
-      const rate = Number(tailorRate.rate);
-
-      const amount =
-        billableQuantity * rate;
-
-      readySpkCount++;
-      readyQuantity += billableQuantity;
-      readyAmount += amount;
-
-      tailorIds.add(spk.tailorId);
-
-      readyItems.push({
-        spkId: spk.id,
-        spkNumber: spk.spkNumber,
-
-        tailorId: spk.tailorId,
-        tailorName: spk.tailor.name,
-
-        productId: spk.productId,
-        productName: spk.product.name,
-
-        billableQuantity,
-        rate,
-        amount,
-      });
     }
+
+    /*
+     * =========================================================
+     * COUNT UNIQUE SPK
+     * =========================================================
+     *
+     * Satu SPK bisa punya banyak product.
+     *
+     * Jadi readySpkCount bukan jumlah readyItems.
+     */
+    const readySpkIds =
+      new Set<number>();
+
+    for (const item of readyItems) {
+      readySpkIds.add(
+        item.spkId,
+      );
+    }
+
+    const missingRateSpkIds =
+      new Set<number>();
+
+    for (
+      const item of missingRateItems
+    ) {
+      missingRateSpkIds.add(
+        item.spkId,
+      );
+    }
+
+    readySpkCount =
+      readySpkIds.size;
+
+    missingRateSpkCount =
+      missingRateSpkIds.size;
+
+    /*
+     * =========================================================
+     * RESPONSE
+     * =========================================================
+     */
 
     return NextResponse.json({
       success: true,
 
       data: {
         readySpkCount,
-        readyTailorCount: tailorIds.size,
+
+        readyTailorCount:
+          tailorIds.size,
 
         readyQuantity,
+
         readyAmount,
 
         missingRateSpkCount,
+
         missingRateQuantity,
 
-        totalSpkChecked: spks.length,
+        totalSpkChecked:
+          spks.length,
 
         readyItems,
+
         missingRateItems,
       },
     });

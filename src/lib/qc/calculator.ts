@@ -41,25 +41,29 @@ export type QCMonitoringItem = {
 
 export async function calculateQCMonitoring(
   spkId: number,
-): Promise<QCMonitoringItem> {
+): Promise<QCMonitoringItem[]> {
   const spk = await prisma.sPK.findUnique({
     where: {
       id: spkId,
     },
 
     include: {
-      product: {
-        select: {
-          id: true,
-          code: true,
-          name: true,
-        },
-      },
-
       tailor: {
         select: {
           id: true,
           name: true,
+        },
+      },
+
+      items: {
+        include: {
+          product: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+            },
+          },
         },
       },
 
@@ -82,6 +86,14 @@ export async function calculateQCMonitoring(
               name: true,
             },
           },
+
+          product: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+            },
+          },
         },
       },
     },
@@ -91,114 +103,125 @@ export async function calculateQCMonitoring(
     throw new Error("SPK tidak ditemukan.");
   }
 
-  const summary = calculateSPKStatus(spk.transactions);
-
-  const totalDiterima = summary.totalPenerimaan;
-
-  const totalAcc = summary.totalQcAcc;
-
-  const totalRijek = summary.totalQcRijek;
-
-  /*
-   * Barang yang sudah memiliki keputusan QC.
-   *
-   * ACC + RIJEK = barang yang sudah diputuskan.
-   */
-  const totalSudahQC =
-    totalAcc +
-    totalRijek;
-
-  /*
-   * Barang yang masih menunggu keputusan QC.
-   */
-  const sisaQC = Math.max(
-    totalDiterima -
-      totalSudahQC,
-    0,
-  );
-
-  const progressPercentage =
-    totalDiterima > 0
-      ? Math.min(
-          Math.round(
-            (totalSudahQC /
-              totalDiterima) *
-              100,
-          ),
-          100,
-        )
-      : 0;
-
-  let status: QCStatus;
-
-  if (totalDiterima === 0) {
-    status = "WAITING";
-  } else if (sisaQC === 0) {
-    status = "COMPLETED";
-  } else if (totalSudahQC > 0) {
-    status = "IN_PROGRESS";
-  } else {
-    status = "WAITING";
-  }
-
-  /*
-   * Cari transaksi QC terakhir.
-   */
-  const qcTransactions =
-    spk.transactions.filter(
+  return spk.items.map((spkItem) => {
+    const productTransactions = spk.transactions.filter(
       (transaction) =>
-        transaction.transactionType.code ===
-          "QUALITY_CONTROL" ||
-        transaction.transactionType.code ===
-          "QC_RIJEK" ||
-        transaction.transactionType.code ===
-          "QC_ACC_DIKIRIM_KE_GUDANG",
+        transaction.productId === spkItem.productId,
     );
 
-  const lastQCTransaction =
-    qcTransactions.length > 0
-      ? qcTransactions[
-          qcTransactions.length - 1
-        ]
-      : null;
+    const summary = calculateSPKStatus(
+      productTransactions,
+    );
 
-  return {
-    spkId: spk.id,
+    const totalDiterima =
+      summary.totalPenerimaan;
 
-    spkNumber: spk.spkNumber,
+    const totalAcc =
+      summary.totalQcAcc;
 
-    product: spk.product,
+    const totalRijek =
+      summary.totalQcRijek;
 
-    tailor: spk.tailor,
+    /**
+     * Barang yang sudah memiliki keputusan QC.
+     *
+     * ACC + RIJEK = barang yang sudah diputuskan.
+     */
+    const totalSudahQC =
+      totalAcc + totalRijek;
 
-    totalDiterima,
+    /**
+     * Barang yang masih menunggu keputusan QC.
+     */
+    const sisaQC = Math.max(
+      totalDiterima - totalSudahQC,
+      0,
+    );
 
-    totalSudahQC,
+    const progressPercentage =
+      totalDiterima > 0
+        ? Math.min(
+            Math.round(
+              (totalSudahQC /
+                totalDiterima) *
+                100,
+            ),
+            100,
+          )
+        : 0;
 
-    totalAcc,
+    let status: QCStatus;
 
-    totalRijek,
+    if (totalDiterima === 0) {
+      status = "WAITING";
+    } else if (sisaQC === 0) {
+      status = "COMPLETED";
+    } else if (totalSudahQC > 0) {
+      status = "IN_PROGRESS";
+    } else {
+      status = "WAITING";
+    }
 
-    sisaQC,
+    /**
+     * Cari transaksi QC terakhir
+     * untuk product ini.
+     */
+    const qcTransactions =
+      productTransactions.filter(
+        (transaction) =>
+          transaction.transactionType.code ===
+            "QUALITY_CONTROL" ||
+          transaction.transactionType.code ===
+            "QC_RIJEK" ||
+          transaction.transactionType.code ===
+            "QC_ACC_DIKIRIM_KE_GUDANG",
+      );
 
-    progressPercentage,
+    const lastQCTransaction =
+      qcTransactions.length > 0
+        ? qcTransactions[
+            qcTransactions.length - 1
+          ]
+        : null;
 
-    status,
+    return {
+      spkId: spk.id,
 
-    lastQC: lastQCTransaction
-      ? {
-          transactionNumber:
-            lastQCTransaction.transactionNumber,
+      spkNumber: spk.spkNumber,
 
-          quantity:
-            lastQCTransaction.quantity,
+      product: spkItem.product,
 
-          employee:
-            lastQCTransaction.employee.name,
+      tailor: spk.tailor,
 
-          createdAt:
-            lastQCTransaction.createdAt,
-        }
-      : null,
-  };
+      totalDiterima,
+
+      totalSudahQC,
+
+      totalAcc,
+
+      totalRijek,
+
+      sisaQC,
+
+      progressPercentage,
+
+      status,
+
+      lastQC: lastQCTransaction
+        ? {
+            transactionNumber:
+              lastQCTransaction.transactionNumber,
+
+            quantity:
+              lastQCTransaction.quantity,
+
+            employee:
+              lastQCTransaction.employee.name,
+
+            createdAt:
+              lastQCTransaction.createdAt,
+          }
+        : null,
+    };
+  });
 }

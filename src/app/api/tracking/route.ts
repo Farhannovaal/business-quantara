@@ -1,7 +1,5 @@
 import { requirePermission } from "@/lib/auth/authorization";
-
 import { requireAuth } from "@/lib/auth/require-auth";
-
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { calculateSPKStatus } from "@/lib/spk-status";
@@ -12,116 +10,302 @@ export async function GET(request: NextRequest) {
   if (response) {
     return response;
   }
+
   const permission = requirePermission(
     user,
-    "tracking.view"
+    "tracking.view",
   );
 
   if (permission.response) {
     return permission.response;
   }
 
-
   try {
-    const { searchParams } = new URL(request.url);
+    const { searchParams } =
+      new URL(request.url);
 
-    const search = searchParams.get("search")?.trim() ?? "";
-    const spkIdParam = searchParams.get("spkId");
+    const search =
+      searchParams.get("search")?.trim() ?? "";
 
-    const spks = await prisma.sPK.findMany({
-      where: {
-        ...(spkIdParam
-          ? {
-              id: Number(spkIdParam),
-            }
-          : {}),
-        ...(search
-          ? {
-              OR: [
-                {
-                  spkNumber: {
-                    contains: search,
-                  },
-                },
-                {
-                  product: {
-                    name: {
+    const spkIdParam =
+      searchParams.get("spkId");
+
+    const parsedSpkId =
+      spkIdParam
+        ? Number(spkIdParam)
+        : null;
+
+    const spks =
+      await prisma.sPK.findMany({
+        where: {
+          ...(parsedSpkId !== null &&
+          Number.isInteger(parsedSpkId)
+            ? {
+                id: parsedSpkId,
+              }
+            : {}),
+
+          ...(search
+            ? {
+                OR: [
+                  {
+                    spkNumber: {
                       contains: search,
                     },
                   },
-                },
-                {
-                  tailor: {
-                    name: {
-                      contains: search,
+                  {
+                    items: {
+                      some: {
+                        product: {
+                          name: {
+                            contains: search,
+                          },
+                        },
+                      },
                     },
                   },
-                },
-              ],
-            }
-          : {}),
-      },
-      include: {
-        product: true,
-        tailor: true,
-        transactions: {
-          orderBy: {
-            createdAt: "asc",
+                  {
+                    items: {
+                      some: {
+                        product: {
+                          code: {
+                            contains: search,
+                          },
+                        },
+                      },
+                    },
+                  },
+                  {
+                    tailor: {
+                      name: {
+                        contains: search,
+                      },
+                    },
+                  },
+                ],
+              }
+            : {}),
+        },
+
+        include: {
+          items: {
+            include: {
+              product: true,
+            },
+            orderBy: {
+              id: "asc",
+            },
           },
-          include: {
-            transactionType: true,
-            employee: true,
+
+          tailor: true,
+
+          transactions: {
+            orderBy: {
+              createdAt: "asc",
+            },
+            include: {
+              transactionType: true,
+              employee: true,
+              product: true,
+            },
           },
         },
-      },
-      orderBy: {
-        updatedAt: "desc",
-      },
-    });
+
+        orderBy: {
+          updatedAt: "desc",
+        },
+      });
 
     const data = spks.map((spk) => {
-      const summary = calculateSPKStatus(
-        spk.transactions.map((transaction) => ({
-          quantity: transaction.quantity,
-          transactionType: {
-            code: transaction.transactionType.code,
-          },
-        })),
+      /*
+       * =====================================================
+       * PRODUCT SUMMARY
+       * =====================================================
+       *
+       * Satu SPK dapat memiliki banyak product.
+       * Status dihitung secara terpisah untuk setiap product.
+       */
+      const products = spk.items.map(
+        (spkItem) => {
+          const productTransactions =
+            spk.transactions.filter(
+              (transaction) =>
+                transaction.productId ===
+                spkItem.productId,
+            );
+
+          const summary =
+            calculateSPKStatus(
+              productTransactions.map(
+                (transaction) => ({
+                  quantity:
+                    transaction.quantity,
+
+                  transactionType: {
+                    code:
+                      transaction
+                        .transactionType
+                        .code,
+                  },
+                }),
+              ),
+            );
+
+          const transactions =
+            productTransactions.map(
+              (transaction) => ({
+                id: transaction.id,
+
+                transactionNumber:
+                  transaction.transactionNumber,
+
+                quantity:
+                  transaction.quantity,
+
+                createdAt:
+                  transaction.createdAt,
+
+                transactionType: {
+                  id:
+                    transaction
+                      .transactionType.id,
+
+                  code:
+                    transaction
+                      .transactionType.code,
+
+                  name:
+                    transaction
+                      .transactionType.name,
+                },
+
+                employee: {
+                  id:
+                    transaction.employee.id,
+
+                  name:
+                    transaction.employee.name,
+                },
+              }),
+            );
+
+          return {
+            id:
+              spkItem.product.id,
+
+            code:
+              spkItem.product.code,
+
+            name:
+              spkItem.product.name,
+
+            quantity:
+              spkItem.quantity,
+
+            summary,
+
+            transactions,
+          };
+        },
       );
 
-      const transactions = spk.transactions.map((transaction) => ({
-        id: transaction.id,
-        transactionNumber: transaction.transactionNumber,
-        quantity: transaction.quantity,
-        createdAt: transaction.createdAt,
-        transactionType: {
-          id: transaction.transactionType.id,
-          code: transaction.transactionType.code,
-          name: transaction.transactionType.name,
-        },
-        employee: {
-          id: transaction.employee.id,
-          name: transaction.employee.name,
-        },
-      }));
+      /*
+       * =====================================================
+       * OVERALL SPK SUMMARY
+       * =====================================================
+       */
+      const summary =
+        calculateSPKStatus(
+          spk.transactions.map(
+            (transaction) => ({
+              quantity:
+                transaction.quantity,
+
+              transactionType: {
+                code:
+                  transaction
+                    .transactionType.code,
+              },
+            }),
+          ),
+        );
+
+      /*
+       * =====================================================
+       * ALL SPK TRANSACTIONS
+       * =====================================================
+       *
+       * Transaction sekarang juga membawa product.
+       */
+      const transactions =
+        spk.transactions.map(
+          (transaction) => ({
+            id: transaction.id,
+
+            transactionNumber:
+              transaction.transactionNumber,
+
+            quantity:
+              transaction.quantity,
+
+            createdAt:
+              transaction.createdAt,
+
+            product: {
+              id:
+                transaction.product.id,
+
+              code:
+                transaction.product.code,
+
+              name:
+                transaction.product.name,
+            },
+
+            transactionType: {
+              id:
+                transaction
+                  .transactionType.id,
+
+              code:
+                transaction
+                  .transactionType.code,
+
+              name:
+                transaction
+                  .transactionType.name,
+            },
+
+            employee: {
+              id:
+                transaction.employee.id,
+
+              name:
+                transaction.employee.name,
+            },
+          }),
+        );
 
       return {
         id: spk.id,
-        spkNumber: spk.spkNumber,
-        status: spk.status,
 
-        product: {
-          id: spk.product.id,
-          code: spk.product.code,
-          name: spk.product.name,
-        },
+        spkNumber:
+          spk.spkNumber,
+
+        status:
+          spk.status,
 
         tailor: {
-          id: spk.tailor.id,
-          name: spk.tailor.name,
+          id:
+            spk.tailor.id,
+
+          name:
+            spk.tailor.name,
         },
 
         summary,
+
+        products,
 
         transactions,
       };
@@ -132,12 +316,16 @@ export async function GET(request: NextRequest) {
       data,
     });
   } catch (error) {
-    console.error("GET /api/tracking error:", error);
+    console.error(
+      "GET /api/tracking error:",
+      error,
+    );
 
     return NextResponse.json(
       {
         success: false,
-        error: "Gagal mengambil data tracking.",
+        error:
+          "Gagal mengambil data tracking.",
       },
       {
         status: 500,

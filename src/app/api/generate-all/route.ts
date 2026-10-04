@@ -3,7 +3,10 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { hasPermission } from "@/lib/auth/authorization";
-import { calculateTailorBilling } from "@/lib/tailor-billing/calculator";
+import {
+  calculateTailorBilling,
+  type TailorBillingSummary,
+} from "@/lib/tailor-billing/calculator";
 import { createTailorBill } from "@/lib/tailor-billing/service";
 
 export async function POST() {
@@ -42,15 +45,17 @@ export async function POST() {
           not: "CANCELLED",
         },
       },
+
       select: {
         id: true,
       },
+
       orderBy: {
         createdAt: "desc",
       },
     });
 
-    const eligible = [];
+    const eligible: TailorBillingSummary[] = [];
 
     const skipped: {
       spkId: number;
@@ -59,10 +64,22 @@ export async function POST() {
 
     for (const spk of spks) {
       try {
-        const summary = await calculateTailorBilling(spk.id);
+        const summaries =
+          await calculateTailorBilling(
+            spk.id,
+          );
 
-        if (summary.billableQuantity > 0) {
-          eligible.push(summary);
+        /**
+         * Satu SPK sekarang dapat memiliki
+         * beberapa product.
+         *
+         * Hanya product yang masih memiliki
+         * billable quantity yang dimasukkan.
+         */
+        for (const summary of summaries) {
+          if (summary.billableQuantity > 0) {
+            eligible.push(summary);
+          }
         }
       } catch (error) {
         skipped.push({
@@ -78,7 +95,8 @@ export async function POST() {
     if (eligible.length === 0) {
       return NextResponse.json({
         success: true,
-        message: "Tidak ada SPK yang dapat dibuatkan billing.",
+        message:
+          "Tidak ada SPK yang dapat dibuatkan billing.",
         data: {
           createdBills: 0,
           createdItems: 0,
@@ -90,13 +108,28 @@ export async function POST() {
       });
     }
 
-    const grouped = new Map<number, typeof eligible>();
+    /**
+     * Group billing berdasarkan tailor.
+     *
+     * Satu tailor dapat memiliki banyak:
+     * - SPK
+     * - product
+     */
+    const grouped = new Map<
+      number,
+      TailorBillingSummary[]
+    >();
 
     for (const item of eligible) {
-      const current = grouped.get(item.tailorId) || [];
+      const current =
+        grouped.get(item.tailorId) ?? [];
 
       current.push(item);
-      grouped.set(item.tailorId, current);
+
+      grouped.set(
+        item.tailorId,
+        current,
+      );
     }
 
     const createdBills: {
@@ -109,72 +142,112 @@ export async function POST() {
       totalAmount: number;
     }[] = [];
 
-    for (const [tailorId, items] of grouped.entries()) {
+    for (const [
+      tailorId,
+      items,
+    ] of grouped.entries()) {
       try {
-        const bill = await createTailorBill(
-          {
-            tailorId,
-            items: items.map((item) => ({
-              spkId: item.spkId,
-              quantity: item.billableQuantity,
-            })),
-            notes: "Generated automatically from Dashboard.",
-          },
-          user.id,
-        );
+        const bill =
+          await createTailorBill(
+            {
+              tailorId,
+
+              items: items.map(
+                (item) => ({
+                  spkId: item.spkId,
+                  productId: item.productId,
+                  quantity:
+                    item.billableQuantity,
+                }),
+              ),
+
+              notes:
+                "Generated automatically from Dashboard.",
+            },
+            user.id,
+          );
 
         createdBills.push({
           id: bill.id,
-          billNumber: bill.billNumber,
+          billNumber:
+            bill.billNumber,
           tailorId,
-          tailorName: items[0]?.tailorName || "-",
+
+          tailorName:
+            items[0]?.tailorName ??
+            "-",
+
           itemCount: items.length,
-          totalQuantity: items.reduce(
-            (total, item) => total + item.billableQuantity,
-            0,
-          ),
-          totalAmount: items.reduce(
-            (total, item) => total + item.billableAmount,
-            0,
-          ),
+
+          totalQuantity:
+            items.reduce(
+              (total, item) =>
+                total +
+                item.billableQuantity,
+              0,
+            ),
+
+          totalAmount:
+            items.reduce(
+              (total, item) =>
+                total +
+                item.billableAmount,
+              0,
+            ),
         });
       } catch (error) {
         skipped.push({
-          spkId: items[0]?.spkId || 0,
+          spkId:
+            items[0]?.spkId ?? 0,
+
           reason:
             error instanceof Error
               ? `Penjahit ${
-                  items[0]?.tailorName || tailorId
+                  items[0]
+                    ?.tailorName ??
+                  tailorId
                 }: ${error.message}`
               : `Gagal membuat billing untuk penjahit ${tailorId}.`,
         });
       }
     }
 
-    const totalQuantity = createdBills.reduce(
-      (total, bill) => total + bill.totalQuantity,
-      0,
-    );
+    const totalQuantity =
+      createdBills.reduce(
+        (total, bill) =>
+          total + bill.totalQuantity,
+        0,
+      );
 
-    const totalAmount = createdBills.reduce(
-      (total, bill) => total + bill.totalAmount,
-      0,
-    );
+    const totalAmount =
+      createdBills.reduce(
+        (total, bill) =>
+          total + bill.totalAmount,
+        0,
+      );
 
     return NextResponse.json({
       success: true,
+
       message:
         createdBills.length > 0
           ? `${createdBills.length} billing berhasil dibuat.`
           : "Tidak ada billing yang berhasil dibuat.",
+
       data: {
-        createdBills: createdBills.length,
-        createdItems: createdBills.reduce(
-          (total, bill) => total + bill.itemCount,
-          0,
-        ),
+        createdBills:
+          createdBills.length,
+
+        createdItems:
+          createdBills.reduce(
+            (total, bill) =>
+              total + bill.itemCount,
+            0,
+          ),
+
         totalQuantity,
         totalAmount,
+
         bills: createdBills,
         skipped,
       },

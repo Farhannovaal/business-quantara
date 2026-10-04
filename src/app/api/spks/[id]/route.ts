@@ -1,9 +1,6 @@
 import { requirePermission } from "@/lib/auth/authorization";
-
 import { requireAuth } from "@/lib/auth/require-auth";
-
 import { NextRequest, NextResponse } from "next/server";
-
 import { prisma } from "@/lib/prisma";
 import { calculateSPKStatus } from "@/lib/spk-status";
 
@@ -13,33 +10,39 @@ type RouteContext = {
   }>;
 };
 
+type SPKItemInput = {
+  productId: number;
+  quantity: number;
+};
+
 /**
  * GET /api/spks/[id]
  *
  * Mengambil detail SPK:
- * - Product
+ * - SPK
  * - Tailor
+ * - Multiple products / SPK items
  * - Transaction history
  * - Production summary
  */
 export async function GET(
   _request: NextRequest,
-  context: RouteContext
+  context: RouteContext,
 ) {
   const { user, response } = await requireAuth();
 
   if (response) {
     return response;
   }
+
   const permission = requirePermission(
     user,
-    "spk.view"
+    "spk.view",
   );
 
   if (permission.response) {
     return permission.response;
   }
-
 
   try {
     const { id } = await context.params;
@@ -53,7 +56,7 @@ export async function GET(
         },
         {
           status: 400,
-        }
+        },
       );
     }
 
@@ -61,13 +64,20 @@ export async function GET(
       where: {
         id: spkId,
       },
-
       include: {
-        product: {
-          select: {
-            id: true,
-            code: true,
-            name: true,
+        items: {
+          include: {
+            product: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                isActive: true,
+              },
+            },
+          },
+          orderBy: {
+            id: "asc",
           },
         },
 
@@ -82,9 +92,16 @@ export async function GET(
           orderBy: {
             createdAt: "desc",
           },
-
           include: {
             transactionType: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+              },
+            },
+
+            product: {
               select: {
                 id: true,
                 code: true,
@@ -117,31 +134,62 @@ export async function GET(
         },
         {
           status: 404,
-        }
+        },
       );
     }
 
     /**
-     * Hitung production state berdasarkan
-     * seluruh transaction SPK.
+     * Overall summary.
+     *
+     * Untuk kompatibilitas dengan logic lama,
+     * summary keseluruhan dihitung dari seluruh
+     * transaction SPK.
      */
     const summary = calculateSPKStatus(
-      spk.transactions
+      spk.transactions,
+    );
+
+    /**
+     * Summary per product.
+     *
+     * Ini penting karena sekarang satu SPK
+     * bisa mempunyai beberapa product.
+     */
+    const productSummaries = spk.items.map(
+      (item) => {
+        const productTransactions =
+          spk.transactions.filter(
+            (transaction) =>
+              transaction.productId ===
+              item.productId,
+          );
+
+        const productSummary =
+          calculateSPKStatus(
+            productTransactions,
+          );
+
+        return {
+          productId: item.productId,
+          product: item.product,
+          quantity: item.quantity,
+          summary: productSummary,
+        };
+      },
     );
 
     return NextResponse.json({
       success: true,
-
       data: {
         ...spk,
-
         summary,
+        productSummaries,
       },
     });
   } catch (error) {
     console.error(
       "GET SPK detail error:",
-      error
+      error,
     );
 
     return NextResponse.json(
@@ -151,7 +199,7 @@ export async function GET(
       },
       {
         status: 500,
-      }
+      },
     );
   }
 }
@@ -161,28 +209,43 @@ export async function GET(
  *
  * Update:
  * - SPK number
- * - Product
+ * - Items / products
  * - Tailor
  * - Status
+ *
+ * Format items:
+ *
+ * {
+ *   "items": [
+ *     {
+ *       "productId": 1,
+ *       "quantity": 100
+ *     },
+ *     {
+ *       "productId": 2,
+ *       "quantity": 50
+ *     }
+ *   ]
+ * }
  */
 export async function PATCH(
   request: NextRequest,
-  context: RouteContext
+  context: RouteContext,
 ) {
   const { user, response } = await requireAuth();
 
   if (response) {
     return response;
   }
+
   const permission = requirePermission(
     user,
-    "spk.update"
+    "spk.update",
   );
 
   if (permission.response) {
     return permission.response;
   }
-
 
   try {
     const { id } = await context.params;
@@ -196,13 +259,22 @@ export async function PATCH(
         },
         {
           status: 400,
-        }
+        },
       );
     }
 
     const existing = await prisma.sPK.findUnique({
       where: {
         id: spkId,
+      },
+      include: {
+        items: true,
+
+        _count: {
+          select: {
+            transactions: true,
+          },
+        },
       },
     });
 
@@ -214,39 +286,37 @@ export async function PATCH(
         },
         {
           status: 404,
-        }
+        },
       );
     }
 
     const body = await request.json();
 
-    const data: {
-      spkNumber?: string;
-      productId?: number;
-      tailorId?: number;
-      status?:
-        | "ACTIVE"
-        | "COMPLETED"
-        | "CANCELLED";
-    } = {};
-
     /**
-     * SPK Number
+     * ==========================================
+     * SPK NUMBER
+     * ==========================================
      */
+
+    let spkNumber:
+      | string
+      | undefined;
+
     if (body.spkNumber !== undefined) {
-      const spkNumber = String(
-        body.spkNumber
+      spkNumber = String(
+        body.spkNumber,
       ).trim();
 
       if (!spkNumber) {
         return NextResponse.json(
           {
             success: false,
-            error: "SPK number cannot be empty.",
+            error:
+              "SPK number cannot be empty.",
           },
           {
             status: 400,
-          }
+          },
         );
       }
 
@@ -269,77 +339,24 @@ export async function PATCH(
           },
           {
             status: 409,
-          }
+          },
         );
       }
-
-      data.spkNumber = spkNumber;
     }
 
     /**
-     * Product
+     * ==========================================
+     * TAILOR
+     * ==========================================
      */
-    if (body.productId !== undefined) {
-      const productId = Number(
-        body.productId
-      );
 
-      if (
-        !Number.isInteger(productId) ||
-        productId <= 0
-      ) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Invalid product ID.",
-          },
-          {
-            status: 400,
-          }
-        );
-      }
+    let tailorId:
+      | number
+      | undefined;
 
-      const product =
-        await prisma.product.findUnique({
-          where: {
-            id: productId,
-          },
-        });
-
-      if (!product) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Product not found.",
-          },
-          {
-            status: 404,
-          }
-        );
-      }
-
-      if (!product.isActive) {
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              "Selected product is inactive.",
-          },
-          {
-            status: 400,
-          }
-        );
-      }
-
-      data.productId = productId;
-    }
-
-    /**
-     * Tailor
-     */
     if (body.tailorId !== undefined) {
-      const tailorId = Number(
-        body.tailorId
+      tailorId = Number(
+        body.tailorId,
       );
 
       if (
@@ -353,7 +370,7 @@ export async function PATCH(
           },
           {
             status: 400,
-          }
+          },
         );
       }
 
@@ -372,7 +389,7 @@ export async function PATCH(
           },
           {
             status: 404,
-          }
+          },
         );
       }
 
@@ -385,19 +402,26 @@ export async function PATCH(
           },
           {
             status: 400,
-          }
+          },
         );
       }
-
-      data.tailorId = tailorId;
     }
 
     /**
-     * Status
+     * ==========================================
+     * STATUS
+     * ==========================================
      */
+
+    let status:
+      | "ACTIVE"
+      | "COMPLETED"
+      | "CANCELLED"
+      | undefined;
+
     if (body.status !== undefined) {
-      const status = String(
-        body.status
+      status = String(
+        body.status,
       ) as
         | "ACTIVE"
         | "COMPLETED"
@@ -417,40 +441,482 @@ export async function PATCH(
           },
           {
             status: 400,
-          }
+          },
         );
       }
-
-      data.status = status;
     }
 
     /**
-     * Update SPK
+     * ==========================================
+     * ITEMS
+     * ==========================================
+     *
+     * Multi-product SPK:
+     *
+     * items: [
+     *   { productId, quantity },
+     *   { productId, quantity }
+     * ]
      */
-    const spk = await prisma.sPK.update({
-      where: {
-        id: spkId,
-      },
 
-      data,
+    let items:
+      | SPKItemInput[]
+      | undefined;
 
-      include: {
-        product: {
+    if (body.items !== undefined) {
+      if (!Array.isArray(body.items)) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Items must be an array.",
+          },
+          {
+            status: 400,
+          },
+        );
+      }
+
+      if (body.items.length === 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "At least one product is required.",
+          },
+          {
+            status: 400,
+          },
+        );
+      }
+
+      const normalizedItems: SPKItemInput[] =
+        body.items.map(
+          (item: unknown) => {
+            const raw =
+              item as {
+                productId?: unknown;
+                quantity?: unknown;
+              };
+
+            return {
+              productId: Number(
+                raw.productId,
+              ),
+              quantity: Number(
+                raw.quantity,
+              ),
+            };
+          },
+        );
+
+      const invalidItem =
+        normalizedItems.find(
+          (item) =>
+            !Number.isInteger(
+              item.productId,
+            ) ||
+            item.productId <= 0 ||
+            !Number.isInteger(
+              item.quantity,
+            ) ||
+            item.quantity <= 0,
+        );
+
+      if (invalidItem) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Each item must have a valid productId and positive integer quantity.",
+          },
+          {
+            status: 400,
+          },
+        );
+      }
+
+      /**
+       * Prevent duplicate product
+       * in the same SPK.
+       */
+      const productIds =
+        normalizedItems.map(
+          (item) => item.productId,
+        );
+
+      const uniqueProductIds =
+        new Set(productIds);
+
+      if (
+        uniqueProductIds.size !==
+        productIds.length
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "A product can only appear once in an SPK.",
+          },
+          {
+            status: 400,
+          },
+        );
+      }
+
+      /**
+       * Verify all products.
+       */
+      const products =
+        await prisma.product.findMany({
+          where: {
+            id: {
+              in: productIds,
+            },
+          },
           select: {
             id: true,
             code: true,
             name: true,
+            isActive: true,
           },
-        },
+        });
 
-        tailor: {
+      const productMap =
+        new Map(
+          products.map(
+            (product) => [
+              product.id,
+              product,
+            ],
+          ),
+        );
+
+      const missingProductIds =
+        productIds.filter(
+          (productId) =>
+            !productMap.has(productId),
+        );
+
+      if (
+        missingProductIds.length > 0
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "One or more selected products were not found.",
+            productIds:
+              missingProductIds,
+          },
+          {
+            status: 404,
+          },
+        );
+      }
+
+      const inactiveProducts =
+        products.filter(
+          (product) =>
+            !product.isActive &&
+            productIds.includes(
+              product.id,
+            ),
+        );
+
+      if (
+        inactiveProducts.length > 0
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "One or more selected products are inactive.",
+            products:
+              inactiveProducts.map(
+                (product) => ({
+                  id: product.id,
+                  code: product.code,
+                  name: product.name,
+                }),
+              ),
+          },
+          {
+            status: 400,
+          },
+        );
+      }
+
+      items = normalizedItems;
+    }
+
+    /**
+     * ==========================================
+     * LEGACY productId SUPPORT
+     * ==========================================
+     *
+     * Kalau frontend lama masih mengirim:
+     *
+     * {
+     *   productId: 123
+     * }
+     *
+     * kita convert menjadi satu item.
+     *
+     * Tetapi hanya dilakukan jika `items`
+     * belum dikirim.
+     */
+
+    if (
+      items === undefined &&
+      body.productId !== undefined
+    ) {
+      const productId = Number(
+        body.productId,
+      );
+
+      if (
+        !Number.isInteger(productId) ||
+        productId <= 0
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Invalid product ID.",
+          },
+          {
+            status: 400,
+          },
+        );
+      }
+
+      const product =
+        await prisma.product.findUnique({
+          where: {
+            id: productId,
+          },
           select: {
             id: true,
+            code: true,
             name: true,
+            isActive: true,
           },
+        });
+
+      if (!product) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Product not found.",
+          },
+          {
+            status: 404,
+          },
+        );
+      }
+
+      if (!product.isActive) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Selected product is inactive.",
+          },
+          {
+            status: 400,
+          },
+        );
+      }
+
+      /**
+       * Ambil quantity lama jika ada.
+       *
+       * Ini hanya fallback compatibility.
+       */
+      const existingItem =
+        existing.items.find(
+          (item) =>
+            item.productId ===
+            productId,
+        );
+
+      items = [
+        {
+          productId,
+          quantity:
+            existingItem?.quantity ??
+            1,
         },
-      },
-    });
+      ];
+    }
+
+    /**
+     * ==========================================
+     * PREVENT ITEM CHANGES AFTER TRANSACTION
+     * ==========================================
+     *
+     * Kalau SPK sudah punya transaction,
+     * product/quantity tidak boleh diganti
+     * sembarangan karena akan merusak histori
+     * production.
+     */
+
+    if (
+      items !== undefined &&
+      existing._count.transactions > 0
+    ) {
+      const existingItems =
+        existing.items
+          .map((item) => ({
+            productId:
+              item.productId,
+            quantity:
+              item.quantity,
+          }))
+          .sort(
+            (a, b) =>
+              a.productId -
+              b.productId,
+          );
+
+      const newItems = [
+        ...items,
+      ].sort(
+        (a, b) =>
+          a.productId -
+          b.productId,
+      );
+
+      const sameItems =
+        existingItems.length ===
+          newItems.length &&
+        existingItems.every(
+          (item, index) =>
+            item.productId ===
+              newItems[index]
+                .productId &&
+            item.quantity ===
+              newItems[index]
+                .quantity,
+        );
+
+      if (!sameItems) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "SPK products or quantities cannot be changed because the SPK already has transactions.",
+          },
+          {
+            status: 409,
+          },
+        );
+      }
+    }
+
+    /**
+     * ==========================================
+     * UPDATE
+     * ==========================================
+     */
+
+    const spk =
+      await prisma.$transaction(
+        async (tx) => {
+          const updated =
+            await tx.sPK.update({
+              where: {
+                id: spkId,
+              },
+
+              data: {
+                ...(spkNumber !== undefined
+                  ? {
+                      spkNumber,
+                    }
+                  : {}),
+
+                ...(tailorId !== undefined
+                  ? {
+                      tailorId,
+                    }
+                  : {}),
+
+                ...(status !== undefined
+                  ? {
+                      status,
+                    }
+                  : {}),
+              },
+            });
+
+          /**
+           * Replace items only when the
+           * request explicitly contains items.
+           */
+          if (items !== undefined) {
+            await tx.sPKItem.deleteMany({
+              where: {
+                spkId,
+              },
+            });
+
+            await tx.sPKItem.createMany({
+              data: items.map(
+                (item) => ({
+                  spkId,
+
+                  productId:
+                    item.productId,
+
+                  quantity:
+                    item.quantity,
+                }),
+              ),
+            });
+          }
+
+          return tx.sPK.findUnique({
+            where: {
+              id: updated.id,
+            },
+
+            include: {
+              items: {
+                include: {
+                  product: {
+                    select: {
+                      id: true,
+                      code: true,
+                      name: true,
+                      isActive: true,
+                    },
+                  },
+                },
+
+                orderBy: {
+                  id: "asc",
+                },
+              },
+
+              tailor: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+
+              _count: {
+                select: {
+                  transactions: true,
+                },
+              },
+            },
+          });
+        },
+      );
 
     return NextResponse.json({
       success: true,
@@ -459,7 +925,7 @@ export async function PATCH(
   } catch (error) {
     console.error(
       "PATCH SPK error:",
-      error
+      error,
     );
 
     return NextResponse.json(
@@ -469,7 +935,7 @@ export async function PATCH(
       },
       {
         status: 500,
-      }
+      },
     );
   }
 }
@@ -482,28 +948,35 @@ export async function PATCH(
  */
 export async function DELETE(
   _request: NextRequest,
-  context: RouteContext
+  context: RouteContext,
 ) {
-  const { user, response } = await requireAuth();
+  const { user, response } =
+    await requireAuth();
 
   if (response) {
     return response;
   }
-  const permission = requirePermission(
-    user,
-    "spk.delete"
-  );
+
+  const permission =
+    requirePermission(
+      user,
+      "spk.delete",
+    );
 
   if (permission.response) {
     return permission.response;
   }
 
-
   try {
-    const { id } = await context.params;
+    const { id } =
+      await context.params;
+
     const spkId = Number(id);
 
-    if (!Number.isInteger(spkId) || spkId <= 0) {
+    if (
+      !Number.isInteger(spkId) ||
+      spkId <= 0
+    ) {
       return NextResponse.json(
         {
           success: false,
@@ -511,7 +984,7 @@ export async function DELETE(
         },
         {
           status: 400,
-        }
+        },
       );
     }
 
@@ -538,11 +1011,14 @@ export async function DELETE(
         },
         {
           status: 404,
-        }
+        },
       );
     }
 
-    if (existing._count.transactions > 0) {
+    if (
+      existing._count.transactions >
+      0
+    ) {
       return NextResponse.json(
         {
           success: false,
@@ -551,7 +1027,7 @@ export async function DELETE(
         },
         {
           status: 409,
-        }
+        },
       );
     }
 
@@ -563,12 +1039,13 @@ export async function DELETE(
 
     return NextResponse.json({
       success: true,
-      message: "SPK deleted successfully.",
+      message:
+        "SPK deleted successfully.",
     });
   } catch (error) {
     console.error(
       "DELETE SPK error:",
-      error
+      error,
     );
 
     return NextResponse.json(
@@ -578,7 +1055,7 @@ export async function DELETE(
       },
       {
         status: 500,
-      }
+      },
     );
   }
 }

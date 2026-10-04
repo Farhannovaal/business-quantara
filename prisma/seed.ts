@@ -1,4 +1,5 @@
 import "dotenv/config";
+
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
@@ -62,6 +63,11 @@ async function main() {
       name: "Delete SPK",
       description: "Menghapus SPK",
     },
+    {
+      code: "spk.manage",
+      name: "Manage SPK",
+      description: "Mengelola SPK",
+    },
 
     // ----------------------------------------------------------
     // TRANSACTION
@@ -85,6 +91,11 @@ async function main() {
       code: "transaction.delete",
       name: "Delete Transaction",
       description: "Menghapus transaksi",
+    },
+    {
+      code: "transaction.manage",
+      name: "Manage Transactions",
+      description: "Mengelola transaksi",
     },
 
     // ----------------------------------------------------------
@@ -119,6 +130,11 @@ async function main() {
       name: "Delete Product",
       description: "Menghapus produk",
     },
+    {
+      code: "product.manage",
+      name: "Manage Products",
+      description: "Mengelola produk",
+    },
 
     // ----------------------------------------------------------
     // TAILOR
@@ -142,6 +158,11 @@ async function main() {
       code: "tailor.delete",
       name: "Delete Tailor",
       description: "Menghapus penjahit",
+    },
+    {
+      code: "tailor.manage",
+      name: "Manage Tailors",
+      description: "Mengelola penjahit",
     },
 
     // ----------------------------------------------------------
@@ -167,6 +188,11 @@ async function main() {
       name: "Delete Employee",
       description: "Menghapus karyawan",
     },
+    {
+      code: "employee.manage",
+      name: "Manage Employees",
+      description: "Mengelola karyawan",
+    },
 
     // ----------------------------------------------------------
     // SCANNER
@@ -180,6 +206,11 @@ async function main() {
       code: "scanner.create",
       name: "Create Scanner Transaction",
       description: "Membuat transaksi melalui scanner",
+    },
+    {
+      code: "scanner.manage",
+      name: "Manage Scanner",
+      description: "Mengelola field scanner",
     },
 
     // ----------------------------------------------------------
@@ -205,6 +236,11 @@ async function main() {
       name: "Delete Workflow",
       description: "Menghapus workflow",
     },
+    {
+      code: "workflow.manage",
+      name: "Manage Workflows",
+      description: "Mengelola workflow",
+    },
 
     // ----------------------------------------------------------
     // BUSINESS RULE
@@ -229,6 +265,11 @@ async function main() {
       name: "Delete Business Rule",
       description: "Menghapus business rule",
     },
+    {
+      code: "rule.manage",
+      name: "Manage Business Rules",
+      description: "Mengelola business rules",
+    },
 
     // ----------------------------------------------------------
     // TAILOR RATE
@@ -252,6 +293,11 @@ async function main() {
       code: "tailor-rate.delete",
       name: "Delete Tailor Rate",
       description: "Menghapus tarif penjahit",
+    },
+    {
+      code: "tailor-rate.manage",
+      name: "Manage Tailor Rates",
+      description: "Mengelola tarif penjahit",
     },
 
     // ----------------------------------------------------------
@@ -282,6 +328,15 @@ async function main() {
       name: "Cancel Tailor Billing",
       description: "Membatalkan tagihan penjahit",
     },
+    {
+      code: "tailor-billing.manage",
+      name: "Manage Tailor Billing",
+      description: "Mengelola tagihan penjahit",
+    },
+
+    // ----------------------------------------------------------
+    // TRANSACTION OPERATOR
+    // ----------------------------------------------------------
     {
       code: "transaction.operator",
       name: "Operate Production Transactions",
@@ -322,6 +377,90 @@ async function main() {
   }
 
   console.log(`✓ ${permissions.length} permissions`);
+
+  // ============================================================
+  // TRANSACTION TYPES
+  // ============================================================
+
+  console.log("Seeding transaction types...");
+
+  const transactionTypes = [
+    {
+      code: "PENGIRIMAN_SIAP_JAHIT",
+      name: "Pengiriman Siap Jahit",
+      description:
+        "Pengiriman barang dari gudang ke penjahit untuk proses jahit.",
+      sequence: 1,
+      isActive: true,
+    },
+    {
+      code: "PENERIMAAN_DARI_PENJAHIT",
+      name: "Penerimaan dari penjahit",
+      description:
+        "Penerimaan barang hasil jahit dari penjahit.",
+      sequence: 2,
+      isActive: true,
+    },
+    {
+      code: "QUALITY_CONTROL",
+      name: "Quality Control",
+      description:
+        "Proses pemeriksaan kualitas barang hasil jahit.",
+      sequence: 3,
+      isActive: true,
+    },
+    {
+      code: "QC_RIJEK",
+      name: "Qc/Rijek",
+      description:
+        "Barang hasil QC yang dinyatakan rijek dan perlu rework.",
+      sequence: 4,
+      isActive: true,
+    },
+    {
+      code: "QC_ACC_DIKIRIM_KE_GUDANG",
+      name: "Qc/ Acc dikirim ke gudang",
+      description:
+        "Barang hasil QC yang disetujui dan dikirim ke gudang.",
+      sequence: 5,
+      isActive: true,
+    },
+    {
+      code: "PENGIRIMAN_RIJEK",
+      name: "Pengiriman Rijek",
+      description:
+        "Pengiriman barang rijek kembali ke penjahit untuk rework.",
+      sequence: 6,
+      isActive: true,
+    },
+    {
+      code: "PENERIMAAN_RIJEK",
+      name: "Penerimaan Rijek",
+      description:
+        "Penerimaan kembali barang rijek setelah proses rework.",
+      sequence: 7,
+      isActive: true,
+    },
+  ];
+
+  for (const transactionType of transactionTypes) {
+    await prisma.transactionType.upsert({
+      where: {
+        code: transactionType.code,
+      },
+      update: {
+        name: transactionType.name,
+        description: transactionType.description,
+        sequence: transactionType.sequence,
+        isActive: transactionType.isActive,
+      },
+      create: transactionType,
+    });
+  }
+
+  console.log(
+    `✓ ${transactionTypes.length} transaction types`,
+  );
 
   // ============================================================
   // ADMINISTRATOR ROLE

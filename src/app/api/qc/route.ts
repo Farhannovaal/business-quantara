@@ -5,23 +5,20 @@ import { requireAuth } from "@/lib/auth/require-auth";
 import { requirePermission } from "@/lib/auth/authorization";
 import {
   calculateQCMonitoring,
+  type QCMonitoringItem,
 } from "@/lib/qc/calculator";
 
-export async function GET(
-  request: NextRequest,
-) {
-  const { user, response } =
-    await requireAuth();
+export async function GET(request: NextRequest) {
+  const { user, response } = await requireAuth();
 
   if (response) {
     return response;
   }
 
-  const permission =
-    requirePermission(
-      user,
-      "qc.view",
-    );
+  const permission = requirePermission(
+    user,
+    "qc.view",
+  );
 
   if (permission.response) {
     return permission.response;
@@ -59,16 +56,24 @@ export async function GET(
                     },
                   },
                   {
-                    product: {
-                      name: {
-                        contains: search,
+                    items: {
+                      some: {
+                        product: {
+                          name: {
+                            contains: search,
+                          },
+                        },
                       },
                     },
                   },
                   {
-                    product: {
-                      code: {
-                        contains: search,
+                    items: {
+                      some: {
+                        product: {
+                          code: {
+                            contains: search,
+                          },
+                        },
                       },
                     },
                   },
@@ -93,68 +98,66 @@ export async function GET(
         },
       });
 
-    const results = [];
+    const results: QCMonitoringItem[] = [];
 
     for (const spk of spks) {
-      const item =
+      const items =
         await calculateQCMonitoring(
           spk.id,
         );
 
-      if (
-        status &&
-        item.status !== status
-      ) {
-        continue;
-      }
+      for (const item of items) {
+        /**
+         * Jangan tampilkan product yang
+         * belum menerima barang ke QC.
+         */
+        if (item.totalDiterima === 0) {
+          continue;
+        }
 
-      /*
-       * Jangan tampilkan SPK yang
-       * belum pernah menerima barang
-       * ke QC.
-       */
-      if (
-        item.totalDiterima === 0
-      ) {
-        continue;
-      }
+        /**
+         * Filter status dilakukan per product,
+         * bukan per SPK.
+         */
+        if (
+          status &&
+          item.status !== status
+        ) {
+          continue;
+        }
 
-      results.push(item);
+        results.push(item);
+      }
     }
 
     const summary = {
       totalDiterima: results.reduce(
         (total, item) =>
-          total +
-          item.totalDiterima,
+          total + item.totalDiterima,
         0,
       ),
 
       totalSudahQC: results.reduce(
         (total, item) =>
-          total +
-          item.totalSudahQC,
+          total + item.totalSudahQC,
         0,
       ),
 
       totalAcc: results.reduce(
         (total, item) =>
-          total +
-          item.totalAcc,
+          total + item.totalAcc,
         0,
       ),
 
       totalRijek: results.reduce(
         (total, item) =>
-          total +
-          item.totalRijek,
+          total + item.totalRijek,
         0,
       ),
 
       sisaQC: results.reduce(
         (total, item) =>
-          total +
-          item.sisaQC,
+          total + item.sisaQC,
         0,
       ),
 

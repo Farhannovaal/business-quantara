@@ -1,15 +1,11 @@
 import { requirePermission } from "@/lib/auth/authorization";
 import { requireAuth } from "@/lib/auth/require-auth";
-
 import { NextRequest, NextResponse } from "next/server";
-
 import { prisma } from "@/lib/prisma";
-
 import {
   createTransaction,
   TransactionEngineError,
 } from "@/lib/transaction/engine";
-
 import {
   canCreateTransactionType,
 } from "@/lib/transaction/permissions";
@@ -70,7 +66,9 @@ export async function GET(request: NextRequest) {
             success: false,
             error: "Invalid SPK ID.",
           },
-          { status: 400 },
+          {
+            status: 400,
+          },
         );
       }
 
@@ -78,9 +76,8 @@ export async function GET(request: NextRequest) {
     }
 
     if (transactionTypeIdParam) {
-      const transactionTypeId = Number(
-        transactionTypeIdParam,
-      );
+      const transactionTypeId =
+        Number(transactionTypeIdParam);
 
       if (
         !Number.isInteger(transactionTypeId) ||
@@ -92,7 +89,9 @@ export async function GET(request: NextRequest) {
             error:
               "Invalid transaction type ID.",
           },
-          { status: 400 },
+          {
+            status: 400,
+          },
         );
       }
 
@@ -178,9 +177,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: "Failed to load transactions.",
+        error:
+          "Failed to load transactions.",
       },
-      { status: 500 },
+      {
+        status: 500,
+      },
     );
   }
 }
@@ -196,6 +198,10 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     const spkId = Number(body?.spkId);
+
+    const productId = Number(
+      body?.productId,
+    );
 
     const transactionTypeId =
       Number(body?.transactionTypeId);
@@ -221,7 +227,24 @@ export async function POST(request: NextRequest) {
           success: false,
           error: "Invalid SPK ID.",
         },
-        { status: 400 },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    if (
+      !Number.isInteger(productId) ||
+      productId <= 0
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid product ID.",
+        },
+        {
+          status: 400,
+        },
       );
     }
 
@@ -235,7 +258,9 @@ export async function POST(request: NextRequest) {
           error:
             "Invalid transaction type ID.",
         },
-        { status: 400 },
+        {
+          status: 400,
+        },
       );
     }
 
@@ -248,7 +273,9 @@ export async function POST(request: NextRequest) {
           success: false,
           error: "Invalid employee ID.",
         },
-        { status: 400 },
+        {
+          status: 400,
+        },
       );
     }
 
@@ -262,7 +289,9 @@ export async function POST(request: NextRequest) {
           error:
             "Quantity must be a positive integer.",
         },
-        { status: 400 },
+        {
+          status: 400,
+        },
       );
     }
 
@@ -271,11 +300,8 @@ export async function POST(request: NextRequest) {
      * LOAD TRANSACTION TYPE
      * ============================================================
      *
-     * Kita mengambil code transaction type dari database.
-     *
-     * Client hanya mengirim transactionTypeId.
-     * Authorization role tidak boleh mempercayai
-     * transaction type code dari client.
+     * Code transaction type tetap diambil dari database.
+     * Client hanya mengirim ID.
      */
 
     const transactionType =
@@ -296,9 +322,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: "Transaction type not found.",
+          error:
+            "Transaction type not found.",
         },
-        { status: 404 },
+        {
+          status: 404,
+        },
       );
     }
 
@@ -309,7 +338,9 @@ export async function POST(request: NextRequest) {
           error:
             "Transaction type is inactive.",
         },
-        { status: 400 },
+        {
+          status: 400,
+        },
       );
     }
 
@@ -317,14 +348,6 @@ export async function POST(request: NextRequest) {
      * ============================================================
      * ROLE-BASED TRANSACTION AUTHORIZATION
      * ============================================================
-     *
-     * Business workflow menentukan apakah transaksi
-     * boleh dilakukan oleh SPK.
-     *
-     * Role permission menentukan apakah USER
-     * boleh melakukan jenis transaksi tersebut.
-     *
-     * Keduanya harus lolos.
      */
 
     const allowedByRole =
@@ -339,88 +362,67 @@ export async function POST(request: NextRequest) {
           success: false,
           error:
             "Anda tidak memiliki akses untuk melakukan jenis transaksi ini.",
+
           transactionType: {
             id: transactionType.id,
             code: transactionType.code,
             name: transactionType.name,
           },
         },
-        { status: 403 },
+        {
+          status: 403,
+        },
       );
     }
 
     /*
      * ============================================================
-     * PRODUCT DAN TAILOR DIAMBIL DARI SPK
+     * TRANSACTION ENGINE
      * ============================================================
      *
-     * Client tidak boleh menentukan product/tailor.
+     * Product sekarang dikirim secara eksplisit.
      *
-     * Ini menjaga agar transaction selalu mengikuti
-     * product dan tailor yang sudah ditentukan oleh SPK.
+     * Engine akan memastikan:
+     *
+     * - SPK valid
+     * - SPK aktif
+     * - product memang ada di SPK
+     * - tailor sesuai SPK
+     * - employee valid
+     * - transaction flow valid
+     * - quantity tidak melebihi maksimum
+     * - status product sesuai workflow
      */
 
     const result =
       await prisma.$transaction(
         async (tx) => {
-          const spk =
-            await tx.sPK.findUnique({
-              where: {
-                id: spkId,
-              },
-
-              select: {
-                productId: true,
-                tailorId: true,
-              },
-            });
-
-          if (!spk) {
-            throw new TransactionEngineError(
-              "SPK_NOT_FOUND",
-              "SPK not found.",
-              404,
-            );
-          }
-
-          /*
-           * ======================================================
-           * TRANSACTION ENGINE
-           * ======================================================
-           *
-           * Semua business rule transaction tetap diproses
-           * oleh Transaction Engine.
-           *
-           * Termasuk:
-           *
-           * - SPK aktif
-           * - transaction type valid
-           * - employee valid
-           * - product SPK
-           * - tailor SPK
-           * - transaction flow
-           * - quantity maksimum
-           * - status SPK
-           */
-
           const transaction =
             await createTransaction(tx, {
               spkId,
 
               transactionTypeId,
 
-              productId:
-                spk.productId,
+              productId,
 
+              /*
+               * Tailor tetap berasal dari SPK
+               * dan diverifikasi kembali oleh engine.
+               *
+               * Karena engine membutuhkan tailorId,
+               * ambil dari SPK.
+               */
               tailorId:
-                spk.tailorId,
+                await getSPKTailorId(
+                  tx,
+                  spkId,
+                ),
 
               employeeId,
 
               quantity,
 
-              createdById:
-                user.id,
+              createdById: user.id,
             });
 
           return transaction;
@@ -464,7 +466,9 @@ export async function POST(request: NextRequest) {
             result.employee,
         },
       },
-      { status: 201 },
+      {
+        status: 201,
+      },
     );
   } catch (error) {
     console.error(
@@ -513,7 +517,48 @@ export async function POST(request: NextRequest) {
         error:
           "Failed to create transaction.",
       },
-      { status: 500 },
+      {
+        status: 500,
+      },
     );
   }
+}
+
+/*
+ * ================================================================
+ * HELPER
+ * ================================================================
+ *
+ * Tailor adalah property milik SPK.
+ * Product bukan lagi property langsung SPK.
+ *
+ * Kita hanya mengambil tailorId di sini.
+ * Validasi product dilakukan oleh createTransaction().
+ */
+
+async function getSPKTailorId(
+  tx: Parameters<
+    Parameters<typeof prisma.$transaction>[0]
+  >[0],
+  spkId: number,
+): Promise<number> {
+  const spk = await tx.sPK.findUnique({
+    where: {
+      id: spkId,
+    },
+
+    select: {
+      tailorId: true,
+    },
+  });
+
+  if (!spk) {
+    throw new TransactionEngineError(
+      "SPK_NOT_FOUND",
+      "SPK not found.",
+      404,
+    );
+  }
+
+  return spk.tailorId;
 }

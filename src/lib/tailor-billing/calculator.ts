@@ -35,15 +35,20 @@ export type TailorBillingSummary = {
 
 export async function calculateTailorBilling(
   spkId: number,
-): Promise<TailorBillingSummary> {
+): Promise<TailorBillingSummary[]> {
   const spk = await prisma.sPK.findUnique({
     where: {
       id: spkId,
     },
 
     include: {
-      product: true,
       tailor: true,
+
+      items: {
+        include: {
+          product: true,
+        },
+      },
 
       transactions: {
         include: {
@@ -71,115 +76,172 @@ export async function calculateTailorBilling(
     throw new Error("SPK tidak ditemukan.");
   }
 
-  const status = calculateSPKStatus(
-    spk.transactions.map((transaction) => ({
-      quantity: transaction.quantity,
-
-      transactionType: {
-        code: transaction.transactionType.code,
-      },
-    })),
-  );
-
-  // ============================================================
-  // TOTAL SUDAH DITAGIHKAN
-  // ============================================================
-
-  const totalAlreadyBilled = spk.tailorBillItems.reduce(
-    (total, item) => {
-      return total + Number(item.quantity);
-    },
-    0,
-  );
-
-  // ============================================================
-  // JUMLAH YANG MASIH BOLEH DITAGIHKAN
-  // ============================================================
-
-  const billableQuantity = Math.max(
-    status.totalQcAcc - totalAlreadyBilled,
-    0,
-  );
-
-  // ============================================================
-  // CARI TARIF YANG BERLAKU
-  // ============================================================
-
   const now = new Date();
 
-  const tailorRate = await prisma.tailorRate.findFirst({
-    where: {
-      tailorId: spk.tailorId,
-      productId: spk.productId,
-      isActive: true,
+  const results: TailorBillingSummary[] = [];
 
-      effectiveFrom: {
-        lte: now,
-      },
+  for (const spkItem of spk.items) {
+    /**
+     * Hanya gunakan transaksi milik product ini.
+     */
+    const productTransactions =
+      spk.transactions.filter(
+        (transaction) =>
+          transaction.productId ===
+          spkItem.productId,
+      );
 
-      OR: [
-        {
-          effectiveTo: null,
-        },
+    const status = calculateSPKStatus(
+      productTransactions.map(
+        (transaction) => ({
+          quantity: transaction.quantity,
 
-        {
-          effectiveTo: {
-            gte: now,
+          transactionType: {
+            code:
+              transaction.transactionType.code,
           },
-        },
-      ],
-    },
-
-    orderBy: {
-      effectiveFrom: "desc",
-    },
-  });
-
-  if (!tailorRate && billableQuantity > 0) {
-    throw new Error(
-      `Tarif penjahit belum tersedia untuk ${spk.tailor.name} - ${spk.product.name}.`,
+        }),
+      ),
     );
+
+    /**
+     * ============================================================
+     * TOTAL SUDAH DITAGIHKAN
+     * ============================================================
+     *
+     * Hanya bill item untuk product ini
+     * yang dihitung.
+     */
+    const totalAlreadyBilled =
+      spk.tailorBillItems.reduce(
+        (total, item) => {
+          if (
+            item.productId !==
+            spkItem.productId
+          ) {
+            return total;
+          }
+
+          return (
+            total + Number(item.quantity)
+          );
+        },
+        0,
+      );
+
+    /**
+     * ============================================================
+     * JUMLAH YANG MASIH BOLEH DITAGIHKAN
+     * ============================================================
+     *
+     * Yang dibayar adalah QC ACC.
+     */
+    const billableQuantity = Math.max(
+      status.totalQcAcc -
+        totalAlreadyBilled,
+      0,
+    );
+
+    /**
+     * ============================================================
+     * CARI TARIF YANG BERLAKU
+     * ============================================================
+     *
+     * Tarif berdasarkan:
+     * Tailor × Product
+     */
+    const tailorRate =
+      await prisma.tailorRate.findFirst({
+        where: {
+          tailorId: spk.tailorId,
+          productId: spkItem.productId,
+          isActive: true,
+
+          effectiveFrom: {
+            lte: now,
+          },
+
+          OR: [
+            {
+              effectiveTo: null,
+            },
+            {
+              effectiveTo: {
+                gte: now,
+              },
+            },
+          ],
+        },
+
+        orderBy: {
+          effectiveFrom: "desc",
+        },
+      });
+
+    if (
+      !tailorRate &&
+      billableQuantity > 0
+    ) {
+      throw new Error(
+        `Tarif penjahit belum tersedia untuk ${spk.tailor.name} - ${spkItem.product.name}.`,
+      );
+    }
+
+    const rate = tailorRate
+      ? Number(tailorRate.rate)
+      : 0;
+
+    const billableAmount =
+      billableQuantity * rate;
+
+    results.push({
+      spkId: spk.id,
+      spkNumber: spk.spkNumber,
+
+      tailorId: spk.tailorId,
+      tailorName: spk.tailor.name,
+
+      productId: spkItem.productId,
+      productCode: spkItem.product.code,
+      productName: spkItem.product.name,
+
+      totalPengiriman:
+        status.totalPengiriman,
+
+      totalPenerimaan:
+        status.totalPenerimaan,
+
+      totalQcRijek:
+        status.totalQcRijek,
+
+      totalQcAcc:
+        status.totalQcAcc,
+
+      totalPengirimanRijek:
+        status.totalPengirimanRijek,
+
+      totalPenerimaanRijek:
+        status.totalPenerimaanRijek,
+
+      sisaJahit:
+        status.sisaJahit,
+
+      barangDiQc:
+        status.barangDiQc,
+
+      jumlahRijek:
+        status.jumlahRijek,
+
+      jumlahBarang:
+        status.jumlahBarang,
+
+      totalAlreadyBilled,
+      billableQuantity,
+
+      rate,
+      billableAmount,
+    });
   }
 
-  const rate = tailorRate
-    ? Number(tailorRate.rate)
-    : 0;
-
-  const billableAmount =
-    billableQuantity * rate;
-
-  return {
-    spkId: spk.id,
-    spkNumber: spk.spkNumber,
-
-    tailorId: spk.tailorId,
-    tailorName: spk.tailor.name,
-
-    productId: spk.productId,
-    productCode: spk.product.code,
-    productName: spk.product.name,
-
-    totalPengiriman: status.totalPengiriman,
-    totalPenerimaan: status.totalPenerimaan,
-
-    totalQcRijek: status.totalQcRijek,
-    totalQcAcc: status.totalQcAcc,
-
-    totalPengirimanRijek:
-      status.totalPengirimanRijek,
-
-    totalPenerimaanRijek:
-      status.totalPenerimaanRijek,
-
-    sisaJahit: status.sisaJahit,
-    barangDiQc: status.barangDiQc,
-    jumlahRijek: status.jumlahRijek,
-    jumlahBarang: status.jumlahBarang,
-
-    totalAlreadyBilled,
-    billableQuantity,
-
-    rate,
-    billableAmount,
-  };
+  return results;
 }

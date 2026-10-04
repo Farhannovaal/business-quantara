@@ -1,7 +1,5 @@
 import { requirePermission } from "@/lib/auth/authorization";
-
 import { requireAuth } from "@/lib/auth/require-auth";
-
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
@@ -11,15 +9,12 @@ export async function GET(request: NextRequest) {
   if (response) {
     return response;
   }
-  const permission = requirePermission(
-    user,
-    "spk.view"
-  );
+
+  const permission = requirePermission(user, "spk.view");
 
   if (permission.response) {
     return permission.response;
   }
-
 
   try {
     const { searchParams } = new URL(request.url);
@@ -41,16 +36,24 @@ export async function GET(request: NextRequest) {
                   },
                 },
                 {
-                  product: {
-                    name: {
-                      contains: search,
+                  items: {
+                    some: {
+                      product: {
+                        name: {
+                          contains: search,
+                        },
+                      },
                     },
                   },
                 },
                 {
-                  product: {
-                    code: {
-                      contains: search,
+                  items: {
+                    some: {
+                      product: {
+                        code: {
+                          contains: search,
+                        },
+                      },
                     },
                   },
                 },
@@ -76,11 +79,18 @@ export async function GET(request: NextRequest) {
       },
 
       include: {
-        product: {
-          select: {
-            id: true,
-            code: true,
-            name: true,
+        items: {
+          include: {
+            product: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+              },
+            },
+          },
+          orderBy: {
+            id: "asc",
           },
         },
 
@@ -117,43 +127,40 @@ export async function GET(request: NextRequest) {
       },
       {
         status: 500,
-      }
+      },
     );
   }
 }
 
-export async function POST(
-  request: NextRequest
-) {
+export async function POST(request: NextRequest) {
   const { user, response } = await requireAuth();
 
   if (response) {
     return response;
   }
-  const permission = requirePermission(
-    user,
-    "spk.create"
-  );
+
+  const permission = requirePermission(user, "spk.create");
 
   if (permission.response) {
     return permission.response;
   }
 
-
   try {
     const body = await request.json();
 
     const spkNumber = String(
-      body.spkNumber ?? ""
+      body.spkNumber ?? "",
     ).trim();
 
-    const productId = Number(
-      body.productId
-    );
+    const tailorId = Number(body.tailorId);
 
-    const tailorId = Number(
-      body.tailorId
-    );
+    const rawItems = Array.isArray(body.items)
+      ? body.items
+      : [];
+
+    // =========================================================
+    // BASIC VALIDATION
+    // =========================================================
 
     if (!spkNumber) {
       return NextResponse.json(
@@ -163,22 +170,7 @@ export async function POST(
         },
         {
           status: 400,
-        }
-      );
-    }
-
-    if (
-      !Number.isInteger(productId) ||
-      productId <= 0
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Valid product is required.",
         },
-        {
-          status: 400,
-        }
       );
     }
 
@@ -193,9 +185,106 @@ export async function POST(
         },
         {
           status: 400,
-        }
+        },
       );
     }
+
+    if (rawItems.length === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "At least one product is required.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    // =========================================================
+    // NORMALIZE ITEMS
+    // =========================================================
+
+    const items = rawItems.map(
+      (item: {
+        productId?: unknown;
+        quantity?: unknown;
+      }) => ({
+        productId: Number(item.productId),
+        quantity: Number(item.quantity),
+      }),
+    );
+
+    // =========================================================
+    // VALIDATE ITEM VALUES
+    // =========================================================
+
+    for (const item of items) {
+      if (
+        !Number.isInteger(item.productId) ||
+        item.productId <= 0
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Every item must have a valid product.",
+          },
+          {
+            status: 400,
+          },
+        );
+      }
+
+      if (
+        !Number.isInteger(item.quantity) ||
+        item.quantity <= 0
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Every product quantity must be a positive integer.",
+          },
+          {
+            status: 400,
+          },
+        );
+      }
+    }
+
+    // =========================================================
+    // CHECK DUPLICATE PRODUCT
+    // =========================================================
+
+    const productIds: number[] = items.map(
+      (item: {
+        productId: number;
+        quantity: number;
+      }) => item.productId,
+    );
+
+    const uniqueProductIds =
+      new Set(productIds);
+
+    if (
+      uniqueProductIds.size !==
+      productIds.length
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "A product can only appear once in an SPK.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    // =========================================================
+    // CHECK SPK NUMBER
+    // =========================================================
 
     const existing =
       await prisma.sPK.findUnique({
@@ -212,15 +301,21 @@ export async function POST(
         },
         {
           status: 409,
-        }
+        },
       );
     }
 
-    const [product, tailor] =
+    // =========================================================
+    // LOAD PRODUCTS + TAILOR
+    // =========================================================
+
+    const [products, tailor] =
       await Promise.all([
-        prisma.product.findUnique({
+        prisma.product.findMany({
           where: {
-            id: productId,
+            id: {
+              in: productIds,
+            },
           },
         }),
 
@@ -231,29 +326,9 @@ export async function POST(
         }),
       ]);
 
-    if (!product) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Product not found.",
-        },
-        {
-          status: 404,
-        }
-      );
-    }
-
-    if (!product.isActive) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Selected product is inactive.",
-        },
-        {
-          status: 400,
-        }
-      );
-    }
+    // =========================================================
+    // VALIDATE TAILOR
+    // =========================================================
 
     if (!tailor) {
       return NextResponse.json(
@@ -263,7 +338,7 @@ export async function POST(
         },
         {
           status: 404,
-        }
+        },
       );
     }
 
@@ -275,24 +350,99 @@ export async function POST(
         },
         {
           status: 400,
-        }
+        },
       );
     }
+
+    // =========================================================
+    // VALIDATE PRODUCTS
+    // =========================================================
+
+    if (products.length !== productIds.length) {
+      const foundProductIds = new Set(
+        products.map(
+          (product) => product.id,
+        ),
+      );
+
+      const missingProductIds =
+          productIds.filter(
+            (id: number) =>
+              !foundProductIds.has(id),
+          );
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Product not found: ${missingProductIds.join(", ")}`,
+        },
+        {
+          status: 404,
+        },
+      );
+    }
+
+    const inactiveProducts =
+      products.filter(
+        (product) => !product.isActive,
+      );
+
+    if (inactiveProducts.length > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Selected product is inactive: ${inactiveProducts
+            .map(
+              (product) =>
+                product.name,
+            )
+            .join(", ")}`,
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    // =========================================================
+    // CREATE SPK + SPK ITEMS
+    // =========================================================
 
     const spk = await prisma.sPK.create({
       data: {
         spkNumber,
-        productId,
         tailorId,
         status: "ACTIVE",
+
+        items: {
+          create: items.map(
+            (item: {
+              productId: number;
+              quantity: number;
+            }) => ({
+              productId:
+                item.productId,
+              quantity:
+                item.quantity,
+            }),
+          ),
+        },
       },
 
       include: {
-        product: {
-          select: {
-            id: true,
-            code: true,
-            name: true,
+        items: {
+          include: {
+            product: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+              },
+            },
+          },
+
+          orderBy: {
+            id: "asc",
           },
         },
 
@@ -312,10 +462,13 @@ export async function POST(
       },
       {
         status: 201,
-      }
+      },
     );
   } catch (error) {
-    console.error("POST SPK error:", error);
+    console.error(
+      "POST SPK error:",
+      error,
+    );
 
     return NextResponse.json(
       {
@@ -324,7 +477,7 @@ export async function POST(
       },
       {
         status: 500,
-      }
+      },
     );
   }
 }

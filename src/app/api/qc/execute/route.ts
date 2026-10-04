@@ -11,16 +11,13 @@ import {
 import { prisma } from "@/lib/prisma";
 
 import {
-  calculateSPKStatus,
-} from "@/lib/spk-status";
-
-import {
   createTransaction,
   TransactionEngineError,
 } from "@/lib/transaction/engine";
 
 type ExecuteQCBody = {
   spkId?: number;
+  productId?: number;
   employeeId?: number;
   accQuantity?: number;
   rejectQuantity?: number;
@@ -32,8 +29,7 @@ export async function POST(request: Request) {
   // AUTHENTICATION
   // ==================================================
 
-  const { user, response } =
-    await requireAuth();
+  const { user, response } = await requireAuth();
 
   if (response) {
     return response;
@@ -43,11 +39,10 @@ export async function POST(request: Request) {
   // PERMISSION
   // ==================================================
 
-  const permission =
-    requirePermission(
-      user,
-      "qc.manage",
-    );
+  const permission = requirePermission(
+    user,
+    "qc.manage",
+  );
 
   if (permission.response) {
     return permission.response;
@@ -58,16 +53,13 @@ export async function POST(request: Request) {
     // READ REQUEST BODY
     // ==================================================
 
-    const body =
-      (await request.json()) as ExecuteQCBody;
+    const body = (await request.json()) as ExecuteQCBody;
 
-    const spkId = Number(
-      body.spkId,
-    );
+    const spkId = Number(body.spkId);
 
-    const employeeId = Number(
-      body.employeeId,
-    );
+    const productId = Number(body.productId);
+
+    const employeeId = Number(body.employeeId);
 
     const accQuantity = Number(
       body.accQuantity ?? 0,
@@ -102,6 +94,21 @@ export async function POST(request: Request) {
     }
 
     if (
+      !Number.isInteger(productId) ||
+      productId <= 0
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Product tidak valid.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    if (
       !Number.isInteger(employeeId) ||
       employeeId <= 0
     ) {
@@ -123,8 +130,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          error:
-            "Jumlah ACC tidak valid.",
+          error: "Jumlah ACC tidak valid.",
         },
         {
           status: 400,
@@ -139,8 +145,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          error:
-            "Jumlah Rijek tidak valid.",
+          error: "Jumlah Rijek tidak valid.",
         },
         {
           status: 400,
@@ -153,8 +158,7 @@ export async function POST(request: Request) {
     // ==================================================
 
     const totalQuantity =
-      accQuantity +
-      rejectQuantity;
+      accQuantity + rejectQuantity;
 
     if (totalQuantity <= 0) {
       return NextResponse.json(
@@ -173,23 +177,25 @@ export async function POST(request: Request) {
     // LOAD SPK
     // ==================================================
 
-    const spk =
-      await prisma.sPK.findUnique({
-        where: {
-          id: spkId,
+    const spk = await prisma.sPK.findUnique({
+      where: {
+        id: spkId,
+      },
+      include: {
+        items: {
+          include: {
+            product: true,
+          },
         },
-        include: {
-          product: true,
-          tailor: true,
-        },
-      });
+        tailor: true,
+      },
+    });
 
     if (!spk) {
       return NextResponse.json(
         {
           success: false,
-          error:
-            "SPK tidak ditemukan.",
+          error: "SPK tidak ditemukan.",
         },
         {
           status: 404,
@@ -201,8 +207,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          error:
-            "SPK tidak aktif.",
+          error: "SPK tidak aktif.",
         },
         {
           status: 400,
@@ -211,13 +216,41 @@ export async function POST(request: Request) {
     }
 
     // ==================================================
-    // GET CURRENT SPK STATUS
+    // FIND PRODUCT IN SPK
     // ==================================================
+
+    const spkItem = spk.items.find(
+      (item) =>
+        item.productId === productId,
+    );
+
+    if (!spkItem) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Product tidak terdaftar pada SPK ini.",
+        },
+        {
+          status: 400,
+        },
+      );
+    }
+
+    // ==================================================
+    // GET CURRENT PRODUCT TRANSACTIONS
+    // ==================================================
+    //
+    // IMPORTANT:
+    // QC status sekarang dihitung PER PRODUCT.
+    // Karena satu SPK dapat memiliki banyak product.
+    //
 
     const spkTransactions =
       await prisma.transaction.findMany({
         where: {
           spkId,
+          productId,
         },
         select: {
           quantity: true,
@@ -229,16 +262,50 @@ export async function POST(request: Request) {
         },
       });
 
-    const status =
-      calculateSPKStatus(
-        spkTransactions,
-      );
+    // ==================================================
+    // CALCULATE PRODUCT QC AVAILABILITY
+    // ==================================================
+
+    let totalPenerimaan = 0;
+    let totalQcRijek = 0;
+    let totalQcAcc = 0;
+
+    for (const transaction of spkTransactions) {
+      switch (
+        transaction.transactionType.code
+      ) {
+        case "PENERIMAAN_DARI_PENJAHIT":
+          totalPenerimaan += Number(
+            transaction.quantity,
+          );
+          break;
+
+        case "QC_RIJEK":
+          totalQcRijek += Number(
+            transaction.quantity,
+          );
+          break;
+
+        case "QC_ACC_DIKIRIM_KE_GUDANG":
+          totalQcAcc += Number(
+            transaction.quantity,
+          );
+          break;
+      }
+    }
+
+    const barangDiQc = Math.max(
+      totalPenerimaan -
+        totalQcRijek -
+        totalQcAcc,
+      0,
+    );
 
     // ==================================================
     // VALIDATE AVAILABLE QC QUANTITY
     // ==================================================
 
-    if (status.barangDiQc <= 0) {
+    if (barangDiQc <= 0) {
       return NextResponse.json(
         {
           success: false,
@@ -252,19 +319,14 @@ export async function POST(request: Request) {
       );
     }
 
-    if (
-      totalQuantity >
-      status.barangDiQc
-    ) {
+    if (totalQuantity > barangDiQc) {
       return NextResponse.json(
         {
           success: false,
           error:
             "Total ACC + Rijek melebihi jumlah barang yang tersedia untuk QC.",
-          maxQuantity:
-            status.barangDiQc,
-          requestedQuantity:
-            totalQuantity,
+          maxQuantity: barangDiQc,
+          requestedQuantity: totalQuantity,
         },
         {
           status: 400,
@@ -357,8 +419,7 @@ export async function POST(request: Request) {
                   transactionTypeId:
                     accTransactionType.id,
 
-                  productId:
-                    spk.productId,
+                  productId,
 
                   tailorId:
                     spk.tailorId,
@@ -392,8 +453,7 @@ export async function POST(request: Request) {
                   transactionTypeId:
                     rejectTransactionType.id,
 
-                  productId:
-                    spk.productId,
+                  productId,
 
                   tailorId:
                     spk.tailorId,
@@ -420,20 +480,17 @@ export async function POST(request: Request) {
           if (notes) {
             await tx.activityLog.create({
               data: {
-                userId:
-                  user.id,
+                userId: user.id,
 
-                action:
-                  "QC_EXECUTE",
+                action: "QC_EXECUTE",
 
-                entityType:
-                  "SPK",
+                entityType: "SPK",
 
-                entityId:
-                  String(spkId),
+                entityId: String(spkId),
 
                 description:
                   `QC executed for ${spk.spkNumber}. ` +
+                  `Product: ${spkItem.product.name}. ` +
                   `ACC: ${accQuantity}, ` +
                   `Rijek: ${rejectQuantity}. ` +
                   `Notes: ${notes}`,
@@ -463,14 +520,16 @@ export async function POST(request: Request) {
             spk.spkNumber,
 
           product: {
-            id:
-              spk.product.id,
+            id: spkItem.product.id,
 
             code:
-              spk.product.code,
+              spkItem.product.code,
 
             name:
-              spk.product.name,
+              spkItem.product.name,
+
+            spkQuantity:
+              spkItem.quantity,
           },
 
           tailor: {

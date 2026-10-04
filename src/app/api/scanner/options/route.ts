@@ -26,12 +26,12 @@ export async function GET() {
   try {
     /*
      * Ambil semua SPK aktif beserta:
-     * - Product
+     * - Items + Product
      * - Tailor
      * - Transaction sebelumnya
      *
-     * Business state SPK akan dihitung
-     * menggunakan calculateSPKStatus().
+     * Business state dihitung per product,
+     * karena satu SPK dapat memiliki banyak product.
      */
     const spks = await prisma.sPK.findMany({
       where: {
@@ -43,13 +43,19 @@ export async function GET() {
       },
 
       include: {
-        product: true,
+        items: {
+          include: {
+            product: true,
+          },
+        },
 
         tailor: true,
 
         transactions: {
           select: {
             quantity: true,
+
+            productId: true,
 
             transactionType: {
               select: {
@@ -106,78 +112,113 @@ export async function GET() {
      * Bentuk data SPK untuk kebutuhan Scanner.
      *
      * IMPORTANT:
-     * UI tidak menghitung business rule.
+     * Satu SPK dapat memiliki beberapa product.
      *
-     * Server yang menentukan:
-     * - summary
-     * - next transaction type
+     * Karena business state berbeda untuk setiap product,
+     * maka scanner option dibuat per:
+     *
+     * SPK + Product
      */
-    const spkOptions = spks.map((spk) => {
-      const summary =
-        calculateSPKStatus(
-          spk.transactions,
-        );
+    const spkOptions = spks.flatMap((spk) => {
+      return spk.items.map((item) => {
+        /*
+         * Hanya gunakan transaksi untuk product
+         * yang sedang diproses.
+         */
+        const productTransactions =
+          spk.transactions.filter(
+            (transaction) =>
+              transaction.productId ===
+              item.productId,
+          );
 
-      const nextTransactionTypes =
-        transactionTypes.filter(
-          (transactionType) =>
-            summary.nextTransactionTypes.includes(
-              transactionType.code,
-            ),
-        );
+        /*
+         * Hitung business state untuk product ini.
+         */
+        const summary =
+          calculateSPKStatus(
+            productTransactions,
+          );
 
-      return {
-        id: spk.id,
+        /*
+         * Filter transaction type berdasarkan
+         * business state product.
+         */
+        const nextTransactionTypes =
+          transactionTypes.filter(
+            (transactionType) =>
+              summary.nextTransactionTypes.includes(
+                transactionType.code,
+              ),
+          );
 
-        spkNumber: spk.spkNumber,
+        return {
+          /*
+           * SPK identity
+           */
+          id: spk.id,
+          spkId: spk.id,
+          spkNumber: spk.spkNumber,
+          status: spk.status,
 
-        status: spk.status,
+          /*
+           * Product identity
+           */
+          productId: item.productId,
 
-        product: {
-          id: spk.product.id,
-          code: spk.product.code,
-          name: spk.product.name,
-        },
+          product: {
+            id: item.product.id,
+            code: item.product.code,
+            name: item.product.name,
+            quantity: item.quantity,
+          },
 
-        tailor: {
-          id: spk.tailor.id,
-          name: spk.tailor.name,
-        },
+          /*
+           * Tailor
+           */
+          tailor: {
+            id: spk.tailor.id,
+            name: spk.tailor.name,
+          },
 
-        summary: {
-          totalPengiriman:
-            summary.totalPengiriman,
+          /*
+           * Product-specific business state
+           */
+          summary: {
+            totalPengiriman:
+              summary.totalPengiriman,
 
-          totalPenerimaan:
-            summary.totalPenerimaan,
+            totalPenerimaan:
+              summary.totalPenerimaan,
 
-          totalQcRijek:
-            summary.totalQcRijek,
+            totalQcRijek:
+              summary.totalQcRijek,
 
-          totalQcAcc:
-            summary.totalQcAcc,
+            totalQcAcc:
+              summary.totalQcAcc,
 
-          totalPengirimanRijek:
-            summary.totalPengirimanRijek,
+            totalPengirimanRijek:
+              summary.totalPengirimanRijek,
 
-          totalPenerimaanRijek:
-            summary.totalPenerimaanRijek,
+            totalPenerimaanRijek:
+              summary.totalPenerimaanRijek,
 
-          sisaJahit:
-            summary.sisaJahit,
+            sisaJahit:
+              summary.sisaJahit,
 
-          barangDiQc:
-            summary.barangDiQc,
+            barangDiQc:
+              summary.barangDiQc,
 
-          jumlahRijek:
-            summary.jumlahRijek,
+            jumlahRijek:
+              summary.jumlahRijek,
 
-          jumlahBarang:
-            summary.jumlahBarang,
-        },
+            jumlahBarang:
+              summary.jumlahBarang,
+          },
 
-        nextTransactionTypes,
-      };
+          nextTransactionTypes,
+        };
+      });
     });
 
     return NextResponse.json({
@@ -203,7 +244,9 @@ export async function GET() {
         error:
           "Failed to load scanner options.",
       },
-      { status: 500 },
+      {
+        status: 500,
+      },
     );
   }
 }
