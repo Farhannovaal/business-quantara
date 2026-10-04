@@ -10,6 +10,8 @@ export type QCMonitoringItem = {
   spkId: number;
   spkNumber: string;
 
+  productId: number;
+
   product: {
     id: number;
     code: string;
@@ -109,8 +111,9 @@ export async function calculateQCMonitoring(
         transaction.productId === spkItem.productId,
     );
 
-    const summary = calculateSPKStatus(
+   const summary = calculateSPKStatus(
       productTransactions,
+      spkItem.quantity,
     );
 
     const totalDiterima =
@@ -188,6 +191,8 @@ export async function calculateQCMonitoring(
       spkId: spk.id,
 
       spkNumber: spk.spkNumber,
+
+      productId: spkItem.productId,
 
       product: spkItem.product,
 

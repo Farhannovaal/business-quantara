@@ -7,6 +7,8 @@ export type QCItem = {
   spkId: number;
   spkNumber: string;
 
+  productId: number;
+
   product: {
     id: number;
     code: string;

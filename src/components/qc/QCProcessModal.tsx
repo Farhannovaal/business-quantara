@@ -137,24 +137,21 @@ export default function QCProcessModal({
     try {
       setLoading(true);
 
-      const response = await fetch(
-        "/api/qc/execute",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          credentials: "include",
-          body: JSON.stringify({
-            spkId: item.spkId,
-            employeeId: Number(employeeId),
-            accQuantity: acc,
-            rejectQuantity: rijek,
-            notes,
-          }),
+      const response = await fetch("/api/qc/execute", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
-      );
+        credentials: "include",
+        body: JSON.stringify({
+          spkId: item.spkId,
+          productId: item.productId,
+          employeeId: Number(employeeId),
+          accQuantity: acc,
+          rejectQuantity: rijek,
+          notes,
+        }),
+      });
 
       const result =
         await response.json();
