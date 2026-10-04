@@ -103,6 +103,7 @@ type TailorBill = {
 
 type SelectedItem = {
   spkId: number;
+  productId: number;
   quantity: number;
 };
 
@@ -461,6 +462,7 @@ export default function TailorBillingPage() {
       ...current,
       {
         spkId: item.spkId,
+        productId: item.productId,
         quantity: item.billableQuantity,
       },
     ]);
@@ -501,6 +503,7 @@ export default function TailorBillingPage() {
           ...current,
           {
             spkId: item.spkId,
+            productId: item.productId,
             quantity,
           },
         ];

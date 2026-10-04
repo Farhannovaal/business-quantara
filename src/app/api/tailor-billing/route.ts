@@ -217,9 +217,11 @@ export async function POST(request: NextRequest) {
     const items = body.items.map(
       (item: {
         spkId: number | string;
+        productId: number | string;
         quantity: number | string;
       }) => ({
         spkId: Number(item.spkId),
+        productId: Number(item.productId),
         quantity: Number(item.quantity),
       }),
     );
