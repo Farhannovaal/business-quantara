@@ -103,16 +103,28 @@ type SPKSummary = {
   nextTransactionTypes: string[];
 };
 
+type SPKProductItem = {
+  id: number;
+  productId: number;
+  quantity: number;
+  product: Product;
+};
+
+type SPKProductSummary = {
+  productId: number;
+  product: Product;
+  quantity: number;
+  summary: SPKSummary;
+};
+
 type SPK = {
   id: number;
   spkNumber: string;
   status: string;
-
-  product: Product;
-
+  items: SPKProductItem[];
   tailor: Tailor;
-
   summary: SPKSummary;
+  productSummaries: SPKProductSummary[];
 };
 
 type ScannedDocument = {
@@ -186,31 +198,23 @@ function getTransactionLabel(
 }
 
 function getMaxQuantity(
-  spk: SPK,
+  productQuantity: number,
+  summary: SPKSummary,
   transactionTypeCode: string,
 ): number | null {
   switch (transactionTypeCode) {
     case "PENGIRIMAN_SIAP_JAHIT":
-      return null;
-
+      return Math.max(productQuantity - summary.totalPengiriman, 0);
     case "PENERIMAAN_DARI_PENJAHIT":
-      return spk.summary.sisaJahit;
-
+      return summary.sisaJahit;
     case "QUALITY_CONTROL":
     case "QC_RIJEK":
     case "QC_ACC_DIKIRIM_KE_GUDANG":
-      return spk.summary.barangDiQc;
-
+      return summary.barangDiQc;
     case "PENGIRIMAN_RIJEK":
-      return spk.summary.jumlahRijek;
-
+      return Math.max(summary.totalQcRijek - summary.totalPengirimanRijek, 0);
     case "PENERIMAAN_RIJEK":
-      return Math.max(
-        spk.summary.totalPengirimanRijek -
-          spk.summary.totalPenerimaanRijek,
-        0,
-      );
-
+      return Math.max(summary.totalPengirimanRijek - summary.totalPenerimaanRijek, 0);
     default:
       return null;
   }
@@ -359,6 +363,9 @@ export default function ScannerPage() {
 
   const [selectedSpk, setSelectedSpk] =
     useState<SPK | null>(null);
+
+  const [selectedProductId, setSelectedProductId] =
+    useState("");
 
   const [
     selectedTypeId,
@@ -550,32 +557,37 @@ export default function ScannerPage() {
    */
 
   const filteredSpks = useMemo(() => {
-    const keyword =
-      searchSpk
-        .trim()
-        .toLowerCase();
-
-    if (!keyword) {
-      return spks;
-    }
+    const keyword = searchSpk.trim().toLowerCase();
+    if (!keyword) return spks;
 
     return spks.filter((spk) => {
+      const matchesProduct = spk.items?.some(
+        (item) =>
+          item.product.name.toLowerCase().includes(keyword) ||
+          item.product.code.toLowerCase().includes(keyword),
+      );
+
       return (
-        spk.spkNumber
-          .toLowerCase()
-          .includes(keyword) ||
-        spk.product.name
-          .toLowerCase()
-          .includes(keyword) ||
-        spk.product.code
-          .toLowerCase()
-          .includes(keyword) ||
-        spk.tailor.name
-          .toLowerCase()
-          .includes(keyword)
+        spk.spkNumber.toLowerCase().includes(keyword) ||
+        matchesProduct ||
+        spk.tailor.name.toLowerCase().includes(keyword)
       );
     });
   }, [spks, searchSpk]);
+
+  const selectedProductSummary = useMemo(() => {
+    if (!selectedSpk || !selectedProductId) return null;
+    return selectedSpk.productSummaries?.find(
+      (item) => String(item.productId) === selectedProductId,
+    ) ?? null;
+  }, [selectedSpk, selectedProductId]);
+
+  const selectedProduct = useMemo(() => {
+    if (!selectedSpk || !selectedProductId) return null;
+    return selectedSpk.items.find(
+      (item) => String(item.productId) === selectedProductId,
+    )?.product ?? null;
+  }, [selectedSpk, selectedProductId]);
 
   /*
    * ============================================================
@@ -602,18 +614,12 @@ export default function ScannerPage() {
    */
 
   const availableTransactionTypes = useMemo(() => {
-    if (!selectedSpk?.summary?.nextTransactionTypes) {
-      return transactionTypes;
-    }
-
-    const allowed = new Set(
-      selectedSpk.summary.nextTransactionTypes,
-    );
-
-    return transactionTypes.filter((type) =>
-      allowed.has(type.code),
-    );
-  }, [selectedSpk, transactionTypes]);
+    if (!selectedProductSummary) return [];
+    const allowed = new Set(selectedProductSummary.summary.nextTransactionTypes);
+    return transactionTypes
+      .filter((type) => type.isActive && allowed.has(type.code))
+      .sort((a, b) => a.sequence - b.sequence);
+  }, [selectedProductSummary, transactionTypes]);
 
     /*
     * ============================================================
@@ -622,21 +628,13 @@ export default function ScannerPage() {
     */
 
   const maxQuantity = useMemo(() => {
-    if (
-      !selectedSpk ||
-      !selectedTransactionType
-    ) {
-      return null;
-    }
-
+    if (!selectedProductSummary || !selectedTransactionType) return null;
     return getMaxQuantity(
-      selectedSpk,
+      selectedProductSummary.quantity,
+      selectedProductSummary.summary,
       selectedTransactionType.code,
     );
-  }, [
-    selectedSpk,
-    selectedTransactionType,
-  ]);
+  }, [selectedProductSummary, selectedTransactionType]);
 
   /*
    * ============================================================
@@ -649,6 +647,7 @@ export default function ScannerPage() {
   ) {
     if (!id) {
       setSelectedSpk(null);
+      setSelectedProductId("");
       setSelectedTypeId("");
       setQuantity("");
       return;
@@ -688,6 +687,10 @@ export default function ScannerPage() {
       aiAutoFillRef.current = false;
 
       if (!preserveAiForm) {
+        setSelectedProductId("");
+      }
+
+      if (!preserveAiForm) {
         setSelectedTypeId("");
         setQuantity("");
       }
@@ -717,6 +720,7 @@ export default function ScannerPage() {
   function resetTransactionForm() {
     setSelectedSpkId("");
     setSelectedSpk(null);
+    setSelectedProductId("");
     setSelectedTypeId("");
     setSelectedEmployeeId("");
     setQuantity("");
@@ -952,6 +956,19 @@ export default function ScannerPage() {
           )
         : undefined;
 
+      const normalizedProductCode = normalizeMatchValue(ai.productCode);
+      const normalizedProductName = normalizeMatchValue(ai.productName);
+
+      const matchedProduct = matchedSpk
+        ? matchedSpk.items.find((item) => {
+            const codeMatch = normalizedProductCode &&
+              normalizeMatchValue(item.product.code) === normalizedProductCode;
+            const nameMatch = normalizedProductName &&
+              normalizeMatchValue(item.product.name) === normalizedProductName;
+            return Boolean(codeMatch || nameMatch);
+          })
+        : undefined;
+
       const normalizedType =
         normalizeMatchValue(ai.transactionType);
 
@@ -984,14 +1001,28 @@ export default function ScannerPage() {
         aiAutoFillRef.current = false;
         setSelectedSpkId("");
         setSelectedSpk(null);
+        setSelectedProductId("");
         setSelectedTypeId("");
       }
 
+      if (matchedProduct && matchedSpk) {
+        setSelectedProductId(String(matchedProduct.productId));
+      } else if (matchedSpk) {
+        setSelectedProductId("");
+      }
+
       if (matchedTransactionType && matchedSpk) {
-        const isAllowed =
-          matchedSpk.summary.nextTransactionTypes.includes(
+        const matchedProductSummary = matchedProduct
+          ? matchedSpk.productSummaries?.find(
+              (item) => item.productId === matchedProduct.productId,
+            )
+          : null;
+
+        const isAllowed = Boolean(
+          matchedProductSummary?.summary.nextTransactionTypes.includes(
             matchedTransactionType.code,
-          );
+          ),
+        );
 
         if (isAllowed) {
           setSelectedTypeId(
@@ -1026,12 +1057,15 @@ export default function ScannerPage() {
       }
 
       const spkMatched = Boolean(matchedSpk);
+      const productExpected = Boolean(ai.productCode || ai.productName);
+      const productMatched = Boolean(matchedProduct);
       const typeMatched = Boolean(matchedTransactionType);
       const employeeExpected = Boolean(ai.employeeName);
       const employeeMatched = Boolean(matchedEmployee);
 
       if (
         spkMatched &&
+        (!productExpected || productMatched) &&
         typeMatched &&
         (!employeeExpected || employeeMatched)
       ) {
@@ -1039,7 +1073,7 @@ export default function ScannerPage() {
         setAiMatchMessage(
           "Data Gemini berhasil dicocokkan dengan Master Data.",
         );
-      } else if (spkMatched || typeMatched || employeeMatched) {
+      } else if (spkMatched || productMatched || typeMatched || employeeMatched) {
         setAiMatchStatus("PARTIAL");
         setAiMatchMessage(
           "Sebagian data berhasil dicocokkan. Periksa field yang belum ditemukan sebelum melanjutkan.",
@@ -1142,6 +1176,11 @@ export default function ScannerPage() {
       return;
     }
 
+    if (!selectedProductId || !selectedProduct) {
+      setError("Pilih produk terlebih dahulu.");
+      return;
+    }
+
     if (!selectedTransactionType) {
       setError(
         "Pilih proses transaksi terlebih dahulu.",
@@ -1220,6 +1259,11 @@ export default function ScannerPage() {
       return;
     }
 
+    if (!selectedProductId || !selectedProduct) {
+      setError("Produk wajib dipilih.");
+      return;
+    }
+
     if (!selectedTransactionType) {
       setError(
         "Transaction type wajib dipilih.",
@@ -1293,7 +1337,7 @@ export default function ScannerPage() {
               selectedTransactionType.id,
 
             productId:
-              selectedSpk.product.id,
+              Number(selectedProductId),
 
             tailorId:
               selectedSpk.tailor.id,
@@ -2120,32 +2164,18 @@ export default function ScannerPage() {
                               Pilih SPK
                             </option>
 
-                            {filteredSpks.map(
-                              (spk) => (
-                                <option
-                                  key={
-                                    spk.id
-                                  }
-                                  value={
-                                    spk.id
-                                  }
-                                >
-                                  {
-                                    spk.spkNumber
-                                  }{" "}
-                                  —{" "}
-                                  {
-                                    spk.product
-                                      .name
-                                  }{" "}
-                                  —{" "}
-                                  {
-                                    spk.tailor
-                                      .name
-                                  }
-                                </option>
-                              ),
-                            )}
+                            {filteredSpks.map((spk) => (
+                              <option
+                                key={spk.id}
+                                value={spk.id}
+                              >
+                                {spk.spkNumber} —{" "}
+                                {spk.items
+                                  .map((item) => item.product.name)
+                                  .join(", ")}{" "}
+                                — {spk.tailor.name}
+                              </option>
+                            ))}
                           </select>
                         </div>
 
@@ -2174,6 +2204,32 @@ export default function ScannerPage() {
                         </div>
                       </div>
 
+                      {/* PRODUCT */}
+                      {selectedSpk && (
+                        <div>
+                          <label className="block text-xs font-bold uppercase tracking-[0.1em] text-slate-500">
+                            Product
+                          </label>
+                          <select
+                            value={selectedProductId}
+                            onChange={(event) => {
+                              setSelectedProductId(event.target.value);
+                              setSelectedTypeId("");
+                              setQuantity("");
+                              setError("");
+                            }}
+                            className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50"
+                          >
+                            <option value="">Pilih product</option>
+                            {selectedSpk.items.map((item) => (
+                              <option key={item.productId} value={item.productId}>
+                                {item.product.code} — {item.product.name} — Qty SPK: {item.quantity}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
                       {/* SPK INFO */}
                       {selectedSpk && (
                         <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 p-4">
@@ -2185,17 +2241,13 @@ export default function ScannerPage() {
 
                               <p className="mt-1 text-sm font-bold text-slate-800">
                                 {
-                                  selectedSpk
-                                    .product
-                                    .name
+                                  selectedProduct?.name ?? "Belum dipilih"
                                 }
                               </p>
 
                               <p className="mt-0.5 font-mono text-[11px] text-slate-500">
                                 {
-                                  selectedSpk
-                                    .product
-                                    .code
+                                  selectedProduct?.code ?? "-"
                                 }
                               </p>
                             </div>
@@ -2221,9 +2273,7 @@ export default function ScannerPage() {
 
                               <p className="mt-1 text-sm font-bold text-slate-800">
                                 {
-                                  selectedSpk
-                                    .summary
-                                    .jumlahBarang
+                                  selectedProductSummary?.summary.jumlahBarang ?? 0
                                 }
                               </p>
 
@@ -2260,7 +2310,7 @@ export default function ScannerPage() {
                             setError("");
                           }}
                           disabled={
-                            !selectedSpk
+                            !selectedSpk || !selectedProductId
                           }
                           className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
                         >
@@ -2490,7 +2540,7 @@ export default function ScannerPage() {
                         number: "03",
                         title: "Complete Data",
                         description:
-                          "Pilih SPK, proses, employee, dan quantity.",
+                          "Pilih SPK, product, proses, employee, dan quantity.",
                         icon: ClipboardList,
                       },
                       {
@@ -2608,6 +2658,15 @@ export default function ScannerPage() {
                       </div>
                     )}
 
+                    {selectedProduct && (
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-xs text-slate-500">Product</span>
+                        <span className="text-right text-xs font-bold text-slate-700">
+                          {selectedProduct.code} — {selectedProduct.name}
+                        </span>
+                      </div>
+                    )}
+
                     {selectedTransactionType && (
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-xs text-slate-500">
@@ -2692,6 +2751,7 @@ export default function ScannerPage() {
         {showPreview &&
           scannedDocument &&
           selectedSpk &&
+          selectedProduct &&
           selectedTransactionType && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
               <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl">
@@ -2771,7 +2831,7 @@ export default function ScannerPage() {
 
                     <PreviewRow
                       label="Product"
-                      value={`${selectedSpk.product.code} — ${selectedSpk.product.name}`}
+                      value={`${selectedProduct.code} — ${selectedProduct.name}`}
                     />
 
                     <PreviewRow

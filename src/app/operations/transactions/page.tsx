@@ -158,21 +158,12 @@ function getMaxQuantity(
       );
 
     case "PENERIMAAN_DARI_PENJAHIT":
-      return Math.max(
-        summary.totalPengiriman -
-          summary.totalPenerimaan,
-        0,
-      );
+      return summary.sisaJahit;
 
     case "QUALITY_CONTROL":
     case "QC_RIJEK":
     case "QC_ACC_DIKIRIM_KE_GUDANG":
-      return Math.max(
-        summary.totalPenerimaan -
-          summary.totalQcRijek -
-          summary.totalQcAcc,
-        0,
-      );
+      return summary.barangDiQc;
 
     case "PENGIRIMAN_RIJEK":
       return Math.max(
@@ -192,7 +183,6 @@ function getMaxQuantity(
       return 0;
   }
 }
-
 
 
 function formatDate(value: string) {
@@ -501,11 +491,12 @@ export default function TransactionsPage() {
       return null;
     }
 
-    return (
+    const result =
       selectedSpk.productSummaries?.find(
         (item) => String(item.productId) === selectedProductId,
-      ) ?? null
-    );
+      ) ?? null;
+
+    return result;
   }, [selectedSpk, selectedProductId]);
 
   const selectedProduct = useMemo(() => {
@@ -543,11 +534,14 @@ export default function TransactionsPage() {
       return null;
     }
 
-    return getMaxQuantity(
+    const result = getMaxQuantity(
       selectedProductSummary.quantity,
       selectedProductSummary.summary,
       selectedTransactionType.code,
     );
+
+
+    return result;
   }, [selectedProductSummary, selectedTransactionType]);
 
 
