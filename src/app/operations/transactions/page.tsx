@@ -475,67 +475,66 @@ export default function TransactionsPage() {
     }
 
     const items = selectedSpk.items
+      .map((product) => {
+        const rawQuantity = quantityByProduct[product.productId] ?? "";
+        const normalizedQuantity = rawQuantity.trim();
 
-      .map((product) => ({
+        if (normalizedQuantity === "") {
+          return null;
+        }
 
-        productId: product.productId,
-
-        quantity: Number(quantityByProduct[product.productId] ?? ""),
-
-      }))
-
+        return {
+          productId: product.productId,
+          quantity: Number(normalizedQuantity),
+        };
+      })
       .filter(
-
-        (item) =>
-
-          quantityByProduct[item.productId]?.trim() !== "" &&
-
-          Number.isFinite(item.quantity),
-
+        (item): item is { productId: number; quantity: number } =>
+          item !== null,
       );
 
     if (items.length === 0) {
-
-      setError("Masukkan jumlah untuk minimal satu produk.");
-
+      setError("Masukkan jumlah lebih dari 0 untuk minimal satu produk.");
       return;
-
     }
 
     for (const item of items) {
-
       if (!Number.isInteger(item.quantity) || item.quantity <= 0) {
-
         setError("Jumlah setiap produk harus berupa angka bulat lebih dari 0.");
-
         return;
-
       }
 
-      const summary = selectedSpk.productSummaries?.find((product) => product.productId === item.productId);
+      const summary = selectedSpk.productSummaries?.find(
+        (product) => product.productId === item.productId,
+      );
 
       if (!summary || !summary.summary.nextTransactionTypes.includes(selectedType.code)) {
+        const product = selectedSpk.items.find(
+          (entry) => entry.productId === item.productId,
+        );
 
-        const product = selectedSpk.items.find((entry) => entry.productId === item.productId);
-
-        setError(`Proses ${selectedType.name} belum tersedia untuk ${product?.product.name ?? "salah satu produk"}.`);
-
+        setError(
+          `Proses ${selectedType.name} belum tersedia untuk ${product?.product.name ?? "salah satu produk"}.`,
+        );
         return;
-
       }
 
-      const max = getMaxQuantity(summary.quantity, summary.summary, selectedType.code);
+      const max = getMaxQuantity(
+        summary.quantity,
+        summary.summary,
+        selectedType.code,
+      );
 
       if (item.quantity > max) {
+        const product = selectedSpk.items.find(
+          (entry) => entry.productId === item.productId,
+        );
 
-        const product = selectedSpk.items.find((entry) => entry.productId === item.productId);
-
-        setError(`Jumlah ${product?.product.name ?? "produk"} melebihi batas maksimum ${max}.`);
-
+        setError(
+          `Jumlah ${product?.product.name ?? "produk"} melebihi batas maksimum ${max}.`,
+        );
         return;
-
       }
-
     }
 
     try {
