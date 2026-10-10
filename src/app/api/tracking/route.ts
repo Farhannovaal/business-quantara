@@ -24,11 +24,22 @@ export async function GET(request: NextRequest) {
 
     const parsedSpkId = spkIdParam ? Number(spkIdParam) : null;
 
+    if (
+      spkIdParam &&
+      (!Number.isInteger(parsedSpkId) || parsedSpkId! <= 0)
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "ID SPK tidak valid.",
+        },
+        { status: 400 },
+      );
+    }
+
     const spks = await prisma.sPK.findMany({
       where: {
-        ...(parsedSpkId !== null && Number.isInteger(parsedSpkId)
-          ? { id: parsedSpkId }
-          : {}),
+        ...(parsedSpkId !== null ? { id: parsedSpkId } : {}),
         ...(search
           ? {
               OR: [
@@ -81,9 +92,14 @@ export async function GET(request: NextRequest) {
         },
         tailor: true,
         transactions: {
-          orderBy: {
-            createdAt: "asc",
-          },
+          orderBy: [
+            {
+              createdAt: "asc",
+            },
+            {
+              id: "asc",
+            },
+          ],
           include: {
             transactionType: true,
             employee: true,
@@ -99,11 +115,16 @@ export async function GET(request: NextRequest) {
     const data = spks.map((spk) => {
       const items = spk.items.map((spkItem) => {
         const productTransactions = spk.transactions.filter(
-          (transaction) => transaction.productId === spkItem.productId,
+          (transaction) =>
+            transaction.productId === spkItem.productId,
+        );
+
+        const activeProductTransactions = productTransactions.filter(
+          (transaction) => transaction.status === "ACTIVE",
         );
 
         const summary = calculateSPKStatus(
-          productTransactions.map((transaction) => ({
+          activeProductTransactions.map((transaction) => ({
             quantity: transaction.quantity,
             transactionType: {
               code: transaction.transactionType.code,
@@ -116,6 +137,9 @@ export async function GET(request: NextRequest) {
           id: transaction.id,
           transactionNumber: transaction.transactionNumber,
           quantity: transaction.quantity,
+          status: transaction.status,
+          cancelledAt: transaction.cancelledAt,
+          cancellationReason: transaction.cancellationReason,
           createdAt: transaction.createdAt,
           product: {
             id: transaction.product.id,
@@ -147,8 +171,12 @@ export async function GET(request: NextRequest) {
         };
       });
 
+      const activeTransactions = spk.transactions.filter(
+        (transaction) => transaction.status === "ACTIVE",
+      );
+
       const summary = calculateSPKStatus(
-        spk.transactions.map((transaction) => ({
+        activeTransactions.map((transaction) => ({
           quantity: transaction.quantity,
           transactionType: {
             code: transaction.transactionType.code,
@@ -160,6 +188,9 @@ export async function GET(request: NextRequest) {
         id: transaction.id,
         transactionNumber: transaction.transactionNumber,
         quantity: transaction.quantity,
+        status: transaction.status,
+        cancelledAt: transaction.cancelledAt,
+        cancellationReason: transaction.cancellationReason,
         createdAt: transaction.createdAt,
         product: {
           id: transaction.product.id,
@@ -203,9 +234,7 @@ export async function GET(request: NextRequest) {
         success: false,
         error: "Gagal mengambil data tracking.",
       },
-      {
-        status: 500,
-      },
+      { status: 500 },
     );
   }
 }

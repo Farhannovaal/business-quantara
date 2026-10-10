@@ -19,9 +19,7 @@ export async function GET() {
         success: false,
         error: "Unauthorized",
       },
-      {
-        status: 401,
-      },
+      { status: 401 },
     );
   }
 
@@ -31,64 +29,42 @@ export async function GET() {
         success: false,
         error: "Forbidden",
       },
-      {
-        status: 403,
-      },
+      { status: 403 },
     );
   }
 
   try {
     const now = new Date();
 
-    /*
-     * =========================================================
-     * LOAD SPK
-     * =========================================================
-     *
-     * Satu SPK sekarang bisa mempunyai banyak product:
-     *
-     * SPK
-     * ├── items[]
-     * │   └── product
-     * ├── transactions[]
-     * │   └── product
-     * └── tailorBillItems[]
-     *     └── productId
-     *
-     * Karena itu billing dihitung per:
-     *
-     * SPK + Product
-     */
     const spks = await prisma.sPK.findMany({
       where: {
         status: {
           not: "CANCELLED",
         },
       },
-
       include: {
         items: {
           include: {
             product: true,
           },
-
           orderBy: {
             id: "asc",
           },
         },
-
         tailor: true,
-
         transactions: {
           include: {
             transactionType: true,
           },
-
-          orderBy: {
-            createdAt: "asc",
-          },
+          orderBy: [
+            {
+              createdAt: "asc",
+            },
+            {
+              id: "asc",
+            },
+          ],
         },
-
         tailorBillItems: {
           where: {
             bill: {
@@ -99,27 +75,10 @@ export async function GET() {
           },
         },
       },
-
       orderBy: {
         createdAt: "desc",
       },
     });
-
-    /*
-     * =========================================================
-     * SUMMARY
-     * =========================================================
-     */
-
-    let readySpkCount = 0;
-    let missingRateSpkCount = 0;
-
-    let readyQuantity = 0;
-    let readyAmount = 0;
-
-    let missingRateQuantity = 0;
-
-    const tailorIds = new Set<number>();
 
     const readyItems: {
       spkId: number;
@@ -143,289 +102,146 @@ export async function GET() {
       billableQuantity: number;
     }[] = [];
 
-    /*
-     * =========================================================
-     * LOOP SPK
-     * =========================================================
-     */
+    const tailorIds = new Set<number>();
 
     for (const spk of spks) {
-      /*
-       * Proses setiap product di dalam SPK.
-       */
       for (const spkItem of spk.items) {
         const productId = spkItem.productId;
 
-        /*
-         * -----------------------------------------------------
-         * TRANSACTIONS UNTUK PRODUCT INI SAJA
-         * -----------------------------------------------------
-         */
-        const productTransactions =
-          spk.transactions.filter(
-            (transaction) =>
-              transaction.productId ===
-              productId,
-          );
-
-        /*
-         * -----------------------------------------------------
-         * HITUNG STATUS PRODUCT
-         * -----------------------------------------------------
-         */
-        const status = calculateSPKStatus(
-          productTransactions.map(
-            (transaction) => ({
-              quantity:
-                transaction.quantity,
-
-              transactionType: {
-                code:
-                  transaction
-                    .transactionType.code,
-              },
-            }),
-          ),
+        const productTransactions = spk.transactions.filter(
+          (transaction) =>
+            transaction.productId === productId &&
+            transaction.status === "ACTIVE",
         );
 
-        /*
-         * -----------------------------------------------------
-         * TOTAL SUDAH DIBAYAR UNTUK PRODUCT INI
-         * -----------------------------------------------------
-         *
-         * Penting:
-         * jangan menjumlahkan seluruh TailorBillItem
-         * dari SPK karena satu SPK bisa punya banyak product.
-         */
-        const totalAlreadyBilled =
-          spk.tailorBillItems
-            .filter(
-              (item) =>
-                item.productId ===
-                productId,
-            )
-            .reduce(
-              (total, item) =>
-                total +
-                Number(item.quantity),
-              0,
-            );
+        const status = calculateSPKStatus(
+          productTransactions.map((transaction) => ({
+            quantity: transaction.quantity,
+            transactionType: {
+              code: transaction.transactionType.code,
+            },
+          })),
+        );
 
-        /*
-         * -----------------------------------------------------
-         * BILLABLE QUANTITY
-         * -----------------------------------------------------
-         *
-         * Hanya QC ACC yang menjadi barang yang
-         * bisa dibayar ke penjahit.
-         */
-        const billableQuantity =
-          Math.max(
-            status.totalQcAcc -
-              totalAlreadyBilled,
+        const totalAlreadyBilled = spk.tailorBillItems
+          .filter((item) => item.productId === productId)
+          .reduce(
+            (total, item) => total + Number(item.quantity),
             0,
           );
+
+        const billableQuantity = Math.max(
+          status.totalQcAcc - totalAlreadyBilled,
+          0,
+        );
 
         if (billableQuantity <= 0) {
           continue;
         }
 
-        /*
-         * -----------------------------------------------------
-         * CARI TARIF PENJAHIT + PRODUCT
-         * -----------------------------------------------------
-         */
-        const tailorRate =
-          await prisma.tailorRate.findFirst({
-            where: {
-              tailorId:
-                spk.tailorId,
-
-              productId,
-
-              isActive: true,
-
-              effectiveFrom: {
-                lte: now,
+        const tailorRate = await prisma.tailorRate.findFirst({
+          where: {
+            tailorId: spk.tailorId,
+            productId,
+            isActive: true,
+            effectiveFrom: {
+              lte: now,
+            },
+            OR: [
+              {
+                effectiveTo: null,
               },
-
-              OR: [
-                {
-                  effectiveTo: null,
+              {
+                effectiveTo: {
+                  gte: now,
                 },
-                {
-                  effectiveTo: {
-                    gte: now,
-                  },
-                },
-              ],
-            },
+              },
+            ],
+          },
+          orderBy: {
+            effectiveFrom: "desc",
+          },
+        });
 
-            orderBy: {
-              effectiveFrom: "desc",
-            },
-          });
-
-        /*
-         * -----------------------------------------------------
-         * BELUM ADA TARIF
-         * -----------------------------------------------------
-         */
         if (!tailorRate) {
-          missingRateQuantity +=
-            billableQuantity;
-
           missingRateItems.push({
             spkId: spk.id,
-
-            spkNumber:
-              spk.spkNumber,
-
-            tailorId:
-              spk.tailorId,
-
-            tailorName:
-              spk.tailor.name,
-
+            spkNumber: spk.spkNumber,
+            tailorId: spk.tailorId,
+            tailorName: spk.tailor.name,
             productId,
-
-            productName:
-              spkItem.product.name,
-
+            productName: spkItem.product.name,
             billableQuantity,
           });
 
           continue;
         }
 
-        /*
-         * -----------------------------------------------------
-         * ADA TARIF
-         * -----------------------------------------------------
-         */
-        const rate = Number(
-          tailorRate.rate,
-        );
+        const rate = Number(tailorRate.rate);
+        const amount = billableQuantity * rate;
 
-        const amount =
-          billableQuantity * rate;
-
-        readyQuantity +=
-          billableQuantity;
-
-        readyAmount += amount;
-
-        tailorIds.add(
-          spk.tailorId,
-        );
+        tailorIds.add(spk.tailorId);
 
         readyItems.push({
           spkId: spk.id,
-
-          spkNumber:
-            spk.spkNumber,
-
-          tailorId:
-            spk.tailorId,
-
-          tailorName:
-            spk.tailor.name,
-
+          spkNumber: spk.spkNumber,
+          tailorId: spk.tailorId,
+          tailorName: spk.tailor.name,
           productId,
-
-          productName:
-            spkItem.product.name,
-
+          productName: spkItem.product.name,
           billableQuantity,
-
           rate,
-
           amount,
         });
       }
     }
 
-    /*
-     * =========================================================
-     * COUNT UNIQUE SPK
-     * =========================================================
-     *
-     * Satu SPK bisa punya banyak product.
-     *
-     * Jadi readySpkCount bukan jumlah readyItems.
-     */
-    const readySpkIds =
-      new Set<number>();
+    const readySpkIds = new Set(
+      readyItems.map((item) => item.spkId),
+    );
 
-    for (const item of readyItems) {
-      readySpkIds.add(
-        item.spkId,
-      );
-    }
+    const missingRateSpkIds = new Set(
+      missingRateItems.map((item) => item.spkId),
+    );
 
-    const missingRateSpkIds =
-      new Set<number>();
+    const readyQuantity = readyItems.reduce(
+      (total, item) => total + item.billableQuantity,
+      0,
+    );
 
-    for (
-      const item of missingRateItems
-    ) {
-      missingRateSpkIds.add(
-        item.spkId,
-      );
-    }
+    const readyAmount = readyItems.reduce(
+      (total, item) => total + item.amount,
+      0,
+    );
 
-    readySpkCount =
-      readySpkIds.size;
-
-    missingRateSpkCount =
-      missingRateSpkIds.size;
-
-    /*
-     * =========================================================
-     * RESPONSE
-     * =========================================================
-     */
+    const missingRateQuantity = missingRateItems.reduce(
+      (total, item) => total + item.billableQuantity,
+      0,
+    );
 
     return NextResponse.json({
       success: true,
-
       data: {
-        readySpkCount,
-
-        readyTailorCount:
-          tailorIds.size,
-
+        readySpkCount: readySpkIds.size,
+        readyTailorCount: tailorIds.size,
         readyQuantity,
-
         readyAmount,
-
-        missingRateSpkCount,
-
+        missingRateSpkCount: missingRateSpkIds.size,
         missingRateQuantity,
-
-        totalSpkChecked:
-          spks.length,
-
+        totalSpkChecked: spks.length,
         readyItems,
-
         missingRateItems,
       },
     });
   } catch (error) {
-    console.error(
-      "Get tailor billing summary error:",
-      error,
-    );
+    console.error("Get tailor billing summary error:", error);
 
     return NextResponse.json(
       {
         success: false,
-        error:
-          "Gagal mengambil summary billing penjahit.",
+        error: "Gagal mengambil summary billing penjahit.",
       },
-      {
-        status: 500,
-      },
+      { status: 500 },
     );
   }
 }

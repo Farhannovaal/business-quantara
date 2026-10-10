@@ -71,7 +71,7 @@ export async function getHistoricalProduction(range: DateRange) {
             product: { select: { id: true, code: true, name: true } },
           },
         },
-        transactions: {
+       transactions: {
           where: { createdAt: { lt: endExclusive } },
           orderBy: [{ createdAt: "asc" }, { id: "asc" }],
           select: {
@@ -80,8 +80,11 @@ export async function getHistoricalProduction(range: DateRange) {
             spkId: true,
             productId: true,
             quantity: true,
+            status: true,
             createdAt: true,
-            transactionType: { select: { code: true, name: true } },
+            transactionType: {
+              select: { code: true, name: true },
+            },
           },
         },
       },
@@ -95,19 +98,26 @@ export async function getHistoricalProduction(range: DateRange) {
         spkId: true,
         productId: true,
         quantity: true,
+        status: true,
         createdAt: true,
         spk: { select: { spkNumber: true } },
         product: { select: { code: true, name: true } },
         tailor: { select: { name: true } },
         employee: { select: { name: true } },
-        transactionType: { select: { code: true, name: true } },
+        transactionType: {
+          select: { code: true, name: true },
+        },
       },
     }),
   ]);
 
   const positionBySpk = spks.map((spk) => {
     const items = spk.items.map((item) => {
-      const itemTransactions = spk.transactions.filter((tx) => tx.productId === item.productId);
+      const itemTransactions = spk.transactions.filter(
+        (tx) =>
+          tx.productId === item.productId &&
+          tx.status === "ACTIVE",
+      );
       const status = calculateSPKStatus(
         itemTransactions.map((tx) => ({
           quantity: tx.quantity,

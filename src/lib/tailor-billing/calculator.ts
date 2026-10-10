@@ -87,8 +87,8 @@ export async function calculateTailorBilling(
     const productTransactions =
       spk.transactions.filter(
         (transaction) =>
-          transaction.productId ===
-          spkItem.productId,
+          transaction.productId === spkItem.productId &&
+          transaction.status === "ACTIVE",
       );
 
     const status = calculateSPKStatus(

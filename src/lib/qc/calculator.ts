@@ -107,9 +107,10 @@ export async function calculateQCMonitoring(
 
   return spk.items.map((spkItem) => {
     const productTransactions = spk.transactions.filter(
-      (transaction) =>
-        transaction.productId === spkItem.productId,
-    );
+        (transaction) =>
+          transaction.productId === spkItem.productId &&
+          transaction.status === "ACTIVE",
+      );
 
    const summary = calculateSPKStatus(
       productTransactions,
@@ -133,9 +134,6 @@ export async function calculateQCMonitoring(
     const totalSudahQC =
       totalAcc + totalRijek;
 
-    /**
-     * Barang yang masih menunggu keputusan QC.
-     */
     const sisaQC = Math.max(
       totalDiterima - totalSudahQC,
       0,
@@ -165,26 +163,16 @@ export async function calculateQCMonitoring(
       status = "WAITING";
     }
 
-    /**
-     * Cari transaksi QC terakhir
-     * untuk product ini.
-     */
-    const qcTransactions =
-      productTransactions.filter(
-        (transaction) =>
-          transaction.transactionType.code ===
-            "QUALITY_CONTROL" ||
-          transaction.transactionType.code ===
-            "QC_RIJEK" ||
-          transaction.transactionType.code ===
-            "QC_ACC_DIKIRIM_KE_GUDANG",
-      );
+      const qcTransactions = productTransactions.filter(
+      (transaction) =>
+        transaction.transactionType.code === "QUALITY_CONTROL" ||
+        transaction.transactionType.code === "QC_RIJEK" ||
+        transaction.transactionType.code === "QC_ACC_DIKIRIM_KE_GUDANG",
+    );
 
     const lastQCTransaction =
       qcTransactions.length > 0
-        ? qcTransactions[
-            qcTransactions.length - 1
-          ]
+        ? qcTransactions[qcTransactions.length - 1]
         : null;
 
     return {
