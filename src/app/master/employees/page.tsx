@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import PermissionGate from "@/components/auth/permission-gate";
+import MasterDataImportExport from "@/components/master-data/master-data-import-export";
 
 type Employee = {
   id: number;
@@ -319,6 +320,29 @@ export default function EmployeesPage() {
       {/* CONTENT */}
       <main className="p-6 lg:p-8">
         <div className="mx-auto max-w-7xl">
+
+           <section className="mb-6 min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+                                <div className="mb-3">
+                                  <h2 className="text-sm font-bold text-slate-800">
+                                    Import & Export Employees
+                                  </h2>
+                    
+                                  <p className="mt-1 text-xs leading-5 text-slate-500">
+                                    Download template Excel, import data employees, atau export
+                                    data yang tersedia.
+                                  </p>
+                                </div>
+                    
+                                <div className="min-w-0">
+                                  <MasterDataImportExport
+                                    resource="employees"
+                                    viewPermission="employee.view"
+                                    managePermission="employee.manage"
+                                    onImported={loadEmployees}
+                                  />
+                                </div>
+                              </section>
+
           {/* ERROR */}
           {error && !showForm && (
             <div className="mb-5 flex items-start justify-between gap-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3.5 text-sm text-rose-700">
