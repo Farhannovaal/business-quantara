@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import {
   Edit3,
   MoreHorizontal,
@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 
 import PermissionGate from "@/components/auth/permission-gate";
+import ProductImportExport from "@/components/products/product-import-export";
+import MasterDataImportExport from "@/components/master-data/master-data-import-export";
 
 type Product = {
   id: number;
@@ -30,6 +32,12 @@ type ProductForm = {
   isActive: boolean;
 };
 
+type ApiResponse<T = unknown> = {
+  success: boolean;
+  data?: T;
+  error?: string;
+};
+
 const emptyForm: ProductForm = {
   code: "",
   name: "",
@@ -42,17 +50,14 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
 
   const [showForm, setShowForm] = useState(false);
-  const [editingProduct, setEditingProduct] =
-    useState<Product | null>(null);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
-  const [form, setForm] =
-    useState<ProductForm>(emptyForm);
-
+  const [form, setForm] = useState<ProductForm>(emptyForm);
   const [saving, setSaving] = useState(false);
-
   const [error, setError] = useState("");
 
-  const loadProducts = async () => {
+  // Mengambil data product.
+  const loadProducts = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
@@ -61,32 +66,31 @@ export default function ProductsPage() {
         cache: "no-store",
       });
 
-      const result = await response.json();
+      const result: ApiResponse<Product[]> = await response.json();
 
       if (!response.ok || !result.success) {
-        throw new Error(
-          result.error || "Failed to load products"
-        );
+        throw new Error(result.error || "Gagal mengambil data product.");
       }
 
-      setProducts(result.data);
-    } catch (error) {
-      console.error(error);
+      setProducts(result.data ?? []);
+    } catch (err) {
+      console.error("Gagal mengambil data product:", err);
 
       setError(
-        error instanceof Error
-          ? error.message
+        err instanceof Error
+          ? err.message
           : "Gagal mengambil data products."
       );
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    loadProducts();
   }, []);
 
+  useEffect(() => {
+    void loadProducts();
+  }, [loadProducts]);
+
+  // Membuka form untuk menambahkan product.
   function openCreateForm() {
     setEditingProduct(null);
     setForm(emptyForm);
@@ -94,6 +98,7 @@ export default function ProductsPage() {
     setShowForm(true);
   }
 
+  // Membuka form untuk mengedit product.
   function openEditForm(product: Product) {
     setEditingProduct(product);
 
@@ -107,6 +112,7 @@ export default function ProductsPage() {
     setShowForm(true);
   }
 
+  // Menutup modal form.
   function closeForm() {
     if (saving) return;
 
@@ -116,9 +122,8 @@ export default function ProductsPage() {
     setError("");
   }
 
-  const handleSubmit = async (
-    event: FormEvent<HTMLFormElement>
-  ) => {
+  // Menyimpan product baru atau perubahan product.
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!form.code.trim() || !form.name.trim()) {
@@ -134,9 +139,7 @@ export default function ProductsPage() {
         ? `/api/products/${editingProduct.id}`
         : "/api/products";
 
-      const method = editingProduct
-        ? "PATCH"
-        : "POST";
+      const method = editingProduct ? "PATCH" : "POST";
 
       const response = await fetch(url, {
         method,
@@ -150,30 +153,30 @@ export default function ProductsPage() {
         }),
       });
 
-      const result = await response.json();
+      const result: ApiResponse = await response.json();
 
       if (!response.ok || !result.success) {
-        throw new Error(
-          result.error || "Failed to save product"
-        );
+        throw new Error(result.error || "Gagal menyimpan product.");
       }
 
-      closeForm();
+      setShowForm(false);
+      setEditingProduct(null);
+      setForm(emptyForm);
+
       await loadProducts();
-    } catch (error) {
-      console.error(error);
+    } catch (err) {
+      console.error("Gagal menyimpan product:", err);
 
       setError(
-        error instanceof Error
-          ? error.message
-          : "Gagal menyimpan product."
+        err instanceof Error ? err.message : "Gagal menyimpan product."
       );
     } finally {
       setSaving(false);
     }
-  };
+  }
 
-  const handleDelete = async (product: Product) => {
+  // Menghapus product.
+  async function handleDelete(product: Product) {
     const confirmed = window.confirm(
       `Hapus product "${product.name}"?\n\nData product akan dihapus dari master data.`
     );
@@ -183,100 +186,84 @@ export default function ProductsPage() {
     try {
       setError("");
 
-      const response = await fetch(
-        `/api/products/${product.id}`,
-        {
-          method: "DELETE",
-        }
-      );
+      const response = await fetch(`/api/products/${product.id}`, {
+        method: "DELETE",
+      });
 
-      const result = await response.json();
+      const result: ApiResponse = await response.json();
 
       if (!response.ok || !result.success) {
-        throw new Error(
-          result.error || "Failed to delete product"
-        );
+        throw new Error(result.error || "Gagal menghapus product.");
       }
 
       await loadProducts();
-    } catch (error) {
-      console.error(error);
+    } catch (err) {
+      console.error("Gagal menghapus product:", err);
 
       setError(
-        error instanceof Error
-          ? error.message
-          : "Gagal menghapus product."
+        err instanceof Error ? err.message : "Gagal menghapus product."
       );
     }
-  };
+  }
 
-  const toggleStatus = async (product: Product) => {
+  // Mengubah status Active/Inactive.
+  async function toggleStatus(product: Product) {
     try {
       setError("");
 
-      const response = await fetch(
-        `/api/products/${product.id}`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            isActive: !product.isActive,
-          }),
-        }
-      );
+      const response = await fetch(`/api/products/${product.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          isActive: !product.isActive,
+        }),
+      });
 
-      const result = await response.json();
+      const result: ApiResponse = await response.json();
 
       if (!response.ok || !result.success) {
-        throw new Error(
-          result.error || "Failed to update status"
-        );
+        throw new Error(result.error || "Gagal mengubah status product.");
       }
 
       await loadProducts();
-    } catch (error) {
-      console.error(error);
+    } catch (err) {
+      console.error("Gagal mengubah status product:", err);
 
       setError(
-        error instanceof Error
-          ? error.message
+        err instanceof Error
+          ? err.message
           : "Gagal mengubah status product."
       );
     }
-  };
+  }
 
-  const filteredProducts = products.filter(
-    (product) => {
-      const keyword = search.toLowerCase().trim();
+  // Pencarian berdasarkan kode atau nama product.
+  const keyword = search.toLowerCase().trim();
 
-      return (
-        product.code.toLowerCase().includes(keyword) ||
-        product.name.toLowerCase().includes(keyword)
-      );
-    }
-  );
+  const filteredProducts = products.filter((product) => {
+    return (
+      product.code.toLowerCase().includes(keyword) ||
+      product.name.toLowerCase().includes(keyword)
+    );
+  });
 
-  const activeCount = products.filter(
-    (product) => product.isActive
-  ).length;
-
-  const inactiveCount =
-    products.length - activeCount;
+  const activeCount = products.filter((product) => product.isActive).length;
+  const inactiveCount = products.length - activeCount;
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Header */}
+      {/* Header halaman */}
       <header className="border-b border-slate-200 bg-white">
-        <div className="flex min-h-20 flex-col gap-4 px-6 py-4 sm:flex-row sm:items-center sm:justify-between lg:px-8">
-          <div>
+        <div className="flex flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
                 <Package size={18} />
               </div>
 
-              <div>
+              <div className="min-w-0">
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-indigo-500">
                   Master Data
                 </p>
@@ -287,36 +274,31 @@ export default function ProductsPage() {
               </div>
             </div>
 
-            <p className="mt-2 text-sm text-slate-500">
-              Kelola product yang digunakan oleh proses
-              operasional.
+            <p className="mt-2 max-w-md text-sm text-slate-500">
+              Kelola product yang digunakan oleh proses operasional.
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* Aksi utama header */}
+          <div className="flex flex-wrap items-center gap-2 lg:justify-end">
             <button
               type="button"
-              onClick={loadProducts}
+              onClick={() => void loadProducts()}
               disabled={loading}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-semibold text-slate-600 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-semibold text-slate-600 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-600 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <RefreshCw
                 size={16}
-                className={
-                  loading ? "animate-spin" : ""
-                }
+                className={loading ? "animate-spin" : ""}
               />
-
-              <span className="hidden sm:inline">
-                Refresh
-              </span>
+              Refresh
             </button>
 
             <PermissionGate permission="product.manage">
               <button
                 type="button"
                 onClick={openCreateForm}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:from-indigo-700 hover:to-violet-700"
+                className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:from-indigo-700 hover:to-violet-700"
               >
                 <Plus size={17} />
                 Add Product
@@ -326,18 +308,42 @@ export default function ProductsPage() {
         </div>
       </header>
 
-      {/* Content */}
-      <main className="p-6 lg:p-8">
-        <div className="mx-auto max-w-7xl">
-          {/* Error */}
-          {error && !showForm && (
-            <div className="mb-5 flex items-start justify-between gap-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3.5 text-sm text-rose-700">
-              <div>
-                <p className="font-semibold">
-                  Terjadi kesalahan
-                </p>
+      {/* Konten halaman */}
+      <main className="min-w-0 p-4 sm:p-6 lg:p-8">
+        <div className="mx-auto w-full max-w-7xl min-w-0">
+          {/* Import, Export, Template, dan notifikasi */}
+          <section className="mb-6 min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+            <div className="mb-3">
+              <h2 className="text-sm font-bold text-slate-800">
+                Import & Export Products
+              </h2>
 
-                <p className="mt-0.5 text-rose-600">
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                Download template Excel, import data product, atau export
+                data yang tersedia.
+              </p>
+            </div>
+
+            <div className="min-w-0">
+              <MasterDataImportExport
+                resource="products"
+                viewPermission="product.view"
+                managePermission="product.manage"
+                onImported={loadProducts}
+              />
+            </div>
+          </section>
+
+          {/* Error umum halaman */}
+          {error && !showForm && (
+            <div
+              role="alert"
+              className="mb-5 flex min-w-0 items-start justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700"
+            >
+              <div className="min-w-0">
+                <p className="font-semibold">Terjadi kesalahan</p>
+
+                <p className="mt-1 break-words [overflow-wrap:anywhere]">
                   {error}
                 </p>
               </div>
@@ -345,7 +351,8 @@ export default function ProductsPage() {
               <button
                 type="button"
                 onClick={() => setError("")}
-                className="rounded-lg p-1 text-rose-400 transition hover:bg-rose-100 hover:text-rose-600"
+                className="shrink-0 rounded-lg p-1 text-rose-400 transition hover:bg-rose-100 hover:text-rose-600"
+                aria-label="Tutup pesan error"
               >
                 <X size={16} />
               </button>
@@ -353,14 +360,15 @@ export default function ProductsPage() {
           )}
 
           {/* Summary */}
-          <div className="mb-6 grid gap-4 sm:grid-cols-3">
+          <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {/* Total products */}
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
                   <Package size={20} />
                 </div>
 
-                <div>
+                <div className="min-w-0">
                   <p className="text-xs font-medium text-slate-400">
                     Total Products
                   </p>
@@ -372,13 +380,14 @@ export default function ProductsPage() {
               </div>
             </div>
 
+            {/* Active products */}
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
                   <Package size={20} />
                 </div>
 
-                <div>
+                <div className="min-w-0">
                   <p className="text-xs font-medium text-slate-400">
                     Active Products
                   </p>
@@ -390,13 +399,14 @@ export default function ProductsPage() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            {/* Inactive products */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:col-span-2 xl:col-span-1">
               <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
                   <Package size={20} />
                 </div>
 
-                <div>
+                <div className="min-w-0">
                   <p className="text-xs font-medium text-slate-400">
                     Inactive Products
                   </p>
@@ -409,50 +419,49 @@ export default function ProductsPage() {
             </div>
           </div>
 
-          {/* Product Table */}
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            {/* Table Header */}
-            <div className="flex flex-col gap-4 border-b border-indigo-50 px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
-              <div>
+          {/* Product table */}
+          <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            {/* Table header */}
+            <div className="flex min-w-0 flex-col gap-4 border-b border-indigo-50 px-4 py-5 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
+              <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
                     <Package size={17} />
                   </div>
 
-                  <div>
+                  <div className="min-w-0">
                     <h2 className="text-sm font-bold text-slate-800">
                       Product List
                     </h2>
 
                     <p className="mt-0.5 text-xs text-slate-400">
-                      {filteredProducts.length} product
-                      ditemukan
+                      {filteredProducts.length} product ditemukan
                     </p>
                   </div>
                 </div>
               </div>
 
               {/* Search */}
-              <div className="relative w-full sm:w-72">
+              <div className="relative w-full min-w-0 lg:max-w-xs">
                 <Search
                   size={16}
                   className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
                 />
 
                 <input
+                  type="text"
                   value={search}
-                  onChange={(event) =>
-                    setSearch(event.target.value)
-                  }
+                  onChange={(event) => setSearch(event.target.value)}
                   placeholder="Search product..."
+                  aria-label="Cari product"
                   className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-4 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-indigo-300 focus:ring-2 focus:ring-indigo-50"
                 />
               </div>
             </div>
 
-            {/* Table */}
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px]">
+            {/* Table: scroll horizontal pada layar kecil */}
+            <div className="w-full overflow-x-auto">
+              <table className="w-full min-w-[680px]">
                 <thead>
                   <tr className="border-b border-indigo-50 bg-gradient-to-r from-indigo-50/60 to-violet-50/40">
                     <th className="px-5 py-3.5 text-left text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500">
@@ -476,16 +485,10 @@ export default function ProductsPage() {
                 <tbody className="divide-y divide-slate-100">
                   {loading ? (
                     <tr>
-                      <td
-                        colSpan={4}
-                        className="px-5 py-16"
-                      >
+                      <td colSpan={4} className="px-5 py-16">
                         <div className="flex flex-col items-center justify-center text-center">
                           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 text-indigo-500">
-                            <Loader2
-                              size={21}
-                              className="animate-spin"
-                            />
+                            <Loader2 size={21} className="animate-spin" />
                           </div>
 
                           <p className="mt-3 text-sm font-semibold text-slate-700">
@@ -500,10 +503,7 @@ export default function ProductsPage() {
                     </tr>
                   ) : filteredProducts.length === 0 ? (
                     <tr>
-                      <td
-                        colSpan={4}
-                        className="px-5 py-16"
-                      >
+                      <td colSpan={4} className="px-5 py-16">
                         <div className="flex flex-col items-center justify-center text-center">
                           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-400">
                             <Search size={22} />
@@ -514,8 +514,8 @@ export default function ProductsPage() {
                           </p>
 
                           <p className="mt-1 max-w-sm text-xs text-slate-400">
-                            Belum ada product yang sesuai
-                            dengan pencarian kamu.
+                            Belum ada product yang sesuai dengan pencarian
+                            kamu.
                           </p>
 
                           {!search && (
@@ -579,17 +579,13 @@ export default function ProductsPage() {
                                   }`}
                                 />
 
-                                {product.isActive
-                                  ? "Active"
-                                  : "Inactive"}
+                                {product.isActive ? "Active" : "Inactive"}
                               </span>
                             }
                           >
                             <button
                               type="button"
-                              onClick={() =>
-                                toggleStatus(product)
-                              }
+                              onClick={() => void toggleStatus(product)}
                               title="Toggle product status"
                               className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
                                 product.isActive
@@ -605,9 +601,7 @@ export default function ProductsPage() {
                                 }`}
                               />
 
-                              {product.isActive
-                                ? "Active"
-                                : "Inactive"}
+                              {product.isActive ? "Active" : "Inactive"}
                             </button>
                           </PermissionGate>
                         </td>
@@ -618,11 +612,10 @@ export default function ProductsPage() {
                             <PermissionGate permission="product.manage">
                               <button
                                 type="button"
-                                onClick={() =>
-                                  openEditForm(product)
-                                }
+                                onClick={() => openEditForm(product)}
                                 className="rounded-xl p-2 text-slate-400 transition hover:bg-indigo-50 hover:text-indigo-600"
                                 title="Edit Product"
+                                aria-label={`Edit ${product.name}`}
                               >
                                 <Edit3 size={16} />
                               </button>
@@ -631,11 +624,10 @@ export default function ProductsPage() {
                             <PermissionGate permission="product.manage">
                               <button
                                 type="button"
-                                onClick={() =>
-                                  handleDelete(product)
-                                }
+                                onClick={() => void handleDelete(product)}
                                 className="rounded-xl p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
                                 title="Delete Product"
+                                aria-label={`Delete ${product.name}`}
                               >
                                 <Trash2 size={16} />
                               </button>
@@ -645,10 +637,9 @@ export default function ProductsPage() {
                               type="button"
                               className="rounded-xl p-2 text-slate-300 transition hover:bg-slate-100 hover:text-slate-500"
                               title="More"
+                              aria-label={`More actions for ${product.name}`}
                             >
-                              <MoreHorizontal
-                                size={16}
-                              />
+                              <MoreHorizontal size={16} />
                             </button>
                           </div>
                         </td>
@@ -658,27 +649,25 @@ export default function ProductsPage() {
                 </tbody>
               </table>
             </div>
-          </div>
+          </section>
         </div>
       </main>
 
       {/* Form Modal */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-[2px]">
-          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-white/70 bg-white shadow-2xl shadow-slate-900/20">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/40 p-4 backdrop-blur-[2px]">
+          <div className="my-auto w-full max-w-md overflow-hidden rounded-2xl border border-white/70 bg-white shadow-2xl shadow-slate-900/20">
             {/* Modal Header */}
             <div className="flex items-start justify-between border-b border-indigo-50 px-6 py-5">
               <div>
                 <div className="flex items-center gap-2.5">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
                     <Package size={17} />
                   </div>
 
                   <div>
                     <h2 className="text-base font-bold text-slate-800">
-                      {editingProduct
-                        ? "Edit Product"
-                        : "Add Product"}
+                      {editingProduct ? "Edit Product" : "Add Product"}
                     </h2>
 
                     <p className="mt-0.5 text-xs text-slate-400">
@@ -694,7 +683,8 @@ export default function ProductsPage() {
                 type="button"
                 onClick={closeForm}
                 disabled={saving}
-                className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                className="shrink-0 rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                aria-label="Tutup form"
               >
                 <X size={18} />
               </button>
@@ -702,29 +692,32 @@ export default function ProductsPage() {
 
             {/* Modal Error */}
             {error && (
-              <div className="mx-6 mt-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                <p className="font-semibold">
-                  Unable to save product
-                </p>
+              <div
+                role="alert"
+                className="mx-6 mt-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+              >
+                <p className="font-semibold">Unable to save product</p>
 
-                <p className="mt-0.5 text-xs text-rose-600">
+                <p className="mt-1 break-words text-xs text-rose-600 [overflow-wrap:anywhere]">
                   {error}
                 </p>
               </div>
             )}
 
             {/* Form */}
-            <form
-              onSubmit={handleSubmit}
-              className="space-y-5 p-6"
-            >
+            <form onSubmit={handleSubmit} className="space-y-5 p-6">
               {/* Product Code */}
               <div>
-                <label className="mb-2 block text-xs font-bold text-slate-600">
+                <label
+                  htmlFor="product-code"
+                  className="mb-2 block text-xs font-bold text-slate-600"
+                >
                   Product Code
                 </label>
 
                 <input
+                  id="product-code"
+                  type="text"
                   value={form.code}
                   onChange={(event) =>
                     setForm({
@@ -734,17 +727,23 @@ export default function ProductsPage() {
                   }
                   placeholder="PRD-001"
                   disabled={saving}
+                  required
                   className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-indigo-300 focus:ring-2 focus:ring-indigo-50 disabled:bg-slate-50"
                 />
               </div>
 
               {/* Product Name */}
               <div>
-                <label className="mb-2 block text-xs font-bold text-slate-600">
+                <label
+                  htmlFor="product-name"
+                  className="mb-2 block text-xs font-bold text-slate-600"
+                >
                   Product Name
                 </label>
 
                 <input
+                  id="product-name"
+                  type="text"
                   value={form.name}
                   onChange={(event) =>
                     setForm({
@@ -754,6 +753,7 @@ export default function ProductsPage() {
                   }
                   placeholder="Dress Linen"
                   disabled={saving}
+                  required
                   className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-indigo-300 focus:ring-2 focus:ring-indigo-50 disabled:bg-slate-50"
                 />
               </div>
@@ -766,12 +766,11 @@ export default function ProductsPage() {
                   onChange={(event) =>
                     setForm({
                       ...form,
-                      isActive:
-                        event.target.checked,
+                      isActive: event.target.checked,
                     })
                   }
                   disabled={saving}
-                  className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                  className="h-4 w-4 shrink-0 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                 />
 
                 <div>
@@ -780,14 +779,13 @@ export default function ProductsPage() {
                   </p>
 
                   <p className="mt-0.5 text-xs text-slate-400">
-                    Product dapat digunakan dalam proses
-                    operasional.
+                    Product dapat digunakan dalam proses operasional.
                   </p>
                 </div>
               </label>
 
               {/* Actions */}
-              <div className="flex justify-end gap-3 border-t border-slate-100 pt-5">
+              <div className="flex flex-wrap justify-end gap-3 border-t border-slate-100 pt-5">
                 <button
                   type="button"
                   onClick={closeForm}
@@ -803,10 +801,7 @@ export default function ProductsPage() {
                   className="inline-flex min-w-[120px] items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:from-indigo-700 hover:to-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {saving && (
-                    <Loader2
-                      size={15}
-                      className="animate-spin"
-                    />
+                    <Loader2 size={15} className="animate-spin" />
                   )}
 
                   {saving
