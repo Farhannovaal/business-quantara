@@ -108,6 +108,10 @@ export default function SPKPage() {
 
     const [status, setStatus] = useState("ALL");
 
+    const [currentPage, setCurrentPage] = useState(1);
+
+    const [pageSize, setPageSize] = useState(10);
+
     const [loading, setLoading] = useState(true);
 
     const [saving, setSaving] = useState(false);
@@ -215,6 +219,22 @@ export default function SPKPage() {
         });
 
     }, [spks, search, status]);
+
+    const totalPages = Math.max(1, Math.ceil(filteredSpks.length / pageSize));
+    const paginatedSpks = useMemo(() => {
+        const startIndex = (currentPage - 1) * pageSize;
+        return filteredSpks.slice(startIndex, startIndex + pageSize);
+    }, [filteredSpks, currentPage, pageSize]);
+    const firstItem = filteredSpks.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+    const lastItem = Math.min(currentPage * pageSize, filteredSpks.length);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [search, status, pageSize]);
+
+    useEffect(() => {
+        if (currentPage > totalPages) setCurrentPage(totalPages);
+    }, [currentPage, totalPages]);
 
     function openCreateModal() {
 
@@ -488,17 +508,13 @@ export default function SPKPage() {
 
         if (spk.status !== "ACTIVE") return;
 
-
-
         const confirmed = window.confirm(
 
-            `Batalkan SPK "${spk.spkNumber}"?\\\n\\\nStatus SPK akan menjadi CANCELLED. Riwayat transaksi tetap disimpan dan SPK tidak dihapus.`
+            `Batalkan SPK "${spk.spkNumber}"?\\\\\n\\\\\nStatus SPK akan menjadi CANCELLED. Riwayat transaksi tetap disimpan dan SPK tidak dihapus.`
 
         );
 
         if (!confirmed) return;
-
-
 
         try {
 
@@ -518,15 +534,11 @@ export default function SPKPage() {
 
             const result = await response.json();
 
-
-
             if (!response.ok || !result.success) {
 
                 throw new Error(result.error || "Gagal membatalkan SPK");
 
             }
-
-
 
             await loadData();
 
@@ -542,23 +554,21 @@ export default function SPKPage() {
 
     }
 
-
-
     function getStatusStyle(value: SPK["status"]) {
 
         switch (value) {
 
             case "ACTIVE":
 
-                return "bg-emerald-950/40 text-emerald-300 border-emerald-500/30";
+                return "bg-white/[0.06] text-neutral-200 border-white/10";
 
             case "COMPLETED":
 
-                return "bg-blue-950/40 text-blue-300 border-blue-500/30";
+                return "bg-rose-950/30 text-rose-200 border-rose-500/30";
 
             case "CANCELLED":
 
-                return "bg-red-950/40 text-red-300 border-red-500/30";
+                return "bg-neutral-900 text-neutral-300 border-white/10";
 
             default:
 
@@ -570,9 +580,9 @@ export default function SPKPage() {
 
     return (<div className="relative min-h-screen min-w-0 w-full overflow-hidden bg-gradient-to-br from-[#090909] via-[#111111] to-[#19090b] px-4 py-4 sm:px-5 sm:py-5 lg:px-6">
 
-    <div className="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full bg-red-600/15 blur-3xl"/>
+    <div className="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full bg-rose-700/15 blur-3xl"/>
 
-    <div className="pointer-events-none absolute -bottom-32 -left-24 h-96 w-96 rounded-full bg-red-900/15 blur-3xl"/>
+    <div className="pointer-events-none absolute -bottom-32 -left-24 h-96 w-96 rounded-full bg-rose-950/15 blur-3xl"/>
 
     <div className="relative mx-auto w-full max-w-[1680px] space-y-5">
 
@@ -580,9 +590,9 @@ export default function SPKPage() {
 
     <div>
 
-    <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-red-500/20 bg-[#101010] px-3 py-1.5 text-xs font-semibold text-red-400 shadow-sm">
+    <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-[#111010] px-3 py-1.5 text-xs font-semibold text-rose-300 shadow-sm">
 
-    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"/>
+    <span className="h-1.5 w-1.5 rounded-full bg-rose-400"/>
 
 Production Management
 
@@ -590,7 +600,7 @@ Production Management
 
     <div className="flex items-center gap-3 sm:gap-4">
 
-    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl sm:h-12 sm:w-12 bg-gradient-to-br from-red-700 to-red-600 text-white shadow-lg shadow-red-950/40">
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl sm:h-12 sm:w-12 bg-gradient-to-br from-rose-700 to-rose-700 text-white shadow-lg shadow-black/30">
 
     <ClipboardList size={22}/>
 
@@ -614,7 +624,7 @@ Kelola Surat Perintah Kerja dan production tracking.
 
     <PermissionGate permission="spk.create">
 
-    <button onClick={openCreateModal} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-red-700 to-red-600 px-4 py-2.5 sm:w-auto text-sm font-semibold text-white shadow-lg shadow-red-950/40 transition hover:-translate-y-0.5 hover:from-red-800 hover:to-red-700">
+    <button onClick={openCreateModal} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-rose-700 to-rose-700 px-4 py-2.5 sm:w-auto text-sm font-semibold text-white shadow-lg shadow-black/30 transition hover:-translate-y-0.5 hover:from-rose-800 hover:to-rose-700">
 
     <Plus size={17}/>
 
@@ -626,7 +636,7 @@ Create SPK
 
     </div>
 
-        {error && !modalOpen && (<div className="rounded-2xl border border-red-500/30 bg-red-950/30 px-4 py-3 text-sm text-red-300 shadow-sm">
+        {error && !modalOpen && (<div className="rounded-2xl border border-rose-500/30 bg-rose-950/30 px-4 py-3 text-sm text-rose-200 shadow-sm">
 
         <div className="font-semibold">Terjadi kesalahan</div>
 
@@ -634,19 +644,19 @@ Create SPK
 
         </div>)}
 
-    <div className="rounded-2xl border border-white/10 bg-[#101010] p-4 shadow-sm">
+    <div className="rounded-2xl border border-white/10 bg-[#111010] p-4 shadow-sm">
 
     <div className="flex flex-col gap-3 lg:flex-row">
 
     <div className="relative flex-1">
 
-    <Search size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-red-400"/>
+    <Search size={18} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-rose-300"/>
 
-    <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari SPK, product, atau penjahit..." className="w-full rounded-2xl border border-white/10 bg-[#151515] py-3 pl-11 pr-4 text-sm text-white outline-none transition placeholder:text-zinc-500 focus:border-red-500 focus:bg-[#101010] focus:ring-4 focus:ring-red-500/15"/>
+    <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari SPK, product, atau penjahit..." className="w-full rounded-2xl border border-white/10 bg-[#171515] py-3 pl-11 pr-4 text-sm text-white outline-none transition placeholder:text-zinc-500 focus:border-rose-500 focus:bg-[#111010] focus:ring-4 focus:ring-rose-500/15"/>
 
     </div>
 
-    <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full rounded-2xl border border-white/10 bg-[#151515] px-4 py-3 text-sm font-medium text-zinc-200 sm:w-auto outline-none transition focus:border-red-500 focus:bg-[#101010] focus:ring-4 focus:ring-red-500/15">
+    <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full rounded-2xl border border-white/10 bg-[#171515] px-4 py-3 text-sm font-medium text-zinc-200 sm:w-auto outline-none transition focus:border-rose-500 focus:bg-[#111010] focus:ring-4 focus:ring-rose-500/15">
 
     <option value="ALL">All Status</option>
 
@@ -658,7 +668,7 @@ Create SPK
 
     </select>
 
-    <button onClick={loadData} disabled={loading} className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-red-500/20 bg-[#101010] px-4 py-3 sm:w-auto text-sm font-semibold text-red-300 shadow-sm transition hover:bg-red-950/40 disabled:opacity-50">
+    <button onClick={loadData} disabled={loading} className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-[#111010] px-4 py-3 sm:w-auto text-sm font-semibold text-rose-200 shadow-sm transition hover:bg-white/[0.04] disabled:opacity-50">
 
     <RefreshCw size={16} className={loading ? "animate-spin" : ""}/>
 
@@ -670,7 +680,7 @@ Refresh
 
     </div>
 
-    <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#101010] shadow-sm">
+    <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#111010] shadow-sm">
 
     <div className="flex flex-col gap-3 border-b border-white/10 px-4 py-4 sm:px-5 sm:flex-row sm:items-center sm:justify-between">
 
@@ -678,7 +688,7 @@ Refresh
 
     <div className="flex items-center gap-2">
 
-    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-950/40 text-red-400">
+    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-950/30 text-rose-300">
 
     <ClipboardList size={17}/>
 
@@ -696,7 +706,7 @@ Refresh
 
     </div>
 
-    <div className="rounded-full bg-red-950/40 px-3 py-1.5 text-xs font-bold text-red-400">
+    <div className="rounded-full bg-rose-950/30 px-3 py-1.5 text-xs font-bold text-rose-300">
 
     {filteredSpks.length} Orders
 
@@ -706,7 +716,7 @@ Refresh
 
         {loading ? (<div className="flex min-h-60 items-center justify-center">
 
-        <div className="flex items-center gap-2 rounded-2xl border border-red-500/20 bg-red-950/40 px-4 py-3 text-sm font-semibold text-red-400">
+        <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-rose-950/30 px-4 py-3 text-sm font-semibold text-rose-300">
 
         <Loader2 size={18} className="animate-spin"/>
 
@@ -716,7 +726,7 @@ Loading SPK...
 
         </div>) : filteredSpks.length === 0 ? (<div className="flex min-h-72 flex-col items-center justify-center px-5 text-center">
 
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-red-950/40 text-red-400">
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-950/30 text-rose-300">
 
         <Search size={22}/>
 
@@ -732,7 +742,7 @@ Belum ada SPK yang sesuai dengan filter pencarian kamu.
 
         <PermissionGate permission="spk.create">
 
-        <button onClick={openCreateModal} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-red-950/40 px-4 py-2.5 text-sm font-semibold text-red-300 transition hover:bg-red-950/60">
+        <button onClick={openCreateModal} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-rose-950/30 px-4 py-2.5 text-sm font-semibold text-rose-200 transition hover:bg-rose-950/40">
 
         <Plus size={16}/>
 
@@ -748,7 +758,7 @@ Create SPK
 
         <thead>
 
-        <tr className="border-b border-red-500/15 bg-gradient-to-r from-red-950/40 to-red-950/30">
+        <tr className="border-b border-white/10 bg-gradient-to-r from-[#171313] to-[#111010]">
 
         <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-[0.12em] text-zinc-500">SPK</th>
 
@@ -768,11 +778,11 @@ Create SPK
 
         <tbody className="divide-y divide-white/10">
 
-            {filteredSpks.map((spk) => (<tr key={spk.id} className="group transition hover:bg-red-950/40/30">
+            {paginatedSpks.map((spk) => (<tr key={spk.id} className="group transition hover:bg-white/[0.04]">
 
             <td className="px-4 py-3.5">
 
-            <Link href={`/operations/spk/${spk.id}`} className="font-bold text-red-400 transition hover:text-red-200">
+            <Link href={`/operations/spk/${spk.id}`} className="font-bold text-rose-300 transition hover:text-rose-100">
 
             {spk.spkNumber}
 
@@ -786,7 +796,7 @@ Create SPK
 
             <div className="space-y-1.5">
 
-                {spk.items?.map((item) => (<div key={item.id} className="rounded-xl bg-[#151515] px-3 py-2">
+                {spk.items?.map((item) => (<div key={item.id} className="rounded-xl bg-[#171515] px-3 py-2">
 
                 <div className="text-sm font-semibold text-white">
 
@@ -810,7 +820,7 @@ Create SPK
 
             <td className="px-4 py-3.5 text-center">
 
-            <span className="inline-flex min-w-9 items-center justify-center rounded-full bg-red-950/40 px-2.5 py-1 text-xs font-bold text-red-300">
+            <span className="inline-flex min-w-9 items-center justify-center rounded-full bg-rose-950/30 px-2.5 py-1 text-xs font-bold text-rose-200">
 
             {spk._count?.transactions ?? 0}
 
@@ -834,7 +844,7 @@ Create SPK
 
             <div className="flex items-center justify-end gap-1">
 
-            <Link href={`/operations/spk/${spk.id}`} title="View detail" className="rounded-xl p-2 text-zinc-500 transition hover:bg-red-950/40 hover:text-red-400">
+            <Link href={`/operations/spk/${spk.id}`} title="View detail" className="rounded-xl p-2 text-zinc-500 transition hover:bg-white/[0.04] hover:text-rose-300">
 
             <ChevronRight size={17}/>
 
@@ -842,7 +852,7 @@ Create SPK
 
             <PermissionGate permission="spk.edit">
 
-            <button onClick={() => openEditModal(spk)} title="Edit" className="rounded-xl p-2 text-zinc-500 transition hover:bg-red-950/40 hover:text-red-400">
+            <button onClick={() => openEditModal(spk)} title="Edit" className="rounded-xl p-2 text-zinc-500 transition hover:bg-white/[0.04] hover:text-rose-300">
 
             <Pencil size={16}/>
 
@@ -864,7 +874,7 @@ Create SPK
 
                     disabled={cancellingSpkId === spk.id}
 
-                    className="rounded-xl p-2 text-zinc-500 transition hover:bg-red-950/30 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-xl p-2 text-zinc-500 transition hover:bg-white/[0.04] hover:text-rose-300 disabled:cursor-not-allowed disabled:opacity-50"
 
                 >
 
@@ -882,7 +892,7 @@ Create SPK
 
             <PermissionGate permission="spk.delete">
 
-            <button onClick={() => handleDelete(spk)} title="Delete" className="rounded-xl p-2 text-zinc-500 transition hover:bg-red-950/30 hover:text-red-400">
+            <button onClick={() => handleDelete(spk)} title="Delete" className="rounded-xl p-2 text-zinc-500 transition hover:bg-white/[0.04] hover:text-rose-300">
 
             <Trash2 size={16}/>
 
@@ -902,21 +912,63 @@ Create SPK
 
         </div>)}
 
+        {!loading && filteredSpks.length > 0 && (
+            <div className="flex flex-col gap-4 border-t border-white/10 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                <div className="flex flex-col gap-2 text-xs text-zinc-400 sm:flex-row sm:items-center sm:gap-4">
+                    <span>Menampilkan <span className="font-semibold text-zinc-200">{firstItem}–{lastItem}</span> dari <span className="font-semibold text-zinc-200">{filteredSpks.length}</span> SPK</span>
+                    <label className="flex items-center gap-2">
+                        <span>Baris per halaman</span>
+                        <select
+                            value={pageSize}
+                            onChange={(event) => setPageSize(Number(event.target.value))}
+                            className="rounded-lg border border-white/10 bg-[#171515] px-2 py-1.5 text-xs text-zinc-200 outline-none transition focus:border-rose-500"
+                            aria-label="Jumlah SPK per halaman"
+                        >
+                            <option value={10}>10</option>
+                            <option value={20}>20</option>
+                            <option value={50}>50</option>
+                        </select>
+                    </label>
+                </div>
+                <div className="flex items-center justify-between gap-2 sm:justify-end">
+                    <button
+                        type="button"
+                        onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                        disabled={currentPage <= 1}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-[#171515] px-3 py-2 text-xs font-semibold text-zinc-300 transition hover:border-rose-500/40 hover:text-rose-200 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                        <ChevronRight size={14} className="rotate-180" />
+                        Sebelumnya
+                    </button>
+                    <span className="min-w-[90px] text-center text-xs text-zinc-400">Halaman <span className="font-semibold text-white">{currentPage}</span> / {totalPages}</span>
+                    <button
+                        type="button"
+                        onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                        disabled={currentPage >= totalPages}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-[#171515] px-3 py-2 text-xs font-semibold text-zinc-300 transition hover:border-rose-500/40 hover:text-rose-200 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                        Berikutnya
+                        <ChevronRight size={14} />
+                    </button>
+                </div>
+            </div>
+        )}
+
     </div>
 
     </div>
 
         {modalOpen && (<div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-0 backdrop-blur-sm sm:items-center sm:p-4">
 
-        <div className="max-h-[94dvh] w-full max-w-2xl overflow-y-auto rounded-t-3xl sm:max-h-[90vh] sm:rounded-3xl border border-white/10 bg-[#101010] shadow-2xl shadow-black/50">
+        <div className="max-h-[94dvh] w-full max-w-2xl overflow-y-auto rounded-t-3xl sm:max-h-[90vh] sm:rounded-3xl border border-white/10 bg-[#111010] shadow-2xl shadow-black/50">
 
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-red-500/15 bg-gradient-to-r from-red-950/40 to-red-950/30 px-4 py-4 sm:px-5">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/10 bg-gradient-to-r from-[#171313] to-[#111010] px-4 py-4 sm:px-5">
 
         <div>
 
         <div className="flex items-center gap-2">
 
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-red-950/60 text-red-400">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-950/40 text-rose-300">
 
         <ClipboardList size={17}/>
 
@@ -938,7 +990,7 @@ Satu SPK dapat memiliki beberapa product.
 
         </div>
 
-        <button onClick={closeModal} disabled={saving} className="rounded-xl p-2 text-zinc-500 transition hover:bg-[#101010] hover:text-zinc-200 disabled:opacity-50">
+        <button onClick={closeModal} disabled={saving} className="rounded-xl p-2 text-zinc-500 transition hover:bg-[#111010] hover:text-zinc-200 disabled:opacity-50">
 
         <X size={18}/>
 
@@ -950,7 +1002,7 @@ Satu SPK dapat memiliki beberapa product.
 
         <div className="space-y-4 px-4 py-4 sm:px-5 sm:py-5">
 
-            {error && (<div className="rounded-2xl border border-red-500/30 bg-red-950/30 px-3.5 py-3 text-sm text-red-300">
+            {error && (<div className="rounded-2xl border border-rose-500/30 bg-rose-950/30 px-3.5 py-3 text-sm text-rose-200">
 
             <div className="font-semibold">Periksa input</div>
 
@@ -962,7 +1014,7 @@ Satu SPK dapat memiliki beberapa product.
 
         <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zinc-400">SPK Number</label>
 
-        <input type="text" value={form.spkNumber} onChange={(e) => setForm((prev) => ({ ...prev, spkNumber: e.target.value }))} placeholder="Contoh: SPK-001" disabled={saving} className="w-full rounded-2xl border border-white/10 bg-[#151515] px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-zinc-500 focus:border-red-500 focus:bg-[#101010] focus:ring-4 focus:ring-red-500/15 disabled:opacity-60"/>
+        <input type="text" value={form.spkNumber} onChange={(e) => setForm((prev) => ({ ...prev, spkNumber: e.target.value }))} placeholder="Contoh: SPK-001" disabled={saving} className="w-full rounded-2xl border border-white/10 bg-[#171515] px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-zinc-500 focus:border-rose-500 focus:bg-[#111010] focus:ring-4 focus:ring-rose-500/15 disabled:opacity-60"/>
 
         </div>
 
@@ -970,7 +1022,7 @@ Satu SPK dapat memiliki beberapa product.
 
         <label className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-zinc-400">Penjahit</label>
 
-        <select value={form.tailorId} onChange={(e) => setForm((prev) => ({ ...prev, tailorId: e.target.value }))} disabled={saving} className="w-full rounded-2xl border border-white/10 bg-[#101010] px-3.5 py-3 text-sm text-white outline-none transition focus:border-red-500 focus:ring-4 focus:ring-red-500/15 disabled:opacity-60">
+        <select value={form.tailorId} onChange={(e) => setForm((prev) => ({ ...prev, tailorId: e.target.value }))} disabled={saving} className="w-full rounded-2xl border border-white/10 bg-[#111010] px-3.5 py-3 text-sm text-white outline-none transition focus:border-rose-500 focus:ring-4 focus:ring-rose-500/15 disabled:opacity-60">
 
         <option value="">Select penjahit...</option>
 
@@ -986,7 +1038,7 @@ Satu SPK dapat memiliki beberapa product.
 
         <label className="block text-xs font-bold uppercase tracking-wide text-zinc-400">Products</label>
 
-        <button type="button" onClick={addFormItem} disabled={saving} className="inline-flex items-center gap-1.5 rounded-lg bg-red-950/40 px-2.5 py-1.5 text-xs font-semibold text-red-300 transition hover:bg-red-950/60 disabled:opacity-60">
+        <button type="button" onClick={addFormItem} disabled={saving} className="inline-flex items-center gap-1.5 rounded-lg bg-rose-950/30 px-2.5 py-1.5 text-xs font-semibold text-rose-200 transition hover:bg-rose-950/40 disabled:opacity-60">
 
         <Plus size={14}/>
 
@@ -998,7 +1050,7 @@ Add Product
 
         <div className="space-y-3">
 
-            {form.items.map((item, index) => (<div key={index} className="rounded-2xl border border-white/10 bg-[#151515] p-3">
+            {form.items.map((item, index) => (<div key={index} className="rounded-2xl border border-white/10 bg-[#171515] p-3">
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-2">
 
@@ -1006,7 +1058,7 @@ Add Product
 
             <label className="mb-1.5 block text-[11px] font-semibold text-zinc-400">Product {index + 1}</label>
 
-            <select value={item.productId} onChange={(e) => updateFormItem(index, "productId", e.target.value)} disabled={saving} className="w-full rounded-xl border border-white/10 bg-[#101010] px-3 py-2.5 text-sm text-white outline-none transition focus:border-red-500 focus:ring-4 focus:ring-red-500/15 disabled:opacity-60">
+            <select value={item.productId} onChange={(e) => updateFormItem(index, "productId", e.target.value)} disabled={saving} className="w-full rounded-xl border border-white/10 bg-[#111010] px-3 py-2.5 text-sm text-white outline-none transition focus:border-rose-500 focus:ring-4 focus:ring-rose-500/15 disabled:opacity-60">
 
             <option value="">Select product...</option>
 
@@ -1024,11 +1076,11 @@ Add Product
 
             <label className="mb-1.5 block text-[11px] font-semibold text-zinc-400">Quantity</label>
 
-            <input type="number" min="1" step="1" value={item.quantity} onChange={(e) => updateFormItem(index, "quantity", e.target.value)} disabled={saving} className="w-full rounded-xl border border-white/10 bg-[#101010] px-3 py-2.5 text-sm text-white outline-none transition focus:border-red-500 focus:ring-4 focus:ring-red-500/15 disabled:opacity-60"/>
+            <input type="number" min="1" step="1" value={item.quantity} onChange={(e) => updateFormItem(index, "quantity", e.target.value)} disabled={saving} className="w-full rounded-xl border border-white/10 bg-[#111010] px-3 py-2.5 text-sm text-white outline-none transition focus:border-rose-500 focus:ring-4 focus:ring-rose-500/15 disabled:opacity-60"/>
 
             </div>
 
-            <button type="button" onClick={() => removeFormItem(index)} disabled={saving || form.items.length <= 1} title="Remove product" className="self-end rounded-xl p-2 text-zinc-500 sm:mt-6 sm:self-auto transition hover:bg-red-950/30 hover:text-red-400 disabled:cursor-not-allowed disabled:opacity-40">
+            <button type="button" onClick={() => removeFormItem(index)} disabled={saving || form.items.length <= 1} title="Remove product" className="self-end rounded-xl p-2 text-zinc-500 sm:mt-6 sm:self-auto transition hover:bg-white/[0.04] hover:text-rose-300 disabled:cursor-not-allowed disabled:opacity-40">
 
             <Trash2 size={16}/>
 
@@ -1050,15 +1102,15 @@ Product yang sama tidak dapat ditambahkan dua kali dalam satu SPK.
 
         </div>
 
-        <div className="flex flex-col-reverse gap-2 border-t border-red-500/15 bg-[#151515] px-4 py-4 sm:flex-row sm:justify-end sm:gap-3 sm:px-5">
+        <div className="flex flex-col-reverse gap-2 border-t border-white/10 bg-[#171515] px-4 py-4 sm:flex-row sm:justify-end sm:gap-3 sm:px-5">
 
-        <button type="button" onClick={closeModal} disabled={saving} className="w-full rounded-xl border border-white/10 bg-[#101010] px-4 py-2.5 text-sm font-semibold text-zinc-300 sm:w-auto transition hover:bg-[#151515] disabled:opacity-50">
+        <button type="button" onClick={closeModal} disabled={saving} className="w-full rounded-xl border border-white/10 bg-[#111010] px-4 py-2.5 text-sm font-semibold text-zinc-300 sm:w-auto transition hover:bg-[#171515] disabled:opacity-50">
 
 Cancel
 
         </button>
 
-        <button type="submit" disabled={saving} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-red-700 to-red-600 px-4 py-2.5 sm:w-auto text-sm font-semibold text-white shadow-lg shadow-red-950/40 transition hover:from-red-800 hover:to-red-700 disabled:cursor-not-allowed disabled:opacity-60">
+        <button type="submit" disabled={saving} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-rose-700 to-rose-700 px-4 py-2.5 sm:w-auto text-sm font-semibold text-white shadow-lg shadow-black/30 transition hover:from-rose-800 hover:to-rose-700 disabled:cursor-not-allowed disabled:opacity-60">
 
         {saving && <Loader2 size={16} className="animate-spin"/>}
 
