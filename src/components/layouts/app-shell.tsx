@@ -560,7 +560,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-rose-600 via-red-800 to-[#651b24] text-xs font-black text-white">
 
-                BO
+                OV
 
               </div>
 

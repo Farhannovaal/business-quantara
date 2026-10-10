@@ -166,13 +166,13 @@ const PROCESS_STYLES: Record<
 
     icon: "📤",
 
-    bg: "bg-blue-50",
+    bg: "bg-sky-950/30",
 
-    border: "border-blue-200",
+    border: "border-sky-900/60",
 
-    text: "text-blue-700",
+    text: "text-sky-300",
 
-    dot: "bg-blue-500",
+    dot: "bg-sky-950/300",
 
   },
 
@@ -180,13 +180,13 @@ const PROCESS_STYLES: Record<
 
     icon: "📥",
 
-    bg: "bg-cyan-50",
+    bg: "bg-cyan-950/30",
 
-    border: "border-cyan-200",
+    border: "border-cyan-900/60",
 
-    text: "text-cyan-700",
+    text: "text-cyan-300",
 
-    dot: "bg-cyan-500",
+    dot: "bg-cyan-950/300",
 
   },
 
@@ -194,13 +194,13 @@ const PROCESS_STYLES: Record<
 
     icon: "🔍",
 
-    bg: "bg-violet-50",
+    bg: "bg-red-950/30",
 
-    border: "border-violet-200",
+    border: "border-red-900/60",
 
-    text: "text-violet-700",
+    text: "text-red-300",
 
-    dot: "bg-violet-500",
+    dot: "bg-red-600/10",
 
   },
 
@@ -208,13 +208,13 @@ const PROCESS_STYLES: Record<
 
     icon: "⚠️",
 
-    bg: "bg-amber-50",
+    bg: "bg-amber-950/30",
 
-    border: "border-amber-200",
+    border: "border-amber-900/60",
 
-    text: "text-amber-700",
+    text: "text-amber-300",
 
-    dot: "bg-amber-500",
+    dot: "bg-amber-950/300",
 
   },
 
@@ -222,13 +222,13 @@ const PROCESS_STYLES: Record<
 
     icon: "✅",
 
-    bg: "bg-emerald-50",
+    bg: "bg-emerald-950/30",
 
-    border: "border-emerald-200",
+    border: "border-emerald-900/60",
 
-    text: "text-emerald-700",
+    text: "text-emerald-300",
 
-    dot: "bg-emerald-500",
+    dot: "bg-emerald-950/300",
 
   },
 
@@ -236,13 +236,13 @@ const PROCESS_STYLES: Record<
 
     icon: "↗️",
 
-    bg: "bg-orange-50",
+    bg: "bg-orange-950/30",
 
     border: "border-orange-200",
 
-    text: "text-orange-700",
+    text: "text-orange-300",
 
-    dot: "bg-orange-500",
+    dot: "bg-orange-950/300",
 
   },
 
@@ -250,13 +250,13 @@ const PROCESS_STYLES: Record<
 
     icon: "↙️",
 
-    bg: "bg-pink-50",
+    bg: "bg-pink-950/30",
 
-    border: "border-pink-200",
+    border: "border-pink-900/60",
 
-    text: "text-pink-700",
+    text: "text-pink-300",
 
-    dot: "bg-pink-500",
+    dot: "bg-pink-950/300",
 
   },
 
@@ -270,11 +270,11 @@ function getProcessStyle(code: string) {
 
       icon: "•",
 
-      bg: "bg-slate-50",
+      bg: "bg-[#191919]",
 
-      border: "border-slate-200",
+      border: "border-white/10",
 
-      text: "text-slate-700",
+      text: "text-gray-200",
 
       dot: "bg-slate-400",
 
@@ -458,7 +458,7 @@ export default function TrackingPage() {
 
       <div className="flex min-h-[500px] items-center justify-center">
 
-        <div className="flex items-center gap-2 rounded-2xl border border-indigo-100 bg-white px-5 py-4 text-sm font-medium text-indigo-600 shadow-lg shadow-indigo-100">
+        <div className="flex items-center gap-2 rounded-2xl border border-red-900/50 bg-[#151515] px-5 py-4 text-sm font-medium text-red-400 shadow-lg shadow-red-950/30">
 
           <Loader2 className="h-5 w-5 animate-spin" />
 
@@ -474,11 +474,11 @@ export default function TrackingPage() {
 
   return (
 
-    <div className="relative min-h-full space-y-6 overflow-hidden rounded-3xl bg-gradient-to-br from-slate-50 via-indigo-50/40 to-violet-50/30 p-4 md:p-6">
+    <div className="relative min-h-full space-y-6 overflow-hidden rounded-3xl bg-gradient-to-br from-[#090909] via-[#111111] to-[#18090b] p-4 md:p-6">
 
-      <div className="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full bg-indigo-300/20 blur-3xl" />
+      <div className="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full bg-red-600/10 blur-3xl" />
 
-      <div className="pointer-events-none absolute -bottom-32 -left-24 h-96 w-96 rounded-full bg-violet-300/15 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-32 -left-24 h-96 w-96 rounded-full bg-red-600/10 blur-3xl" />
 
       <div className="relative flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
 
@@ -486,7 +486,7 @@ export default function TrackingPage() {
 
           <div className="flex items-center gap-3">
 
-            <div className="rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 p-3 text-white shadow-lg shadow-indigo-200">
+            <div className="rounded-2xl bg-gradient-to-br from-red-700 to-red-950 p-3 text-white shadow-lg shadow-red-950/40">
 
               <Activity className="h-6 w-6" />
 
@@ -494,13 +494,13 @@ export default function TrackingPage() {
 
             <div>
 
-              <h1 className="text-2xl font-bold tracking-tight text-slate-800">
+              <h1 className="text-2xl font-bold tracking-tight text-gray-100">
 
                 Production Tracking
 
               </h1>
 
-              <p className="mt-1 text-sm text-slate-500">
+              <p className="mt-1 text-sm text-gray-400">
 
                 Monitor perjalanan produksi setiap SPK secara
 
@@ -522,7 +522,7 @@ export default function TrackingPage() {
 
           disabled={refreshing}
 
-          className="inline-flex items-center justify-center gap-2 rounded-xl border border-indigo-100 bg-white/90 px-4 py-2.5 text-sm font-semibold text-indigo-700 shadow-sm transition hover:border-indigo-200 hover:bg-indigo-50 disabled:opacity-60"
+          className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-900/50 bg-[#111111] px-4 py-2.5 text-sm font-semibold text-red-300 shadow-sm transition hover:border-red-800 hover:bg-red-950/40 disabled:opacity-60"
 
         >
 
@@ -544,7 +544,7 @@ export default function TrackingPage() {
 
       {error && (
 
-        <div className="relative rounded-2xl border border-rose-200 bg-gradient-to-r from-rose-50 to-red-50 px-4 py-3 text-sm text-rose-700 shadow-sm">
+        <div className="relative rounded-2xl border border-rose-900/60 bg-gradient-to-r from-rose-50 to-red-50 px-4 py-3 text-sm text-rose-300 shadow-sm">
 
           <div className="font-semibold">
 
@@ -558,11 +558,11 @@ export default function TrackingPage() {
 
       )}
 
-      <div className="relative rounded-3xl border border-white/80 bg-white/90 p-4 shadow-lg shadow-slate-200/40 backdrop-blur">
+      <div className="relative rounded-3xl border border-white/10 bg-[#111111] p-4 shadow-lg shadow-black/40 backdrop-blur">
 
         <div className="relative">
 
-          <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-indigo-400" />
+          <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-red-400" />
 
           <input
 
@@ -576,7 +576,7 @@ export default function TrackingPage() {
 
             placeholder="Cari SPK, produk, atau penjahit..."
 
-            className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 py-3.5 pl-12 pr-4 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-100"
+            className="w-full rounded-2xl border border-white/10 bg-[#191919] py-3.5 pl-12 pr-4 text-sm text-gray-100 outline-none transition placeholder:text-gray-400 focus:border-red-600 focus:bg-[#191919] focus:ring-4 focus:ring-red-950/60"
 
           />
 
@@ -586,21 +586,21 @@ export default function TrackingPage() {
 
       {spks.length === 0 ? (
 
-        <div className="relative rounded-3xl border border-white/80 bg-white/90 px-6 py-16 text-center shadow-xl shadow-slate-200/50">
+        <div className="relative rounded-3xl border border-white/10 bg-[#111111] px-6 py-16 text-center shadow-xl shadow-black/40">
 
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-500">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-red-950/40 text-red-400">
 
             <Package className="h-8 w-8" />
 
           </div>
 
-          <h2 className="mt-5 text-lg font-bold text-slate-800">
+          <h2 className="mt-5 text-lg font-bold text-gray-100">
 
             SPK tidak ditemukan
 
           </h2>
 
-          <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
+          <p className="mx-auto mt-2 max-w-md text-sm text-gray-400">
 
             Tidak ada SPK yang sesuai dengan pencarian
 
@@ -614,21 +614,21 @@ export default function TrackingPage() {
 
         <div className="relative grid gap-6 xl:grid-cols-[300px_minmax(0,1fr)]">
 
-          <aside className="rounded-3xl border border-white/80 bg-white/90 shadow-xl shadow-slate-200/50 backdrop-blur">
+          <aside className="rounded-3xl border border-white/10 bg-[#111111] shadow-xl shadow-black/40 backdrop-blur">
 
-            <div className="border-b border-indigo-50 px-5 py-5">
+            <div className="border-b border-white/10 px-5 py-5">
 
               <div className="flex items-center justify-between">
 
                 <div>
 
-                  <h2 className="font-bold text-slate-800">
+                  <h2 className="font-bold text-gray-100">
 
                     Production Orders
 
                   </h2>
 
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="mt-1 text-xs text-gray-400">
 
                     {spks.length} SPK tersedia
 
@@ -636,7 +636,7 @@ export default function TrackingPage() {
 
                 </div>
 
-                <div className="rounded-xl bg-indigo-50 px-2.5 py-1 text-xs font-bold text-indigo-600">
+                <div className="rounded-xl bg-red-950/40 px-2.5 py-1 text-xs font-bold text-red-400">
 
                   {spks.length}
 
@@ -672,9 +672,9 @@ export default function TrackingPage() {
 
                       active
 
-                        ? "border-indigo-200 bg-gradient-to-br from-indigo-50 to-violet-50 shadow-md shadow-indigo-100"
+                        ? "border-red-900/70 bg-gradient-to-br from-[#1b1012] to-[#151515] shadow-md shadow-red-950/30"
 
-                        : "border-transparent bg-slate-50/60 hover:border-indigo-100 hover:bg-indigo-50/40"
+                        : "border-transparent bg-[#181818] hover:border-red-900/60 hover:bg-red-950/30"
 
                     }`}
 
@@ -690,9 +690,9 @@ export default function TrackingPage() {
 
                             active
 
-                              ? "text-indigo-700"
+                              ? "text-red-300"
 
-                              : "text-slate-800"
+                              : "text-gray-100"
 
                           }`}
 
@@ -712,7 +712,7 @@ export default function TrackingPage() {
 
                                 key={item.id}
 
-                                className="truncate text-xs text-slate-500"
+                                className="truncate text-xs text-gray-400"
 
                               >
 
@@ -724,7 +724,7 @@ export default function TrackingPage() {
 
                           ) : (
 
-                            <div className="text-xs text-slate-400">
+                            <div className="text-xs text-gray-400">
 
                               Produk belum tersedia
 
@@ -734,7 +734,7 @@ export default function TrackingPage() {
 
                         </div>
 
-                        <div className="mt-1 truncate text-xs text-slate-400">
+                        <div className="mt-1 truncate text-xs text-gray-400">
 
                           {spk.tailor.name}
 
@@ -748,13 +748,13 @@ export default function TrackingPage() {
 
                           spk.status === "ACTIVE"
 
-                            ? "bg-emerald-100 text-emerald-700"
+                            ? "bg-emerald-950/50 text-emerald-300"
 
                             : spk.status === "COMPLETED"
 
-                              ? "bg-blue-100 text-blue-700"
+                              ? "bg-blue-100 text-sky-300"
 
-                              : "bg-rose-100 text-rose-700"
+                              : "bg-rose-100 text-rose-300"
 
                         }`}
 
@@ -766,15 +766,15 @@ export default function TrackingPage() {
 
                     </div>
 
-                    <div className="mt-3 flex items-center justify-between border-t border-slate-200/60 pt-3">
+                    <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-3">
 
-                      <span className="text-[11px] text-slate-400">
+                      <span className="text-[11px] text-gray-400">
 
                         Total barang
 
                       </span>
 
-                      <span className="text-sm font-bold text-slate-700">
+                      <span className="text-sm font-bold text-gray-200">
 
                         {formatNumber(
 
@@ -800,19 +800,19 @@ export default function TrackingPage() {
 
             <main className="min-w-0 space-y-6">
 
-              <section className="overflow-hidden rounded-3xl border border-white/80 bg-white/95 shadow-xl shadow-slate-200/50">
+              <section className="overflow-hidden rounded-3xl border border-white/10 bg-[#111111] shadow-xl shadow-black/40">
 
-                <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-indigo-600 to-violet-600 px-6 py-7 text-white md:px-8">
+                <div className="relative overflow-hidden bg-gradient-to-br from-red-700 via-red-600 to-[#39070c] px-6 py-7 text-white md:px-8">
 
-                  <div className="pointer-events-none absolute -right-20 -top-20 h-60 w-60 rounded-full bg-white/10 blur-2xl" />
+                  <div className="pointer-events-none absolute -right-20 -top-20 h-60 w-60 rounded-full bg-black/20 blur-2xl" />
 
-                  <div className="pointer-events-none absolute -bottom-28 left-1/3 h-64 w-64 rounded-full bg-violet-300/20 blur-3xl" />
+                  <div className="pointer-events-none absolute -bottom-28 left-1/3 h-64 w-64 rounded-full bg-red-600/10 blur-3xl" />
 
                   <div className="relative flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
 
                     <div>
 
-                      <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold backdrop-blur">
+                      <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-black/20 px-3 py-1 text-xs font-semibold backdrop-blur">
 
                         <span className="h-2 w-2 rounded-full bg-emerald-300" />
 
@@ -826,7 +826,7 @@ export default function TrackingPage() {
 
                       </h2>
 
-                      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-indigo-100">
+                      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-red-100">
 
                         {selectedSpk.items?.length ? (
 
@@ -860,7 +860,7 @@ export default function TrackingPage() {
 
                     </div>
 
-                    <div className="flex items-center gap-2 self-start rounded-full bg-white/15 px-4 py-2 text-xs font-bold backdrop-blur md:self-center">
+                    <div className="flex items-center gap-2 self-start rounded-full bg-black/20 px-4 py-2 text-xs font-bold backdrop-blur md:self-center">
 
                       <span className="h-2.5 w-2.5 rounded-full bg-emerald-300 shadow-[0_0_12px_rgba(110,231,183,0.9)]" />
 
@@ -872,7 +872,7 @@ export default function TrackingPage() {
 
                 </div>
 
-                <div className="grid grid-cols-2 divide-x divide-y divide-slate-100 md:grid-cols-5 md:divide-y-0">
+                <div className="grid grid-cols-2 divide-x divide-y divide-white/10 md:grid-cols-5 md:divide-y-0">
 
                   <Kpi
 
@@ -948,7 +948,7 @@ export default function TrackingPage() {
 
               </section>
 
-              <section className="rounded-3xl border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-200/50 md:p-7">
+              <section className="rounded-3xl border border-white/10 bg-[#111111] p-6 shadow-xl shadow-black/40 md:p-7">
 
                 <SectionHeader
 
@@ -962,11 +962,11 @@ export default function TrackingPage() {
 
                 <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_auto_1fr] lg:items-center">
 
-                  <div className="rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50 to-indigo-50 p-5">
+                  <div className="rounded-2xl border border-red-900/60 bg-gradient-to-br from-[#191919] to-[#111111] p-5">
 
                     <div className="flex items-center gap-3">
 
-                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-violet-100 text-xl">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-red-950/50 text-xl">
 
                         📦
 
@@ -974,13 +974,13 @@ export default function TrackingPage() {
 
                       <div>
 
-                        <div className="text-xs font-semibold uppercase tracking-wider text-violet-500">
+                        <div className="text-xs font-semibold uppercase tracking-wider text-red-400">
 
                           Current Inventory
 
                         </div>
 
-                        <div className="mt-1 text-xl font-bold text-violet-800">
+                        <div className="mt-1 text-xl font-bold text-red-200">
 
                           {formatNumber(
 
@@ -1000,15 +1000,15 @@ export default function TrackingPage() {
 
                   </div>
 
-                  <div className="hidden text-indigo-300 lg:block">
+                  <div className="hidden text-red-400 lg:block">
 
                     <ArrowRight className="h-7 w-7" />
 
                   </div>
 
-                  <div className="rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50 to-white p-5">
+                  <div className="rounded-2xl border border-red-900/70 bg-gradient-to-br from-[#1b1012] to-[#111111] p-5">
 
-                    <div className="text-xs font-semibold uppercase tracking-wider text-indigo-500">
+                    <div className="text-xs font-semibold uppercase tracking-wider text-red-400">
 
                       Next Process
 
@@ -1018,7 +1018,7 @@ export default function TrackingPage() {
 
                       .nextTransactionTypes.length === 0 ? (
 
-                      <div className="mt-2 text-sm font-semibold text-slate-500">
+                      <div className="mt-2 text-sm font-semibold text-gray-400">
 
                         Tidak ada proses berikutnya.
 
@@ -1074,7 +1074,7 @@ export default function TrackingPage() {
 
               </section>
 
-              <section className="rounded-3xl border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-200/50 md:p-7">
+              <section className="rounded-3xl border border-white/10 bg-[#111111] p-6 shadow-xl shadow-black/40 md:p-7">
 
                 <SectionHeader
 
@@ -1146,9 +1146,9 @@ export default function TrackingPage() {
 
                 </div>
 
-                <div className="mt-5 rounded-2xl border border-amber-100 bg-amber-50/60 px-4 py-3">
+                <div className="mt-5 rounded-2xl border border-amber-900/50 bg-amber-950/20 px-4 py-3">
 
-                  <div className="flex flex-col gap-1 text-xs text-amber-800 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex flex-col gap-1 text-xs text-amber-300 sm:flex-row sm:items-center sm:justify-between">
 
                     <span className="font-semibold">
 
@@ -1198,7 +1198,7 @@ export default function TrackingPage() {
 
               </section>
 
-              <section className="rounded-3xl border border-white/80 bg-white/95 p-6 shadow-xl shadow-slate-200/50 md:p-7">
+              <section className="rounded-3xl border border-white/10 bg-[#111111] p-6 shadow-xl shadow-black/40 md:p-7">
 
                 <SectionHeader
 
@@ -1212,17 +1212,17 @@ export default function TrackingPage() {
 
                 {selectedSpk.transactions.length === 0 ? (
 
-                  <div className="mt-6 rounded-2xl border border-dashed border-indigo-200 bg-indigo-50/30 px-6 py-12 text-center">
+                  <div className="mt-6 rounded-2xl border border-dashed border-red-900/70 bg-red-950/20 px-6 py-12 text-center">
 
-                    <Package className="mx-auto h-9 w-9 text-indigo-300" />
+                    <Package className="mx-auto h-9 w-9 text-red-400" />
 
-                    <div className="mt-3 text-sm font-semibold text-slate-700">
+                    <div className="mt-3 text-sm font-semibold text-gray-200">
 
                       Belum ada transaksi
 
                     </div>
 
-                    <div className="mt-1 text-xs text-slate-500">
+                    <div className="mt-1 text-xs text-gray-400">
 
                       Production journey akan muncul
 
@@ -1236,7 +1236,7 @@ export default function TrackingPage() {
 
                   <div className="relative mt-7">
 
-                    <div className="absolute bottom-7 left-[19px] top-7 w-px bg-gradient-to-b from-indigo-200 via-violet-200 to-slate-200" />
+                    <div className="absolute bottom-7 left-[19px] top-7 w-px bg-gradient-to-b from-red-700 via-red-900 to-slate-700" />
 
                     <div className="space-y-7">
 
@@ -1290,9 +1290,9 @@ export default function TrackingPage() {
 
                                   isLast
 
-                                    ? "border-indigo-200 bg-gradient-to-br from-indigo-50/70 to-violet-50/40 shadow-md shadow-indigo-100"
+                                    ? "border-red-900/70 bg-gradient-to-br from-[#251114] to-[#171012] shadow-md shadow-red-950/30"
 
-                                    : "border-slate-100 bg-slate-50/50"
+                                    : "border-white/10 bg-[#171717]"
 
                                 }`}
 
@@ -1304,7 +1304,7 @@ export default function TrackingPage() {
 
                                     <div className="flex flex-wrap items-center gap-2">
 
-                                      <h3 className="font-bold text-slate-800">
+                                      <h3 className="font-bold text-gray-100">
 
                                         {transaction
 
@@ -1316,7 +1316,7 @@ export default function TrackingPage() {
 
                                       {isLast && (
 
-                                        <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-700">
+                                        <span className="rounded-full bg-red-950/60 px-2 py-0.5 text-[10px] font-bold text-red-300">
 
                                           CURRENT
 
@@ -1326,7 +1326,7 @@ export default function TrackingPage() {
 
                                     </div>
 
-                                    <div className="mt-1 text-xs font-medium text-slate-400">
+                                    <div className="mt-1 text-xs font-medium text-gray-400">
 
                                       {
 
@@ -1338,7 +1338,7 @@ export default function TrackingPage() {
 
                                     {transaction.product && (
 
-                                      <div className="mt-2 inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-1 text-[10px] font-semibold text-indigo-600">
+                                      <div className="mt-2 inline-flex items-center rounded-full bg-red-950/40 px-2.5 py-1 text-[10px] font-semibold text-red-400">
 
                                         {transaction.product.name} · {transaction.product.code}
 
@@ -1348,15 +1348,15 @@ export default function TrackingPage() {
 
                                   </div>
 
-                                  <div className="shrink-0 rounded-xl bg-white px-3 py-2 text-right shadow-sm">
+                                  <div className="shrink-0 rounded-xl bg-[#151515] px-3 py-2 text-right shadow-sm">
 
-                                    <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                                    <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
 
                                       Quantity
 
                                     </div>
 
-                                    <div className="text-lg font-bold text-slate-800">
+                                    <div className="text-lg font-bold text-gray-100">
 
                                       {formatNumber(
 
@@ -1364,7 +1364,7 @@ export default function TrackingPage() {
 
                                       )}{" "}
 
-                                      <span className="text-xs font-medium text-slate-400">
+                                      <span className="text-xs font-medium text-gray-400">
 
                                         pcs
 
@@ -1376,11 +1376,11 @@ export default function TrackingPage() {
 
                                 </div>
 
-                                <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 border-t border-slate-200/70 pt-3 text-xs text-slate-500">
+                                <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 border-t border-white/10 pt-3 text-xs text-gray-400">
 
                                   <span className="inline-flex items-center gap-1.5">
 
-                                    <UserRound className="h-3.5 w-3.5 text-indigo-400" />
+                                    <UserRound className="h-3.5 w-3.5 text-red-400" />
 
                                     {transaction.employee
 
@@ -1390,7 +1390,7 @@ export default function TrackingPage() {
 
                                   <span className="inline-flex items-center gap-1.5">
 
-                                    <Clock3 className="h-3.5 w-3.5 text-indigo-400" />
+                                    <Clock3 className="h-3.5 w-3.5 text-red-400" />
 
                                     {formatDate(
 
@@ -1460,49 +1460,49 @@ function RijekMetric({
 
     amber: {
 
-      bg: "bg-amber-50",
+      bg: "bg-amber-950/30",
 
-      border: "border-amber-100",
+      border: "border-amber-900/50",
 
-      text: "text-amber-700",
+      text: "text-amber-300",
 
-      dot: "bg-amber-500",
+      dot: "bg-amber-950/300",
 
     },
 
     orange: {
 
-      bg: "bg-orange-50",
+      bg: "bg-orange-950/30",
 
-      border: "border-orange-100",
+      border: "border-orange-900/50",
 
-      text: "text-orange-700",
+      text: "text-orange-300",
 
-      dot: "bg-orange-500",
+      dot: "bg-orange-950/300",
 
     },
 
     violet: {
 
-      bg: "bg-violet-50",
+      bg: "bg-red-950/30",
 
-      border: "border-violet-100",
+      border: "border-red-900/50",
 
-      text: "text-violet-700",
+      text: "text-red-300",
 
-      dot: "bg-violet-500",
+      dot: "bg-red-600/10",
 
     },
 
     emerald: {
 
-      bg: "bg-emerald-50",
+      bg: "bg-emerald-950/30",
 
       border: "border-emerald-100",
 
-      text: "text-emerald-700",
+      text: "text-emerald-300",
 
-      dot: "bg-emerald-500",
+      dot: "bg-emerald-950/300",
 
     },
 
@@ -1516,7 +1516,7 @@ function RijekMetric({
 
         <span className={`h-2.5 w-2.5 rounded-full ${styles.dot}`} />
 
-        <span className="text-xs font-semibold text-slate-500">
+        <span className="text-xs font-semibold text-gray-400">
 
           {label}
 
@@ -1530,7 +1530,7 @@ function RijekMetric({
 
       </div>
 
-      <div className="mt-1 text-[11px] text-slate-500">
+      <div className="mt-1 text-[11px] text-gray-400">
 
         {description}
 
@@ -1564,7 +1564,7 @@ function SectionHeader({
 
     <div className="flex items-start gap-3">
 
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-950/40 text-red-400">
 
         {icon}
 
@@ -1572,13 +1572,13 @@ function SectionHeader({
 
       <div>
 
-        <h2 className="font-bold text-slate-800">
+        <h2 className="font-bold text-gray-100">
 
           {title}
 
         </h2>
 
-        <p className="mt-1 text-xs text-slate-500">
+        <p className="mt-1 text-xs text-gray-400">
 
           {description}
 
@@ -1624,51 +1624,51 @@ function Kpi({
 
     blue: {
 
-      dot: "bg-blue-500",
+      dot: "bg-sky-950/300",
 
-      text: "text-blue-700",
+      text: "text-sky-300",
 
-      bg: "bg-blue-50",
+      bg: "bg-sky-950/30",
 
     },
 
     cyan: {
 
-      dot: "bg-cyan-500",
+      dot: "bg-cyan-950/300",
 
-      text: "text-cyan-700",
+      text: "text-cyan-300",
 
-      bg: "bg-cyan-50",
+      bg: "bg-cyan-950/30",
 
     },
 
     violet: {
 
-      dot: "bg-violet-500",
+      dot: "bg-red-600/10",
 
-      text: "text-violet-700",
+      text: "text-red-300",
 
-      bg: "bg-violet-50",
+      bg: "bg-red-950/30",
 
     },
 
     amber: {
 
-      dot: "bg-amber-500",
+      dot: "bg-amber-950/300",
 
-      text: "text-amber-700",
+      text: "text-amber-300",
 
-      bg: "bg-amber-50",
+      bg: "bg-amber-950/30",
 
     },
 
     emerald: {
 
-      dot: "bg-emerald-500",
+      dot: "bg-emerald-950/300",
 
-      text: "text-emerald-700",
+      text: "text-emerald-300",
 
-      bg: "bg-emerald-50",
+      bg: "bg-emerald-950/30",
 
     },
 
@@ -1688,7 +1688,7 @@ function Kpi({
 
         />
 
-        <span className="text-xs font-semibold text-slate-400">
+        <span className="text-xs font-semibold text-gray-400">
 
           {label}
 
