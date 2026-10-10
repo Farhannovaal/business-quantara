@@ -51,15 +51,8 @@ export async function createTransaction(
     createdById,
   } = input;
 
-  // =========================================================
-  // BASIC VALIDATION
-  // =========================================================
-
   if (!Number.isInteger(spkId) || spkId <= 0) {
-    throw new TransactionEngineError(
-      "INVALID_SPK",
-      "Invalid SPK",
-    );
+    throw new TransactionEngineError("INVALID_SPK", "Invalid SPK");
   }
 
   if (
@@ -100,18 +93,12 @@ export async function createTransaction(
     );
   }
 
-  // =========================================================
-  // LOAD SPK
-  // =========================================================
-
   const spk = await tx.sPK.findUnique({
     where: {
       id: spkId,
     },
-
     include: {
       tailor: true,
-
       items: {
         include: {
           product: true,
@@ -135,10 +122,6 @@ export async function createTransaction(
     );
   }
 
-  // =========================================================
-  // FIND PRODUCT INSIDE SPK
-  // =========================================================
-
   const spkItem = spk.items.find(
     (item) => item.productId === productId,
   );
@@ -150,16 +133,11 @@ export async function createTransaction(
     );
   }
 
-  // =========================================================
-  // TRANSACTION TYPE
-  // =========================================================
-
-  const transactionType =
-    await tx.transactionType.findUnique({
-      where: {
-        id: transactionTypeId,
-      },
-    });
+  const transactionType = await tx.transactionType.findUnique({
+    where: {
+      id: transactionTypeId,
+    },
+  });
 
   if (!transactionType) {
     throw new TransactionEngineError(
@@ -175,10 +153,6 @@ export async function createTransaction(
       "Transaction type is not active",
     );
   }
-
-  // =========================================================
-  // PRODUCT
-  // =========================================================
 
   const product = await tx.product.findUnique({
     where: {
@@ -201,10 +175,6 @@ export async function createTransaction(
     );
   }
 
-  // =========================================================
-  // TAILOR
-  // =========================================================
-
   const tailor = await tx.tailor.findUnique({
     where: {
       id: tailorId,
@@ -226,9 +196,12 @@ export async function createTransaction(
     );
   }
 
-  // =========================================================
-  // EMPLOYEE
-  // =========================================================
+  if (spk.tailorId !== tailorId) {
+    throw new TransactionEngineError(
+      "TAILOR_NOT_MATCH_SPK",
+      "Tailor does not match the SPK",
+    );
+  }
 
   const employee = await tx.employee.findUnique({
     where: {
@@ -251,56 +224,30 @@ export async function createTransaction(
     );
   }
 
-  // =========================================================
-  // TAILOR MUST MATCH SPK
-  // =========================================================
-
-  if (spk.tailorId !== tailorId) {
-    throw new TransactionEngineError(
-      "TAILOR_NOT_MATCH_SPK",
-      "Tailor does not match the SPK",
-    );
-  }
-
-  // =========================================================
-  // GET TRANSACTIONS FOR THIS SPK + PRODUCT ONLY
-  // =========================================================
-
-  const spkTransactions =
-    await tx.transaction.findMany({
-      where: {
-        spkId,
-        productId,
-      },
-
-      select: {
-        quantity: true,
-
-        transactionType: {
-          select: {
-            code: true,
-          },
+  const spkTransactions = await tx.transaction.findMany({
+    where: {
+      spkId,
+      productId,
+      status: "ACTIVE",
+    },
+    select: {
+      quantity: true,
+      transactionType: {
+        select: {
+          code: true,
         },
       },
-    });
-
-  // =========================================================
-  // CALCULATE CURRENT STATUS
-  // =========================================================
+    },
+  });
 
   const status = calculateSPKStatus(
     spkTransactions as SPKTransactionForStatus[],
     spkItem.quantity,
   );
 
-  // =========================================================
-  // CHECK TRANSACTION TYPE
-  // =========================================================
-
-  const isAllowed =
-    status.nextTransactionTypes.includes(
-      transactionType.code,
-    );
+  const isAllowed = status.nextTransactionTypes.includes(
+    transactionType.code,
+  );
 
   if (!isAllowed) {
     throw new TransactionEngineError(
@@ -309,60 +256,32 @@ export async function createTransaction(
     );
   }
 
-  // =========================================================
-  // MAX QUANTITY
-  // =========================================================
-
   let maxQuantity: number | null = null;
-
-  // ---------------------------------------------------------
-  // PENGIRIMAN SIAP JAHIT
-  // ---------------------------------------------------------
 
   switch (transactionType.code) {
     case "PENGIRIMAN_SIAP_JAHIT":
       maxQuantity = Math.max(
-        spkItem.quantity -
-          status.totalPengiriman,
+        spkItem.quantity - status.totalPengiriman,
         0,
       );
       break;
-
-    // -------------------------------------------------------
-    // PENERIMAAN DARI PENJAHIT
-    // -------------------------------------------------------
 
     case "PENERIMAAN_DARI_PENJAHIT":
       maxQuantity = status.sisaJahit;
       break;
 
-    // -------------------------------------------------------
-    // QUALITY CONTROL
-    // -------------------------------------------------------
-
     case "QUALITY_CONTROL":
-
     case "QC_RIJEK":
-
     case "QC_ACC_DIKIRIM_KE_GUDANG":
       maxQuantity = status.barangDiQc;
       break;
 
-    // -------------------------------------------------------
-    // PENGIRIMAN RIJEK
-    // -------------------------------------------------------
-
     case "PENGIRIMAN_RIJEK":
       maxQuantity = Math.max(
-        status.totalQcRijek -
-          status.totalPengirimanRijek,
+        status.totalQcRijek - status.totalPengirimanRijek,
         0,
       );
       break;
-
-    // -------------------------------------------------------
-    // PENERIMAAN RIJEK
-    // -------------------------------------------------------
 
     case "PENERIMAAN_RIJEK":
       maxQuantity = Math.max(
@@ -373,14 +292,7 @@ export async function createTransaction(
       break;
   }
 
-  // =========================================================
-  // VALIDATE MAX QUANTITY
-  // =========================================================
-
-  if (
-    maxQuantity !== null &&
-    quantity > maxQuantity
-  ) {
+  if (maxQuantity !== null && quantity > maxQuantity) {
     throw new TransactionEngineError(
       "QUANTITY_EXCEEDS_AVAILABLE",
       "Quantity exceeds the available quantity",
@@ -389,105 +301,69 @@ export async function createTransaction(
     );
   }
 
-  // =========================================================
-  // GENERATE TRANSACTION NUMBER
-  // =========================================================
-
   const now = new Date();
 
   const year = now.getFullYear();
-
-  const month = String(
-    now.getMonth() + 1,
-  ).padStart(2, "0");
-
-  const day = String(
-    now.getDate(),
-  ).padStart(2, "0");
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
 
   const dateKey = `${year}${month}${day}`;
 
-  const sequence =
-    await tx.transactionSequence.upsert({
-      where: {
-        date: dateKey,
+  const sequence = await tx.transactionSequence.upsert({
+    where: {
+      date: dateKey,
+    },
+    create: {
+      date: dateKey,
+      lastValue: 1,
+    },
+    update: {
+      lastValue: {
+        increment: 1,
       },
+    },
+  });
 
-      create: {
-        date: dateKey,
-        lastValue: 1,
-      },
+  const transactionNumber = `TRX-${dateKey}-${String(
+    sequence.lastValue,
+  ).padStart(6, "0")}`;
 
-      update: {
-        lastValue: {
-          increment: 1,
-        },
-      },
-    });
-
-  const transactionNumber =
-    `TRX-${dateKey}-${String(
-      sequence.lastValue,
-    ).padStart(6, "0")}`;
-
-  // =========================================================
-  // CREATE TRANSACTION
-  // =========================================================
-
-  const transaction =
-    await tx.transaction.create({
-      data: {
-        transactionNumber,
-
-        spkId,
-        transactionTypeId,
-        productId,
-        tailorId,
-        employeeId,
-
-        quantity,
-
-        createdById,
-      },
-
-      include: {
-        spk: {
-          include: {
-            tailor: true,
-
-            items: {
-              include: {
-                product: true,
-              },
+  const transaction = await tx.transaction.create({
+    data: {
+      transactionNumber,
+      spkId,
+      transactionTypeId,
+      productId,
+      tailorId,
+      employeeId,
+      quantity,
+      createdById,
+    },
+    include: {
+      spk: {
+        include: {
+          tailor: true,
+          items: {
+            include: {
+              product: true,
             },
           },
         },
-
-        transactionType: true,
-        product: true,
-        tailor: true,
-        employee: true,
       },
-    });
-
-  // =========================================================
-  // ACTIVITY LOG
-  // =========================================================
+      transactionType: true,
+      product: true,
+      tailor: true,
+      employee: true,
+    },
+  });
 
   await tx.activityLog.create({
     data: {
       userId: createdById,
-
       action: "CREATE",
-
       entityType: "Transaction",
-
-      entityId: String(
-        transaction.id,
-      ),
-
-      description:
-        `Transaction ${transaction.transactionNumber} created.`,
+      entityId: String(transaction.id),
+      description: `Transaction ${transaction.transactionNumber} created.`,
     },
   });
 

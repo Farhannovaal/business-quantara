@@ -5,7 +5,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
 
   ArrowLeftRight,
-
+  Ban,
   CheckCircle2,
 
   Loader2,
@@ -86,6 +86,16 @@ type Transaction = {
 
   createdAt: string;
 
+  status: "ACTIVE" | "CANCELLED";
+
+  createdById: number;
+
+  cancelledAt?: string | null;
+
+  cancelledById?: number | null;
+
+  cancellationReason?: string | null;
+
   spk: { spkNumber: string };
 
   product?: Product;
@@ -139,6 +149,7 @@ function formatDate(value: string) {
 }
 
 const inputClass =
+
   "w-full min-w-0 rounded-xl border border-white/10 bg-[#151313] px-3 py-3 text-sm text-white outline-none transition placeholder:text-neutral-500 focus:border-rose-500 focus:ring-4 focus:ring-rose-950/60 disabled:cursor-not-allowed disabled:bg-white/[0.03]";
 
 const labelClass = "mb-2 block text-sm font-semibold text-neutral-200";
@@ -166,6 +177,12 @@ export default function TransactionsPage() {
   const [searchSpk, setSearchSpk] = useState("");
 
   const [searchTransaction, setSearchTransaction] = useState("");
+  const [transactionStatus, setTransactionStatus] = useState<"ALL" | "ACTIVE" | "CANCELLED">("ALL");
+  const [transactionPage, setTransactionPage] = useState(1);
+  const [transactionPageSize, setTransactionPageSize] = useState(10);
+  const [cancelTarget, setCancelTarget] = useState<Transaction | null>(null);
+  const [cancellationReason, setCancellationReason] = useState("");
+  const [cancelling, setCancelling] = useState(false);
 
   const [loading, setLoading] = useState(true);
 
@@ -350,28 +367,84 @@ export default function TransactionsPage() {
   }, [spks, searchSpk]);
 
   const filteredTransactions = useMemo(() => {
-
     const q = searchTransaction.trim().toLowerCase();
 
-    if (!q) return transactions;
-
-    return transactions.filter(
-
-      (transaction) =>
-
+    return transactions.filter((transaction) => {
+      const matchesSearch =
+        !q ||
         transaction.transactionNumber.toLowerCase().includes(q) ||
-
         transaction.spk.spkNumber.toLowerCase().includes(q) ||
-
         transaction.transactionType.name.toLowerCase().includes(q) ||
-
         transaction.employee.name.toLowerCase().includes(q) ||
+        (transaction.product?.name ?? "").toLowerCase().includes(q);
 
-        (transaction.product?.name ?? "").toLowerCase().includes(q),
+      const matchesStatus =
+        transactionStatus === "ALL" || transaction.status === transactionStatus;
 
-    );
+      return matchesSearch && matchesStatus;
+    });
+  }, [transactions, searchTransaction, transactionStatus]);
 
-  }, [transactions, searchTransaction]);
+  const transactionTotalPages = Math.max(1, Math.ceil(filteredTransactions.length / transactionPageSize));
+  const paginatedTransactions = useMemo(() => {
+    const startIndex = (transactionPage - 1) * transactionPageSize;
+    return filteredTransactions.slice(startIndex, startIndex + transactionPageSize);
+  }, [filteredTransactions, transactionPage, transactionPageSize]);
+
+  useEffect(() => {
+    setTransactionPage(1);
+  }, [searchTransaction, transactionStatus, transactionPageSize]);
+
+  useEffect(() => {
+    if (transactionPage > transactionTotalPages) {
+      setTransactionPage(transactionTotalPages);
+    }
+  }, [transactionPage, transactionTotalPages]);
+
+  async function handleCancelTransaction() {
+    if (!cancelTarget || cancelling) return;
+
+    try {
+      setCancelling(true);
+      setError("");
+      setSuccess("");
+
+      const response = await fetch(
+        `/api/transactions/${cancelTarget.id}/cancel`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            cancellationReason: cancellationReason.trim() || null,
+          }),
+        },
+      );
+
+      const json = await response.json();
+
+      if (!response.ok) {
+        throw new Error(json.error ?? "Gagal membatalkan transaksi.");
+      }
+
+      const transactionNumber = cancelTarget.transactionNumber;
+      const spkIdToRefresh = selectedSpkId;
+
+      setCancelTarget(null);
+      setCancellationReason("");
+
+      await loadInitialData();
+
+      if (spkIdToRefresh) {
+        await loadSpkDetail(spkIdToRefresh);
+      }
+
+      setSuccess(`Transaksi ${transactionNumber} berhasil dibatalkan.`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Gagal membatalkan transaksi.");
+    } finally {
+      setCancelling(false);
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
 
@@ -663,7 +736,7 @@ export default function TransactionsPage() {
 
       )}
 
-      <div className="grid min-w-0 grid-cols-1 gap-4 lg:gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(280px,1fr)]">
+      <div className="grid min-w-0 grid-cols-1 gap-4 lg:gap-6 xl:grid-cols-[minmax(0,1.5fr)\_minmax(280px,1fr)]">
 
         <section className="min-w-0 rounded-2xl border border-white/10 bg-[#111010] shadow-lg shadow-black/30 sm:rounded-3xl">
 
@@ -1063,12 +1136,28 @@ export default function TransactionsPage() {
 
           </div>
 
-          <div className="relative w-full min-w-0 sm:max-w-xs">
-
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500" />
-
-            <input value={searchTransaction} onChange={(event) => setSearchTransaction(event.target.value)} placeholder="Cari transaksi / SPK / produk..." className={`${inputClass} bg-white/[0.04] pl-9`} />
-
+          <div className="flex w-full min-w-0 flex-col gap-2 sm:max-w-sm">
+            <div className="relative min-w-0">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500" />
+              <input
+                value={searchTransaction}
+                onChange={(event) => setSearchTransaction(event.target.value)}
+                placeholder="Cari transaksi / SPK / produk..."
+                className={`${inputClass} bg-white/[0.04] pl-9`}
+              />
+            </div>
+            <select
+              value={transactionStatus}
+              onChange={(event) =>
+                setTransactionStatus(event.target.value as "ALL" | "ACTIVE" | "CANCELLED")
+              }
+              className={inputClass}
+              aria-label="Filter status transaksi"
+            >
+              <option value="ALL">Semua Status</option>
+              <option value="ACTIVE">Aktif</option>
+              <option value="CANCELLED">Dibatalkan</option>
+            </select>
           </div>
 
         </div>
@@ -1079,7 +1168,7 @@ export default function TransactionsPage() {
 
             <div className="px-3 py-10 text-center text-sm text-neutral-400">Belum ada transaksi.</div>
 
-          ) : filteredTransactions.map((transaction) => (
+          ) : paginatedTransactions.map((transaction) => (
 
             <article key={transaction.id} className="min-w-0 rounded-xl border border-white/10 p-3">
 
@@ -1097,17 +1186,65 @@ export default function TransactionsPage() {
 
               </div>
 
-              <div className="mt-3 grid grid-cols-1 gap-2 border-t border-white/10 pt-3 text-sm min-[420px]:grid-cols-2">
-
-                <div className="min-w-0"><div className="text-xs text-neutral-400">Produk</div><div className="break-words text-neutral-200">{transaction.product?.name ?? "-"}</div></div>
-
-                <div className="min-w-0"><div className="text-xs text-neutral-400">Proses</div><div className="break-words text-neutral-200">{transaction.transactionType.name}</div></div>
-
-                <div className="min-w-0"><div className="text-xs text-neutral-400">Karyawan</div><div className="break-words text-neutral-200">{transaction.employee.name}</div></div>
-
-                <div className="min-w-0"><div className="text-xs text-neutral-400">Tanggal</div><div className="break-words text-neutral-200">{formatDate(transaction.createdAt)}</div></div>
-
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <span
+                  className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                    transaction.status === "CANCELLED"
+                      ? "bg-red-950/50 text-red-300"
+                      : "bg-emerald-950/50 text-emerald-300"
+                  }`}
+                >
+                  {transaction.status === "CANCELLED" ? "Dibatalkan" : "Aktif"}
+                </span>
+                {transaction.status === "CANCELLED" && transaction.cancelledAt && (
+                  <span className="text-xs text-neutral-500">
+                    {formatDate(transaction.cancelledAt)}
+                  </span>
+                )}
               </div>
+
+              <div className="mt-3 grid grid-cols-1 gap-2 border-t border-white/10 pt-3 text-sm min-[420px]:grid-cols-2">
+                <div className="min-w-0">
+                  <div className="text-xs text-neutral-400">Produk</div>
+                  <div className="break-words text-neutral-200">{transaction.product?.name ?? "-"}</div>
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs text-neutral-400">Proses</div>
+                  <div className="break-words text-neutral-200">{transaction.transactionType.name}</div>
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs text-neutral-400">Karyawan</div>
+                  <div className="break-words text-neutral-200">{transaction.employee.name}</div>
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs text-neutral-400">Tanggal</div>
+                  <div className="break-words text-neutral-200">{formatDate(transaction.createdAt)}</div>
+                </div>
+              </div>
+
+              {transaction.status === "CANCELLED" && transaction.cancellationReason && (
+                <div className="mt-3 rounded-lg border border-red-900/30 bg-red-950/20 p-2.5 text-xs text-neutral-300">
+                  <span className="font-semibold text-red-300">Alasan pembatalan:</span>{" "}
+                  {transaction.cancellationReason}
+                </div>
+              )}
+
+              {transaction.status === "ACTIVE" && (
+                <div className="mt-3 flex justify-end border-t border-white/10 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCancelTarget(transaction);
+                      setCancellationReason("");
+                      setError("");
+                    }}
+                    className="inline-flex items-center gap-2 rounded-xl border border-red-900/50 bg-red-950/20 px-3 py-2 text-sm font-semibold text-red-300 transition hover:bg-red-950/50"
+                  >
+                    <Ban className="h-4 w-4" />
+                    Cancel Transaction
+                  </button>
+                </div>
+              )}
 
             </article>
 
@@ -1123,7 +1260,7 @@ export default function TransactionsPage() {
 
               <tr>
 
-                {["Transaction", "SPK", "Produk", "Process", "Employee", "Qty", "Date"].map((label) => (
+                {["Transaction", "SPK", "Produk", "Process", "Employee", "Qty", "Date", "Status", "Aksi"].map((label) => (
 
                   <th key={label} className="whitespace-nowrap px-4 py-3 font-semibold text-neutral-400 lg:px-5">{label}</th>
 
@@ -1137,9 +1274,9 @@ export default function TransactionsPage() {
 
               {filteredTransactions.length === 0 ? (
 
-                <tr><td colSpan={7} className="px-6 py-10 text-center text-neutral-400">Belum ada transaksi.</td></tr>
+                <tr><td colSpan={9} className="px-6 py-10 text-center text-neutral-400">Belum ada transaksi.</td></tr>
 
-              ) : filteredTransactions.map((transaction) => (
+              ) : paginatedTransactions.map((transaction) => (
 
                 <tr key={transaction.id} className="border-t border-white/10 transition hover:bg-rose-950/15">
 
@@ -1156,14 +1293,234 @@ export default function TransactionsPage() {
                   <td className="px-4 py-4 text-right font-semibold text-white lg:px-5">{transaction.quantity}</td>
 
                   <td className="whitespace-nowrap px-4 py-4 text-neutral-400 lg:px-5">{formatDate(transaction.createdAt)}</td>
-
+                  <td className="px-4 py-4 lg:px-5">
+                    <div className="flex flex-col gap-1">
+                      <span
+                        className={`inline-flex w-fit rounded-full px-2.5 py-1 text-xs font-semibold ${
+                          transaction.status === "CANCELLED"
+                            ? "bg-red-950/50 text-red-300"
+                            : "bg-emerald-950/50 text-emerald-300"
+                        }`}
+                      >
+                        {transaction.status === "CANCELLED" ? "Dibatalkan" : "Aktif"}
+                      </span>
+                      {transaction.status === "CANCELLED" && transaction.cancellationReason && (
+                        <span className="max-w-48 whitespace-normal break-words text-xs text-neutral-500">
+                          Alasan: {transaction.cancellationReason}
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-4 py-4 lg:px-5">
+                    {transaction.status === "ACTIVE" ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCancelTarget(transaction);
+                          setCancellationReason("");
+                          setError("");
+                        }}
+                        className="inline-flex items-center gap-2 whitespace-nowrap rounded-lg border border-red-900/50 bg-red-950/20 px-3 py-2 text-xs font-semibold text-red-300 transition hover:bg-red-950/50"
+                      >
+                        <Ban className="h-4 w-4" />
+                        Cancel
+                      </button>
+                    ) : (
+                      <span className="text-xs text-neutral-500">Tidak tersedia</span>
+                    )}
+                  </td>
                 </tr>
 
               ))}
+
             </tbody>
+
           </table>
+
         </div>
+
+        <div className="flex flex-col gap-3 border-t border-white/10 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div className="flex flex-col gap-2 text-sm text-neutral-400 sm:flex-row sm:items-center sm:gap-3">
+            <span>
+              Menampilkan {filteredTransactions.length === 0 ? 0 : (transactionPage - 1) * transactionPageSize + 1}
+              –{Math.min(transactionPage * transactionPageSize, filteredTransactions.length)} dari {filteredTransactions.length} transaksi
+            </span>
+            <label className="flex items-center gap-2">
+              <span>Per halaman</span>
+              <select
+                value={transactionPageSize}
+                onChange={(event) => setTransactionPageSize(Number(event.target.value))}
+                className="rounded-lg border border-white/10 bg-[#151313] px-2 py-1.5 text-sm text-white outline-none focus:border-rose-500"
+                aria-label="Jumlah transaksi per halaman"
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+              </select>
+            </label>
+          </div>
+          <div className="flex items-center gap-2 self-end sm:self-auto">
+            <button
+              type="button"
+              onClick={() => setTransactionPage((page) => Math.max(1, page - 1))}
+              disabled={transactionPage <= 1}
+              className="rounded-lg border border-white/10 px-3 py-2 text-sm font-medium text-neutral-200 transition hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Sebelumnya
+            </button>
+            <span className="min-w-20 text-center text-sm text-neutral-400">
+              Halaman {Math.min(transactionPage, transactionTotalPages)} / {transactionTotalPages}
+            </span>
+            <button
+              type="button"
+              onClick={() => setTransactionPage((page) => Math.min(transactionTotalPages, page + 1))}
+              disabled={transactionPage >= transactionTotalPages}
+              className="rounded-lg border border-white/10 px-3 py-2 text-sm font-medium text-neutral-200 transition hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Berikutnya
+            </button>
+          </div>
+        </div>
+
       </section>
+
+      {cancelTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/80 p-4 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !cancelling) {
+              setCancelTarget(null);
+              setCancellationReason("");
+            }
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cancel-transaction-title"
+            className="my-auto w-full max-w-lg rounded-2xl border border-white/10 bg-[#111010] p-5 shadow-2xl sm:p-6"
+          >
+            <div className="flex items-start gap-3">
+              <div className="rounded-xl bg-red-950/50 p-3 text-red-300">
+                <Ban className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h2 id="cancel-transaction-title" className="text-lg font-semibold text-white">
+                  Batalkan Transaksi?
+                </h2>
+                <p className="mt-1 text-sm leading-5 text-neutral-400">
+                  Transaksi akan ditandai sebagai dibatalkan dan tetap tersimpan dalam riwayat.
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={cancelling}
+                onClick={() => {
+                  setCancelTarget(null);
+                  setCancellationReason("");
+                }}
+                aria-label="Tutup dialog"
+                className="rounded-lg p-2 text-neutral-400 transition hover:bg-white/5 hover:text-white disabled:opacity-50"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mt-5 space-y-3 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+              <div>
+                <div className="text-xs text-neutral-500">Nomor Transaksi</div>
+                <div className="mt-1 break-words font-semibold text-rose-300">
+                  {cancelTarget.transactionNumber}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <div className="text-xs text-neutral-500">SPK</div>
+                  <div className="mt-1 break-words text-sm text-white">
+                    {cancelTarget.spk.spkNumber}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-neutral-500">Jumlah</div>
+                  <div className="mt-1 text-sm font-semibold text-white">
+                    {cancelTarget.quantity}
+                  </div>
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-neutral-500">Produk</div>
+                <div className="mt-1 break-words text-sm text-white">
+                  {cancelTarget.product?.name ?? "-"}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-neutral-500">Proses</div>
+                <div className="mt-1 break-words text-sm text-white">
+                  {cancelTarget.transactionType.name}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <label htmlFor="cancellation-reason" className={labelClass}>
+                Alasan Pembatalan
+                <span className="ml-1 font-normal text-neutral-500">(Opsional)</span>
+              </label>
+              <textarea
+                id="cancellation-reason"
+                value={cancellationReason}
+                onChange={(event) => setCancellationReason(event.target.value)}
+                maxLength={500}
+                rows={3}
+                disabled={cancelling}
+                placeholder="Contoh: Salah memilih produk atau jumlah transaksi..."
+                className={inputClass}
+              />
+              <p className="mt-1 text-xs text-neutral-500">
+                {cancellationReason.length}/500 karakter
+              </p>
+            </div>
+
+            <div className="mt-4 rounded-xl border border-amber-900/40 bg-amber-950/20 p-3 text-sm leading-5 text-amber-200">
+              Pastikan transaksi yang dipilih benar. Pembatalan dapat memengaruhi perhitungan progres produksi.
+            </div>
+
+            <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                disabled={cancelling}
+                onClick={() => {
+                  setCancelTarget(null);
+                  setCancellationReason("");
+                }}
+                className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-neutral-300 transition hover:bg-white/[0.08] disabled:opacity-50 sm:py-2.5"
+              >
+                Kembali
+              </button>
+              <button
+                type="button"
+                disabled={cancelling}
+                onClick={() => void handleCancelTransaction()}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-50 sm:py-2.5"
+              >
+                {cancelling ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Membatalkan...
+                  </>
+                ) : (
+                  <>
+                    <Ban className="h-4 w-4" />
+                    Konfirmasi Pembatalan
+                  </>
+                )}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
+
   );
+
 }

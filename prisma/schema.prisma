@@ -22,11 +22,12 @@ model User {
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
-  activityLogs     ActivityLog[]
-  scannedDocuments ScannedDocument[]
-  sessions         Session[]
-  transactions     Transaction[]
-  tailorBills      TailorBill[]
+  activityLogs          ActivityLog[]
+  scannedDocuments      ScannedDocument[]
+  sessions              Session[]
+  transactions          Transaction[]     @relation("TransactionCreatedBy")
+  cancelledTransactions Transaction[]     @relation("TransactionCancelledBy")
+  tailorBills           TailorBill[]
 
   role Role? @relation(fields: [roleId], references: [id])
 
@@ -198,21 +199,26 @@ model TransactionType {
 }
 
 model Transaction {
-  id                Int      @id @default(autoincrement())
-  transactionNumber String   @unique @db.VarChar(100)
-  spkId             Int
-  transactionTypeId Int
-  productId         Int
-  tailorId          Int
-  employeeId        Int
-  quantity          Int
-  createdById       Int?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                 Int               @id @default(autoincrement())
+  transactionNumber  String            @unique @db.VarChar(100)
+  spkId              Int
+  transactionTypeId  Int
+  productId          Int
+  tailorId           Int
+  employeeId         Int
+  quantity           Int
+  createdById        Int?
+  status             TransactionStatus @default(ACTIVE)
+  cancelledAt        DateTime?
+  cancelledById      Int?
+  cancellationReason String?           @db.Text
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
 
   scannedDocuments ScannedDocument[]
 
-  createdBy       User?           @relation(fields: [createdById], references: [id])
+  createdBy       User?           @relation("TransactionCreatedBy", fields: [createdById], references: [id])
+  cancelledBy     User?           @relation("TransactionCancelledBy", fields: [cancelledById], references: [id])
   employee        Employee        @relation(fields: [employeeId], references: [id])
   product         Product         @relation(fields: [productId], references: [id])
   spk             SPK             @relation(fields: [spkId], references: [id])
@@ -225,6 +231,8 @@ model Transaction {
   @@index([tailorId])
   @@index([employeeId])
   @@index([createdById])
+  @@index([status])
+  @@index([cancelledById])
   @@index([createdAt])
 }
 
@@ -451,6 +459,11 @@ model TailorBillItem {
  * ENUMS
  * =========================================================
  */
+
+enum TransactionStatus {
+  ACTIVE
+  CANCELLED
+}
 
 enum UserStatus {
   ACTIVE

@@ -144,75 +144,35 @@ export async function GET(
       );
     }
 
-    /**
-     * ==========================================================
-     * OVERALL SUMMARY
-     * ==========================================================
-     *
-     * Summary keseluruhan SPK dihitung dari seluruh transaksi.
-     *
-     * Jangan memberikan quantity dari salah satu SPKItem di sini,
-     * karena satu SPK dapat mempunyai beberapa product dengan
-     * quantity yang berbeda.
-     */
-    const summary = calculateSPKStatus(
-      spk.transactions,
+    const activeTransactions = spk.transactions.filter(
+      (transaction) => transaction.status === "ACTIVE",
     );
 
-    /**
-     * ==========================================================
-     * PRODUCT SUMMARY
-     * ==========================================================
-     *
-     * Business state dihitung PER PRODUCT.
-     *
-     * Contoh:
-     *
-     * Product A
-     * Qty SPK = 100
-     * Pengiriman = 50
-     *
-     * Product B
-     * Qty SPK = 200
-     * Pengiriman = 100
-     *
-     * Kedua product harus mempunyai status masing-masing.
-     */
-    const productSummaries = spk.items.map(
-      (item) => {
-        const productTransactions =
-          spk.transactions.filter(
-            (transaction) =>
-              transaction.productId ===
-              item.productId,
-          );
+    const summary = calculateSPKStatus(activeTransactions);
+ 
+    const productSummaries = spk.items.map((item) => {
+      const productTransactions = activeTransactions.filter(
+        (transaction) => transaction.productId === item.productId,
+      );
 
-        const productSummary =
-          calculateSPKStatus(
-            productTransactions,
-            item.quantity,
-          );
+      const productSummary = calculateSPKStatus(
+        productTransactions,
+        item.quantity,
+      );
 
-        return {
-          productId: item.productId,
-
-          product: item.product,
-
-          quantity: item.quantity,
-
-          summary: productSummary,
-        };
-      },
-    );
+      return {
+        productId: item.productId,
+        product: item.product,
+        quantity: item.quantity,
+        summary: productSummary,
+      };
+    });
 
     return NextResponse.json({
       success: true,
-
       data: {
         ...spk,
-
         summary,
-
         productSummaries,
       },
     });
