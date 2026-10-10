@@ -66,6 +66,12 @@ const menuGroups: MenuGroup[] = [
         permission: "dashboard.view",
       },
       {
+        label: "Report",
+        href: "/reports/production",
+        icon: BarChart3,
+        permission: "report.view",
+      },
+      {
         label: "SPK",
         href: "/operations/spk",
         icon: ClipboardList,
@@ -437,6 +443,12 @@ export default function AppShell({
         href: "/",
         icon: LayoutDashboard,
         permission: "dashboard.view",
+      },
+      {
+        label: "Report",
+        href: "/reports/production",
+        icon: BarChart3,
+        permission: "report.view",
       },
       {
         label: "SPK",

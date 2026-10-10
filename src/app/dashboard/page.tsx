@@ -206,6 +206,13 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const [filterStatus, setFilterStatus] = useState("ACTIVE");
+  const [filterSpk, setFilterSpk] = useState("ALL");
+  const [filterProduct, setFilterProduct] = useState("ALL");
+  const [filterTailor, setFilterTailor] = useState("ALL");
+  const [filterStartDate, setFilterStartDate] = useState("");
+  const [filterEndDate, setFilterEndDate] = useState("");
+  const [activeMetric, setActiveMetric] = useState("ALL");
 
   async function loadDashboard(showLoader = true) {
     try {
@@ -271,10 +278,35 @@ export default function Home() {
     [transactions],
   );
 
+  const filteredTrackingSpks = useMemo(() => {
+    return trackingSpks.filter((spk) => {
+      if (filterStatus !== "ALL" && spk.status !== filterStatus) return false;
+      if (filterSpk !== "ALL" && String(spk.id) !== filterSpk) return false;
+      if (filterTailor !== "ALL" && String(spk.tailor.id) !== filterTailor) return false;
+      if (filterProduct !== "ALL" && !spk.items.some((item) => String(item.productId) === filterProduct)) return false;
+      return true;
+    });
+  }, [trackingSpks, filterStatus, filterSpk, filterTailor, filterProduct]);
+
   const activeTrackingSpks = useMemo(
-    () => trackingSpks.filter((spk) => spk.status === "ACTIVE"),
-    [trackingSpks],
+    () => filteredTrackingSpks.filter((spk) => filterStatus === "ACTIVE" ? spk.status === "ACTIVE" : true),
+    [filteredTrackingSpks, filterStatus],
   );
+
+  const filteredTransactions = useMemo(() => {
+    const spkIds = new Set(filteredTrackingSpks.map((spk) => spk.id));
+    const start = filterStartDate ? new Date(`${filterStartDate}T00:00:00`) : null;
+    const end = filterEndDate ? new Date(`${filterEndDate}T23:59:59.999`) : null;
+    return transactions.filter((transaction) => {
+      const matchingSpk = spkIds.has((transaction as Transaction & { spkId?: number }).spkId ?? -1)
+        || filteredTrackingSpks.some((spk) => spk.spkNumber === transaction.spk.spkNumber);
+      if (!matchingSpk) return false;
+      const date = new Date(transaction.createdAt);
+      if (start && date < start) return false;
+      if (end && date > end) return false;
+      return true;
+    });
+  }, [transactions, filteredTrackingSpks, filterStartDate, filterEndDate]);
 
   const productionSummary = useMemo(() => {
     return activeTrackingSpks.reduce(
@@ -330,35 +362,45 @@ export default function Home() {
     );
   }, [activeTrackingSpks]);
 
-  const recentTransactions = transactions.slice(0, 5);
+  const metricProductionRows = useMemo(() => {
+    if (activeMetric === "SPK Aktif") return activeProductionRows.filter(({ spk }) => spk.status === "ACTIVE");
+    if (activeMetric === "Dalam proses") return activeProductionRows.filter(({ summary }) => summary.jumlahBarang > 0);
+    if (activeMetric === "Menunggu QC") return activeProductionRows.filter(({ summary }) => summary.barangDiQc > 0);
+    if (activeMetric === "Rijek / pengerjaan ulang") return activeProductionRows.filter(({ summary }) => summary.jumlahRijek > 0);
+    return activeProductionRows;
+  }, [activeProductionRows, activeMetric]);
+
+  const recentTransactions = [...filteredTransactions]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 5);
   const activeProducts = products.filter((product) => product.isActive);
 
   const stats = [
     {
-      label: "Active SPK",
-      value: formatNumber(activeSpks.length),
-      description: "Production orders running",
+      label: "SPK Aktif",
+      value: formatNumber(filteredTrackingSpks.filter((spk) => spk.status === "ACTIVE").length),
+      description: "SPK dengan status aktif",
       icon: ClipboardList,
       tone: "indigo",
     },
     {
-      label: "Dalam Proses",
+      label: "Dalam proses",
       value: `${formatNumber(productionSummary.total)} pcs`,
-      description: "Jahit, QC, dan rework aktif",
+      description: "Total barang yang masih diproses",
       icon: Factory,
       tone: "violet",
     },
     {
-      label: "In QC",
+      label: "Menunggu QC",
       value: `${formatNumber(productionSummary.qc)} pcs`,
-      description: "Items waiting for QC action",
+      description: "Barang menunggu pemeriksaan QC",
       icon: ShieldAlert,
       tone: "cyan",
     },
     {
-      label: "Rijek / Rework",
+      label: "Rijek / pengerjaan ulang",
       value: `${formatNumber(productionSummary.rijek)} pcs`,
-      description: "Rejected items in rework",
+      description: "Barang rijek yang sedang ditangani",
       icon: RefreshCw,
       tone: "emerald",
     },
@@ -399,7 +441,7 @@ export default function Home() {
       <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
         <div className="flex items-center gap-3 rounded-2xl border border-indigo-100 bg-white px-5 py-4 text-sm font-semibold text-indigo-600 shadow-xl shadow-indigo-100">
           <Loader2 className="h-5 w-5 animate-spin" />
-          Memuat dashboard...
+          Memuat data dashboard...
         </div>
       </div>
     );
@@ -414,23 +456,23 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50/10 to-violet-50/10">
-      <main className="min-h-screen pb-24 lg:ml-64 lg:pb-0">
-        <div className="relative p-4 sm:p-6 lg:p-8">
+      <main className="min-h-screen min-w-0 pb-24 lg:pb-0">
+        <div className="relative mx-auto w-full max-w-[1680px] p-4 sm:p-6 xl:p-7">
           <div className="pointer-events-none absolute -right-20 top-0 h-72 w-72 rounded-full bg-indigo-300/15 blur-3xl" />
           <div className="pointer-events-none absolute left-0 top-40 h-64 w-64 rounded-full bg-violet-300/10 blur-3xl" />
 
           <div className="relative mb-6 sm:mb-8">
             <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-indigo-100 bg-white/80 px-3 py-1.5 text-[10px] font-semibold text-indigo-600 shadow-sm sm:text-xs">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              System operational
+              Sistem operasional
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <h2 className="text-2xl font-bold tracking-tight text-slate-800 sm:text-3xl">
-                  Good morning, Administrator
+                  Ringkasan Operasional
                 </h2>
                 <p className="mt-2 max-w-2xl text-xs leading-5 text-slate-500 sm:text-sm">
-                  Berikut kondisi produksi dan aktivitas operasional saat ini.
+                  Pantau progres produksi, pekerjaan penjahit, dan aktivitas transaksi dari satu halaman.
                 </p>
               </div>
               <button
@@ -455,12 +497,70 @@ export default function Home() {
             </div>
           )}
 
+          <section className="relative mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-bold text-slate-800">Filter data dashboard</h3>
+                <p className="mt-1 text-xs text-slate-500">Status, SPK, produk, dan penjahit memfilter posisi produksi. Tanggal hanya memfilter daftar aktivitas transaksi.</p>
+              </div>
+              <button type="button" onClick={() => {
+                setFilterStatus("ACTIVE"); setFilterSpk("ALL"); setFilterProduct("ALL");
+                setFilterTailor("ALL"); setFilterStartDate(""); setFilterEndDate(""); setActiveMetric("ALL");
+              }} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">
+                Reset semua filter
+              </button>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-semibold text-slate-600">Status SPK</span>
+                <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100">
+                  <option value="ALL">Semua status</option><option value="ACTIVE">Aktif</option><option value="COMPLETED">Selesai</option><option value="CANCELLED">Dibatalkan</option>
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-semibold text-slate-600">SPK</span>
+                <select value={filterSpk} onChange={(e) => setFilterSpk(e.target.value)} className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100">
+                  <option value="ALL">Semua SPK</option>{trackingSpks.map((spk) => <option key={spk.id} value={String(spk.id)}>{spk.spkNumber}</option>)}
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-semibold text-slate-600">Produk</span>
+                <select value={filterProduct} onChange={(e) => setFilterProduct(e.target.value)} className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100">
+                  <option value="ALL">Semua produk</option>{products.map((product) => <option key={product.id} value={String(product.id)}>{product.code} — {product.name}</option>)}
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-semibold text-slate-600">Penjahit</span>
+                <select value={filterTailor} onChange={(e) => setFilterTailor(e.target.value)} className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100">
+                  <option value="ALL">Semua penjahit</option>{Array.from(new Map(trackingSpks.map((spk) => [spk.tailor.id, spk.tailor.name])).entries()).map(([id, name]) => <option key={id} value={String(id)}>{name}</option>)}
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-semibold text-slate-600">Transaksi dari</span>
+                <input type="date" value={filterStartDate} onChange={(e) => setFilterStartDate(e.target.value)} className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" />
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-semibold text-slate-600">Transaksi sampai</span>
+                <input type="date" min={filterStartDate || undefined} value={filterEndDate} onChange={(e) => setFilterEndDate(e.target.value)} className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" />
+              </label>
+            </div>
+            <div className="mt-3 flex flex-col gap-1 border-t border-slate-100 pt-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-[11px] text-slate-500">Hasil posisi produksi: <span className="font-semibold text-slate-700">{formatNumber(filteredTrackingSpks.length)} SPK</span></p>
+              <p className="text-[11px] text-slate-500">Aktivitas pada rentang tanggal: <span className="font-semibold text-slate-700">{formatNumber(filteredTransactions.length)} transaksi</span></p>
+            </div>
+          </section>
+
+          <section className="relative mb-3">
+            <h3 className="text-base font-bold text-slate-800">Ringkasan utama</h3>
+            <p className="mt-1 text-xs leading-5 text-slate-500">Pilih kartu untuk melihat rincian yang berkaitan pada tabel detail produksi.</p>
+          </section>
+
           <div className="relative mb-6 grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
             {stats.map((stat) => {
               const Icon = stat.icon;
               const tone = toneMap[stat.tone];
               return (
-                <div key={stat.label} className={`group rounded-2xl border border-white/80 bg-white p-4 shadow-lg shadow-slate-200/40 transition hover:-translate-y-0.5 ${tone.ring} sm:p-5`}>
+                <button type="button" key={stat.label} onClick={() => setActiveMetric(activeMetric === stat.label ? "ALL" : stat.label)} className={`group rounded-2xl border bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${activeMetric === stat.label ? "border-indigo-300 ring-2 ring-indigo-100" : "border-slate-200"} ${tone.ring} sm:p-5`}>
                   <div className="mb-4 flex items-center justify-between">
                     <div className={`flex h-9 w-9 items-center justify-center rounded-xl sm:h-11 sm:w-11 ${tone.icon}`}>
                       <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -472,23 +572,24 @@ export default function Home() {
                   <p className={`text-xl font-bold sm:text-2xl ${tone.value}`}>{stat.value}</p>
                   <p className="mt-1.5 text-xs font-bold text-slate-700 sm:text-sm">{stat.label}</p>
                   <p className="mt-1 hidden text-xs text-slate-400 sm:block">{stat.description}</p>
-                </div>
+                <p className="mt-3 text-[10px] font-semibold text-indigo-500">{activeMetric === stat.label ? "Filter aktif · klik untuk reset" : "Klik untuk memfilter detail"}</p>
+              </button>
               );
             })}
           </div>
 
           <section className="relative overflow-hidden rounded-3xl border border-white/80 bg-white/95 shadow-xl shadow-slate-200/40">
             <div className="border-b border-indigo-50 px-4 py-4 sm:px-6 sm:py-5">
-              <h3 className="text-sm font-bold text-slate-800">Current Production Position</h3>
+              <h3 className="text-sm font-bold text-slate-800">Posisi produksi saat ini</h3>
               <p className="mt-1 text-xs text-slate-400">
-                Posisi barang yang masih aktif dalam proses produksi saat ini.
+                Posisi produksi sesuai filter aktif; pilih status Aktif untuk melihat pekerjaan yang masih berjalan.
               </p>
             </div>
 
             <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4 sm:p-6">
               <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
                 <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                  Total Dalam Proses
+                  Total Dalam proses
                 </p>
                 <p className="mt-2 text-xl font-bold text-slate-800">
                   {formatNumber(productionSummary.total)} pcs
@@ -524,7 +625,7 @@ export default function Home() {
 
               <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
                 <p className="text-[10px] font-bold uppercase tracking-wide text-amber-600">
-                  Rijek / Rework
+                  Rijek / pengerjaan ulang
                 </p>
                 <p className="mt-2 text-xl font-bold text-amber-700">
                   {formatNumber(productionSummary.rijek)} pcs
@@ -539,10 +640,10 @@ export default function Home() {
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                    Production Activity
+                    Rekap aktivitas produksi
                   </p>
                   <p className="mt-1 text-[11px] text-slate-400">
-                    Total transaksi yang sudah tercatat, bukan posisi stok saat ini.
+                    Akumulasi transaksi tercatat; angka ini bukan jumlah stok fisik.
                   </p>
                 </div>
               </div>
@@ -572,17 +673,17 @@ export default function Home() {
           <section className="relative mt-6 overflow-hidden rounded-3xl border border-white/80 bg-white/95 shadow-xl shadow-slate-200/50">
             <div className="flex items-center justify-between border-b border-indigo-50 px-4 py-4 sm:px-6 sm:py-5">
               <div>
-                <h3 className="text-sm font-bold text-slate-800">Active Production</h3>
-                <p className="mt-1 text-xs text-slate-400">Detail posisi barang per SPK dan product.</p>
+                <h3 className="text-sm font-bold text-slate-800">Detail produksi aktif</h3>
+                <p className="mt-1 text-xs text-slate-400">Rincian posisi barang berdasarkan SPK dan produk.</p>
               </div>
-              <Link href="/operations/tracking" className="text-xs font-bold text-indigo-600 hover:text-indigo-700">Open tracking</Link>
+              <Link href="/operations/tracking" className="text-xs font-bold text-indigo-600 hover:text-indigo-700">Buka tracking</Link>
             </div>
 
             <div className="grid grid-cols-2 gap-3 border-b border-slate-100 p-4 sm:grid-cols-4 sm:px-6">
               <div className="rounded-2xl bg-slate-50 p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Total Process</p><p className="mt-1 text-lg font-bold text-slate-800">{formatNumber(productionSummary.total)} pcs</p></div>
               <div className="rounded-2xl bg-blue-50 p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-blue-500">Jahit</p><p className="mt-1 text-lg font-bold text-blue-700">{formatNumber(productionSummary.jahit)} pcs</p></div>
               <div className="rounded-2xl bg-violet-50 p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-violet-500">QC</p><p className="mt-1 text-lg font-bold text-violet-700">{formatNumber(productionSummary.qc)} pcs</p></div>
-              <div className="rounded-2xl bg-amber-50 p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-amber-600">Rijek / Rework</p><p className="mt-1 text-lg font-bold text-amber-700">{formatNumber(productionSummary.rijek)} pcs</p></div>
+              <div className="rounded-2xl bg-amber-50 p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-amber-600">Rijek / pengerjaan ulang</p><p className="mt-1 text-lg font-bold text-amber-700">{formatNumber(productionSummary.rijek)} pcs</p></div>
             </div>
 
             <div className="overflow-x-auto">
@@ -595,7 +696,7 @@ export default function Home() {
                   </tr>
                 </thead>
                 <tbody>
-                  {activeProductionRows.slice(0, 10).map(({ spk, item, summary, nextAction }) => (
+                  {metricProductionRows.slice(0, 10).map(({ spk, item, summary, nextAction }) => (
                     <tr key={`${spk.id}-${item.id}`} className="border-b border-slate-100 last:border-0 hover:bg-indigo-50/30">
                       <td className="px-6 py-4"><Link href={`/operations/spk/${spk.id}`} className="font-bold text-indigo-600 hover:text-indigo-700">{spk.spkNumber}</Link></td>
                       <td className="px-6 py-4"><p className="font-semibold text-slate-700">{item.product?.name ?? '-'}</p><p className="text-[10px] text-slate-400">{item.product?.code ?? '-'}</p></td>
@@ -608,7 +709,7 @@ export default function Home() {
                       <td className="px-6 py-4"><span className="inline-flex max-w-[190px] rounded-full bg-slate-50 px-2.5 py-1 text-[10px] font-bold text-slate-600 ring-1 ring-slate-200">{nextAction}</span></td>
                     </tr>
                   ))}
-                  {activeProductionRows.length === 0 && <tr><td colSpan={9} className="px-6 py-12 text-center text-sm text-slate-400">Tidak ada production yang sedang berjalan.</td></tr>}
+                  {metricProductionRows.length === 0 && <tr><td colSpan={9} className="px-6 py-12 text-center text-sm text-slate-400">Tidak ada data yang sesuai dengan filter aktif.</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -616,8 +717,8 @@ export default function Home() {
 
           <section className="relative mt-6 overflow-hidden rounded-3xl border border-amber-100 bg-white shadow-xl shadow-slate-200/40">
             <div className="border-b border-amber-100 px-4 py-4 sm:px-6 sm:py-5">
-              <h3 className="text-sm font-bold text-slate-800">Rijek / Rework Monitoring</h3>
-              <p className="mt-1 text-xs text-slate-400">Memantau barang rijek yang masih berada dalam proses rework.</p>
+              <h3 className="text-sm font-bold text-slate-800">Rijek / pengerjaan ulang Monitoring</h3>
+              <p className="mt-1 text-xs text-slate-400">Pantau barang yang perlu dikirim ulang, dikerjakan ulang, atau diperiksa kembali.</p>
             </div>
             <div className="grid gap-4 p-4 sm:grid-cols-3 sm:p-6">
               <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4"><div className="flex items-center gap-2"><ShieldAlert className="h-4 w-4 text-amber-600" /><p className="text-xs font-bold text-amber-700">Total QC Rijek</p></div><p className="mt-2 text-2xl font-bold text-amber-800">{formatNumber(productionSummary.qcReject)} pcs</p><p className="mt-1 text-[11px] text-amber-600">Total rejection yang tercatat.</p></div>
@@ -630,13 +731,13 @@ export default function Home() {
             <div className="overflow-hidden rounded-3xl border border-white/80 bg-white/95 shadow-xl shadow-slate-200/50 xl:col-span-2">
               <div className="flex items-center justify-between border-b border-indigo-50 px-4 py-4 sm:px-6 sm:py-5">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-800">Recent Transactions</h3>
-                  <p className="mt-1 text-xs text-slate-400">Latest operational activities</p>
+                  <h3 className="text-sm font-bold text-slate-800">Aktivitas transaksi terbaru</h3>
+                  <p className="mt-1 text-xs text-slate-400">Lima transaksi terbaru sesuai filter yang dipilih.</p>
                 </div>
-                <Link href="/operations/transactions" className="flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-700">View all <ArrowRight className="h-3.5 w-3.5" /></Link>
+                <Link href="/operations/transactions" className="flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-700">Lihat semua <ArrowRight className="h-3.5 w-3.5" /></Link>
               </div>
               {recentTransactions.length === 0 ? (
-                <div className="px-6 py-14 text-center"><Activity className="mx-auto h-8 w-8 text-slate-300" /><p className="mt-3 text-sm font-semibold text-slate-600">No transactions yet</p><p className="mt-1 text-xs text-slate-400">Transactions will appear here once recorded.</p></div>
+                <div className="px-6 py-14 text-center"><Activity className="mx-auto h-8 w-8 text-slate-300" /><p className="mt-3 text-sm font-semibold text-slate-600">Belum ada transaksi</p><p className="mt-1 text-xs text-slate-400">Transaksi akan muncul setelah aktivitas dicatat.</p></div>
               ) : (
                 <div className="divide-y divide-slate-100">
                   {recentTransactions.map((transaction) => (
@@ -665,19 +766,19 @@ export default function Home() {
 
             <div className="overflow-hidden rounded-3xl border border-white/80 bg-white/95 shadow-xl shadow-slate-200/50">
               <div className="border-b border-indigo-50 px-4 py-4 sm:px-6 sm:py-5">
-                <h3 className="text-sm font-bold text-slate-800">Quick Actions</h3>
-                <p className="mt-1 text-xs text-slate-400">Common operational tasks</p>
+                <h3 className="text-sm font-bold text-slate-800">Akses cepat</h3>
+                <p className="mt-1 text-xs text-slate-400">Pintasan untuk pekerjaan operasional</p>
               </div>
               <div className="grid grid-cols-1 gap-2 p-4 sm:grid-cols-2 xl:grid-cols-1">
-                <QuickAction href="/operations/spk" icon={ClipboardList} title="Create SPK" description="Create a new production order" />
-                <QuickAction href="/operations/transactions" icon={Activity} title="Record Transaction" description="Record operational activity" />
-                <QuickAction href="/operations/tracking" icon={BarChart3} title="Track Production" description="Monitor production journey" />
-                <QuickAction href="/automation/workflows" icon={Workflow} title="Manage Workflow" description="Configure business processes" />
+                <QuickAction href="/operations/spk" icon={ClipboardList} title="Buat SPK" description="Buat perintah produksi baru" />
+                <QuickAction href="/operations/transactions" icon={Activity} title="Catat transaksi" description="Catat aktivitas produksi" />
+                <QuickAction href="/operations/tracking" icon={BarChart3} title="Tracking produksi" description="Pantau perjalanan produksi" />
+                <QuickAction href="/automation/workflows" icon={Workflow} title="Kelola workflow" description="Atur alur proses bisnis" />
               </div>
               <div className="border-t border-slate-100 px-4 py-4 text-xs text-slate-400">
-                Active products: <span className="font-bold text-slate-600">{formatNumber(activeProducts.length)}</span>
+                Produk aktif: <span className="font-bold text-slate-600">{formatNumber(activeProducts.length)}</span>
                 <span className="mx-2">•</span>
-                Today's transactions: <span className="font-bold text-slate-600">{formatNumber(todayTransactions.length)}</span>
+                Transaksi hari ini: <span className="font-bold text-slate-600">{formatNumber(todayTransactions.length)}</span>
               </div>
             </div>
           </div>
