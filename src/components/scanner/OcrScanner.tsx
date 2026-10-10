@@ -326,7 +326,7 @@ function preprocessCanvas(
  * Karena layout nota kita:
  *
  * ┌─────────────────────────────┐
- * │ TBD BUSINESS OPERATIONS     │
+ * │ TBD Overpassion OperationS     │
  * │                             │
  * │ NO. NOTA : NT-...           │
  * │ TANGGAL  : ...               │

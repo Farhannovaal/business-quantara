@@ -30,7 +30,7 @@ $AuthBlock = @"
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host " Business Operation API Auth Protection" -ForegroundColor Cyan
+Write-Host " Overpassion Operation API Auth Protection" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 

@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Business Operation",
-  description: "Business Operations Management System",
+  title: "Overpassion Operation",
+  description: "Overpassion Operations Management System",
 };
 
 export default function RootLayout({

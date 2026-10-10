@@ -65,7 +65,7 @@ $PermissionMap = @{
 
 Write-Host ""
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host " Business Operation Permission Protection" -ForegroundColor Cyan
+Write-Host " Overpassion Operation Permission Protection" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 

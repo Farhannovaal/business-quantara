@@ -473,7 +473,7 @@ async function main() {
     update: {},
     create: {
       name: "Administrator",
-      description: "Full access to Business Operation",
+      description: "Full access to Overpassion Operation",
     },
   });
 

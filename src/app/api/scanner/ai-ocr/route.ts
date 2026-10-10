@@ -372,7 +372,7 @@ TUJUAN
 ==================================================
 
 Hasil OCR ini akan digunakan untuk mengisi form transaksi
-Business Operation.
+Overpassion Operation.
 
 Karena itu, akurasi teks pada nota lebih penting daripada
 membuat asumsi atau melengkapi data yang tidak terlihat.

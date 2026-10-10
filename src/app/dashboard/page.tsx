@@ -257,32 +257,28 @@ function isToday(value: string) {
   const now = new Date();
 
   return (
-
     date.getFullYear() === now.getFullYear() &&
-
     date.getMonth() === now.getMonth() &&
-
     date.getDate() === now.getDate()
-
   );
 
 }
 
 function transactionTone(code: string) {
 
-  if (code === "QC_RIJEK") return "bg-amber-50 text-amber-700 ring-amber-200";
+  if (code === "QC_RIJEK") return "bg-amber-950/30 text-amber-300 ring-amber-200";
 
-  if (code === "QUALITY_CONTROL") return "bg-violet-50 text-violet-700 ring-violet-200";
+  if (code === "QUALITY_CONTROL") return "bg-violet-950/30 text-violet-200 ring-violet-200";
 
-  if (code === "QC_ACC_DIKIRIM_KE_GUDANG") return "bg-emerald-50 text-emerald-700 ring-emerald-200";
+  if (code === "QC_ACC_DIKIRIM_KE_GUDANG") return "bg-emerald-950/30 text-emerald-300 ring-emerald-200";
 
-  if (code === "PENGIRIMAN_SIAP_JAHIT") return "bg-blue-50 text-blue-700 ring-blue-200";
+  if (code === "PENGIRIMAN_SIAP_JAHIT") return "bg-blue-950/30 text-blue-300 ring-blue-200";
 
-  if (code === "PENGIRIMAN_RIJEK") return "bg-orange-50 text-orange-700 ring-orange-200";
+  if (code === "PENGIRIMAN_RIJEK") return "bg-orange-950/30 text-orange-300 ring-orange-200";
 
-  if (code === "PENERIMAAN_RIJEK") return "bg-cyan-50 text-cyan-700 ring-cyan-200";
+  if (code === "PENERIMAAN_RIJEK") return "bg-cyan-950/30 text-cyan-300 ring-cyan-200";
 
-  return "bg-cyan-50 text-cyan-700 ring-cyan-200";
+  return "bg-cyan-950/30 text-cyan-300 ring-cyan-200";
 
 }
 
@@ -488,27 +484,40 @@ export default function Home() {
 
   }, []);
 
-  // Reset filter turunan saat filter induk berubah agar tidak ada pilihan yang tertinggal.
   useEffect(() => {
+
     setFilterSpk("ALL");
+
     setFilterProduct("ALL");
+
     setFilterTailor("ALL");
+
     setActiveMetric("ALL");
+
   }, [filterStatus]);
 
   useEffect(() => {
+
     setFilterProduct("ALL");
+
     setFilterTailor("ALL");
+
   }, [filterSpk]);
 
   useEffect(() => {
+
     setFilterTailor("ALL");
+
   }, [filterProduct]);
 
   useEffect(() => {
+
     if (filterStartDate && filterEndDate && filterEndDate < filterStartDate) {
+
       setFilterEndDate("");
+
     }
+
   }, [filterStartDate, filterEndDate]);
 
   const activeSpks = useMemo(
@@ -527,72 +536,119 @@ export default function Home() {
 
   );
 
-  // Hierarki filter: Status -> SPK -> Produk -> Penjahit.
   const statusFilteredSpks = useMemo(() => {
+
     return trackingSpks.filter((spk) => {
+
       return filterStatus === "ALL" || spk.status === filterStatus;
+
     });
+
   }, [trackingSpks, filterStatus]);
 
   const availableSpks = useMemo(() => statusFilteredSpks, [statusFilteredSpks]);
 
   const availableProducts = useMemo(() => {
+
     const source = filterSpk === "ALL"
+
       ? statusFilteredSpks
+
       : statusFilteredSpks.filter((spk) => String(spk.id) === filterSpk);
 
     const productMap = new Map<number, { id: number; code: string; name: string }>();
+
     source.forEach((spk) => {
+
       spk.items.forEach((item) => {
+
         if (item.product) {
+
           productMap.set(item.product.id, {
+
             id: item.product.id,
+
             code: item.product.code,
+
             name: item.product.name,
+
           });
+
         }
+
       });
+
     });
+
     return Array.from(productMap.values());
+
   }, [statusFilteredSpks, filterSpk]);
 
   const availableTailors = useMemo(() => {
+
     const source = statusFilteredSpks.filter((spk) => {
+
       if (filterSpk !== "ALL" && String(spk.id) !== filterSpk) return false;
+
       if (
+
         filterProduct !== "ALL" &&
+
         !spk.items.some((item) => String(item.productId) === filterProduct)
+
       ) return false;
+
       return true;
+
     });
 
     const tailorMap = new Map<number, string>();
+
     source.forEach((spk) => tailorMap.set(spk.tailor.id, spk.tailor.name));
+
     return Array.from(tailorMap.entries()).map(([id, name]) => ({ id, name }));
+
   }, [statusFilteredSpks, filterSpk, filterProduct]);
 
   const filteredTrackingSpks = useMemo(() => {
+
     return statusFilteredSpks.filter((spk) => {
+
       if (filterSpk !== "ALL" && String(spk.id) !== filterSpk) return false;
+
       if (filterTailor !== "ALL" && String(spk.tailor.id) !== filterTailor) return false;
+
       if (
+
         filterProduct !== "ALL" &&
+
         !spk.items.some((item) => String(item.productId) === filterProduct)
+
       ) return false;
+
       return true;
+
     });
+
   }, [statusFilteredSpks, filterSpk, filterTailor, filterProduct]);
 
-  // Metrik produksi hanya menggambarkan pekerjaan yang masih aktif.
+
   const activeTrackingSpks = useMemo(
+
     () => filteredTrackingSpks.filter((spk) => spk.status === "ACTIVE"),
+
     [filteredTrackingSpks],
+
   );
 
   const filteredSpkCount = filteredTrackingSpks.length;
+
   const spkCardLabel =
+
     filterStatus === "ALL" ? "Total SPK" :
+
     filterStatus === "ACTIVE" ? "SPK Aktif" :
+
     filterStatus === "COMPLETED" ? "SPK Selesai" : "SPK Dibatalkan";
 
   const filteredTransactions = useMemo(() => {
@@ -752,14 +808,23 @@ export default function Home() {
     {
 
       label: spkCardLabel,
+
       value: formatNumber(filteredSpkCount),
+
       description:
+
         filterStatus === "ALL"
+
           ? "Total SPK sesuai filter"
+
           : filterStatus === "ACTIVE"
+
             ? "SPK yang sedang berjalan"
+
             : filterStatus === "COMPLETED"
+
               ? "SPK yang telah selesai"
+
               : "SPK yang dibatalkan",
 
       icon: ClipboardList,
@@ -868,9 +933,9 @@ export default function Home() {
 
     return (
 
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+      <div className="flex min-h-screen items-center justify-center bg-[#080808] px-4">
 
-        <div className="flex items-center gap-3 rounded-2xl border border-indigo-100 bg-white px-5 py-4 text-sm font-semibold text-indigo-600 shadow-xl shadow-indigo-100">
+        <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#171313] px-5 py-4 text-sm font-semibold text-rose-300 shadow-xl shadow-black/30">
 
           <Loader2 className="h-5 w-5 animate-spin" />
 
@@ -886,33 +951,33 @@ export default function Home() {
 
   const toneMap = {
 
-    indigo: { icon: "bg-indigo-50 text-indigo-600", value: "text-indigo-700", ring: "hover:border-indigo-200" },
+    indigo: { icon: "bg-rose-950/50 text-rose-300", value: "text-rose-200", ring: "hover:border-rose-800/50" },
 
-    cyan: { icon: "bg-cyan-50 text-cyan-600", value: "text-cyan-700", ring: "hover:border-cyan-200" },
+    cyan: { icon: "bg-cyan-950/30 text-cyan-300", value: "text-cyan-300", ring: "hover:border-cyan-800/50" },
 
-    violet: { icon: "bg-violet-50 text-violet-600", value: "text-violet-700", ring: "hover:border-violet-200" },
+    violet: { icon: "bg-violet-950/30 text-violet-300", value: "text-violet-200", ring: "hover:border-violet-800/50" },
 
-    emerald: { icon: "bg-emerald-50 text-emerald-600", value: "text-emerald-700", ring: "hover:border-emerald-200" },
+    emerald: { icon: "bg-emerald-950/30 text-emerald-300", value: "text-emerald-300", ring: "hover:border-emerald-900/40" },
 
   };
 
   return (
 
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50/10 to-violet-50/10">
+    <div className="min-h-screen bg-[#080808]">
 
       <main className="min-h-screen min-w-0 pb-24 lg:pb-0">
 
         <div className="relative mx-auto w-full max-w-[1680px] p-4 sm:p-6 xl:p-7">
 
-          <div className="pointer-events-none absolute -right-20 top-0 h-72 w-72 rounded-full bg-indigo-300/15 blur-3xl" />
+          <div className="pointer-events-none absolute -right-20 top-0 h-72 w-72 rounded-full bg-rose-700/10 blur-3xl" />
 
-          <div className="pointer-events-none absolute left-0 top-40 h-64 w-64 rounded-full bg-violet-300/10 blur-3xl" />
+          <div className="pointer-events-none absolute left-0 top-40 h-64 w-64 rounded-full bg-red-900/10 blur-3xl" />
 
           <div className="relative mb-6 sm:mb-8">
 
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-indigo-100 bg-white/80 px-3 py-1.5 text-[10px] font-semibold text-indigo-600 shadow-sm sm:text-xs">
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-rose-900/40 bg-[#171313]/90 px-3 py-1.5 text-[10px] font-semibold text-rose-300 shadow-sm sm:text-xs">
 
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-950/300" />
 
               Sistem operasional
 
@@ -922,13 +987,13 @@ export default function Home() {
 
               <div>
 
-                <h2 className="text-2xl font-bold tracking-tight text-slate-800 sm:text-3xl">
+                <h2 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
 
                   Ringkasan Operasional
 
                 </h2>
 
-                <p className="mt-2 max-w-2xl text-xs leading-5 text-slate-500 sm:text-sm">
+                <p className="mt-2 max-w-2xl text-xs leading-5 text-neutral-400 sm:text-sm">
 
                   Pantau progres produksi, pekerjaan penjahit, dan aktivitas transaksi dari satu halaman.
 
@@ -944,7 +1009,7 @@ export default function Home() {
 
                 disabled={refreshing}
 
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-indigo-200 hover:text-indigo-600 disabled:opacity-60"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#111010] px-4 text-xs font-semibold text-neutral-300 shadow-sm transition hover:border-rose-800/50 hover:text-rose-200 disabled:opacity-60"
 
               >
 
@@ -960,13 +1025,13 @@ export default function Home() {
 
           {error && (
 
-            <div className="relative mb-6 flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            <div className="relative mb-6 flex items-start gap-3 rounded-2xl border border-rose-900/50 bg-rose-950/30 px-4 py-3 text-sm text-rose-700">
 
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
 
               <span className="flex-1">{error}</span>
 
-              <button type="button" onClick={() => setError("")} className="rounded-lg p-1 hover:bg-rose-100">
+              <button type="button" onClick={() => setError("")} className="rounded-lg p-1 hover:bg-rose-950/50">
 
                 <X className="h-4 w-4" />
 
@@ -976,15 +1041,15 @@ export default function Home() {
 
           )}
 
-          <section className="relative mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+          <section className="relative mb-6 rounded-2xl border border-white/10 bg-[#111010] p-4 shadow-sm sm:p-5">
 
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
 
               <div>
 
-                <h3 className="text-sm font-bold text-slate-800">Filter data dashboard</h3>
+                <h3 className="text-sm font-bold text-white">Filter data dashboard</h3>
 
-                <p className="mt-1 text-xs text-slate-500">Status, SPK, produk, dan penjahit memfilter posisi produksi. Tanggal hanya memfilter daftar aktivitas transaksi.</p>
+                <p className="mt-1 text-xs text-neutral-400">Status, SPK, produk, dan penjahit memfilter posisi produksi. Tanggal hanya memfilter daftar aktivitas transaksi.</p>
 
               </div>
 
@@ -994,7 +1059,7 @@ export default function Home() {
 
                 setFilterTailor("ALL"); setFilterStartDate(""); setFilterEndDate(""); setActiveMetric("ALL");
 
-              }} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">
+              }} className="rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-neutral-300 transition hover:border-rose-800/50 hover:bg-white/[0.06] hover:text-rose-200">
 
                 Reset semua filter
 
@@ -1006,9 +1071,9 @@ export default function Home() {
 
               <label className="block">
 
-                <span className="mb-1.5 block text-xs font-semibold text-slate-600">Status SPK</span>
+                <span className="mb-1.5 block text-xs font-semibold text-neutral-300">Status SPK</span>
 
-                <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100">
+                <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="h-10 w-full rounded-xl border border-white/10 bg-[#111010] px-3 text-sm text-neutral-200 scheme-dark outline-none focus:border-rose-700 focus:ring-2 focus:ring-rose-900/40">
 
                   <option value="ALL">Semua status</option><option value="ACTIVE">Aktif</option><option value="COMPLETED">Selesai</option><option value="CANCELLED">Dibatalkan</option>
 
@@ -1018,9 +1083,9 @@ export default function Home() {
 
               <label className="block">
 
-                <span className="mb-1.5 block text-xs font-semibold text-slate-600">SPK</span>
+                <span className="mb-1.5 block text-xs font-semibold text-neutral-300">SPK</span>
 
-                <select value={filterSpk} onChange={(e) => setFilterSpk(e.target.value)} className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100">
+                <select value={filterSpk} onChange={(e) => setFilterSpk(e.target.value)} className="h-10 w-full rounded-xl border border-white/10 bg-[#111010] px-3 text-sm text-neutral-200 scheme-dark outline-none focus:border-rose-700 focus:ring-2 focus:ring-rose-900/40">
 
                   <option value="ALL">Semua SPK</option>{availableSpks.map((spk) => <option key={spk.id} value={String(spk.id)}>{spk.spkNumber}</option>)}
 
@@ -1030,9 +1095,9 @@ export default function Home() {
 
               <label className="block">
 
-                <span className="mb-1.5 block text-xs font-semibold text-slate-600">Produk</span>
+                <span className="mb-1.5 block text-xs font-semibold text-neutral-300">Produk</span>
 
-                <select value={filterProduct} onChange={(e) => setFilterProduct(e.target.value)} className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100">
+                <select value={filterProduct} onChange={(e) => setFilterProduct(e.target.value)} className="h-10 w-full rounded-xl border border-white/10 bg-[#111010] px-3 text-sm text-neutral-200 scheme-dark outline-none focus:border-rose-700 focus:ring-2 focus:ring-rose-900/40">
 
                   <option value="ALL">Semua produk</option>{availableProducts.map((product) => <option key={product.id} value={String(product.id)}>{product.code} — {product.name}</option>)}
 
@@ -1042,9 +1107,9 @@ export default function Home() {
 
               <label className="block">
 
-                <span className="mb-1.5 block text-xs font-semibold text-slate-600">Penjahit</span>
+                <span className="mb-1.5 block text-xs font-semibold text-neutral-300">Penjahit</span>
 
-                <select value={filterTailor} onChange={(e) => setFilterTailor(e.target.value)} className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100">
+                <select value={filterTailor} onChange={(e) => setFilterTailor(e.target.value)} className="h-10 w-full rounded-xl border border-white/10 bg-[#111010] px-3 text-sm text-neutral-200 scheme-dark outline-none focus:border-rose-700 focus:ring-2 focus:ring-rose-900/40">
 
                   <option value="ALL">Semua penjahit</option>{availableTailors.map((tailor) => <option key={tailor.id} value={String(tailor.id)}>{tailor.name}</option>)}
 
@@ -1054,27 +1119,27 @@ export default function Home() {
 
               <label className="block">
 
-                <span className="mb-1.5 block text-xs font-semibold text-slate-600">Transaksi dari</span>
+                <span className="mb-1.5 block text-xs font-semibold text-neutral-300">Transaksi dari</span>
 
-                <input type="date" value={filterStartDate} onChange={(e) => setFilterStartDate(e.target.value)} className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" />
+                <input type="date" value={filterStartDate} onChange={(e) => setFilterStartDate(e.target.value)} className="h-10 w-full rounded-xl border border-white/10 bg-[#111010] px-3 text-sm text-neutral-200 scheme-dark outline-none focus:border-rose-700 focus:ring-2 focus:ring-rose-900/40" />
 
               </label>
 
               <label className="block">
 
-                <span className="mb-1.5 block text-xs font-semibold text-slate-600">Transaksi sampai</span>
+                <span className="mb-1.5 block text-xs font-semibold text-neutral-300">Transaksi sampai</span>
 
-                <input type="date" min={filterStartDate || undefined} value={filterEndDate} onChange={(e) => setFilterEndDate(e.target.value)} className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" />
+                <input type="date" min={filterStartDate || undefined} value={filterEndDate} onChange={(e) => setFilterEndDate(e.target.value)} className="h-10 w-full rounded-xl border border-white/10 bg-[#111010] px-3 text-sm text-neutral-200 scheme-dark outline-none focus:border-rose-700 focus:ring-2 focus:ring-rose-900/40" />
 
               </label>
 
             </div>
 
-            <div className="mt-3 flex flex-col gap-1 border-t border-slate-100 pt-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="mt-3 flex flex-col gap-1 border-t border-white/10 pt-3 sm:flex-row sm:items-center sm:justify-between">
 
-              <p className="text-[11px] text-slate-500">Hasil posisi produksi: <span className="font-semibold text-slate-700">{formatNumber(filteredTrackingSpks.length)} SPK</span></p>
+              <p className="text-[11px] text-neutral-400">Hasil posisi produksi: <span className="font-semibold text-neutral-200">{formatNumber(filteredTrackingSpks.length)} SPK</span></p>
 
-              <p className="text-[11px] text-slate-500">Aktivitas pada rentang tanggal: <span className="font-semibold text-slate-700">{formatNumber(filteredTransactions.length)} transaksi</span></p>
+              <p className="text-[11px] text-neutral-400">Aktivitas pada rentang tanggal: <span className="font-semibold text-neutral-200">{formatNumber(filteredTransactions.length)} transaksi</span></p>
 
             </div>
 
@@ -1082,9 +1147,9 @@ export default function Home() {
 
           <section className="relative mb-3">
 
-            <h3 className="text-base font-bold text-slate-800">Ringkasan utama</h3>
+            <h3 className="text-base font-bold text-white">Ringkasan utama</h3>
 
-            <p className="mt-1 text-xs leading-5 text-slate-500">Pilih kartu untuk melihat rincian yang berkaitan pada tabel detail produksi.</p>
+            <p className="mt-1 text-xs leading-5 text-neutral-400">Pilih kartu untuk melihat rincian yang berkaitan pada tabel detail produksi.</p>
 
           </section>
 
@@ -1098,7 +1163,7 @@ export default function Home() {
 
               return (
 
-                <button type="button" key={stat.label} onClick={() => { if (stat.label !== spkCardLabel) setActiveMetric(activeMetric === stat.label ? "ALL" : stat.label); }} className={`group rounded-2xl border bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${activeMetric === stat.label ? "border-indigo-300 ring-2 ring-indigo-100" : "border-slate-200"} ${tone.ring} sm:p-5`}>
+                <button type="button" key={stat.label} onClick={() => { if (stat.label !== spkCardLabel) setActiveMetric(activeMetric === stat.label ? "ALL" : stat.label); }} className={`group rounded-2xl border bg-[#111010] p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${activeMetric === stat.label ? "border-rose-800/60 ring-2 ring-rose-900/40" : "border-white/10"} ${tone.ring} sm:p-5`}>
 
                   <div className="mb-4 flex items-center justify-between">
 
@@ -1108,7 +1173,7 @@ export default function Home() {
 
                     </div>
 
-                    <span className="hidden rounded-full bg-slate-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 sm:inline-flex">
+                    <span className="hidden rounded-full bg-white/[0.04] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-neutral-500 sm:inline-flex">
 
                       Live
 
@@ -1118,11 +1183,11 @@ export default function Home() {
 
                   <p className={`text-xl font-bold sm:text-2xl ${tone.value}`}>{stat.value}</p>
 
-                  <p className="mt-1.5 text-xs font-bold text-slate-700 sm:text-sm">{stat.label}</p>
+                  <p className="mt-1.5 text-xs font-bold text-neutral-200 sm:text-sm">{stat.label}</p>
 
-                  <p className="mt-1 hidden text-xs text-slate-400 sm:block">{stat.description}</p>
+                  <p className="mt-1 hidden text-xs text-neutral-500 sm:block">{stat.description}</p>
 
-                <p className="mt-3 text-[10px] font-semibold text-indigo-500">{stat.label === spkCardLabel ? "Ringkasan sesuai filter SPK" : activeMetric === stat.label ? "Filter aktif · klik untuk reset" : "Klik untuk memfilter detail"}</p>
+                <p className="mt-3 text-[10px] font-semibold text-rose-300">{stat.label === spkCardLabel ? "Ringkasan sesuai filter SPK" : activeMetric === stat.label ? "Filter aktif · klik untuk reset" : "Klik untuk memfilter detail"}</p>
 
               </button>
 
@@ -1132,13 +1197,13 @@ export default function Home() {
 
           </div>
 
-          <section className="relative overflow-hidden rounded-3xl border border-white/80 bg-white/95 shadow-xl shadow-slate-200/40">
+          <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-[#111010] shadow-xl shadow-black/30">
 
-            <div className="border-b border-indigo-50 px-4 py-4 sm:px-6 sm:py-5">
+            <div className="border-b border-white/10 px-4 py-4 sm:px-6 sm:py-5">
 
-              <h3 className="text-sm font-bold text-slate-800">Posisi produksi saat ini</h3>
+              <h3 className="text-sm font-bold text-white">Posisi produksi saat ini</h3>
 
-              <p className="mt-1 text-xs text-slate-400">
+              <p className="mt-1 text-xs text-neutral-500">
 
                 Posisi produksi sesuai filter aktif; pilih status Aktif untuk melihat pekerjaan yang masih berjalan.
 
@@ -1148,21 +1213,21 @@ export default function Home() {
 
             <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4 sm:p-6">
 
-              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
 
-                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">
 
                   Total Dalam proses
 
                 </p>
 
-                <p className="mt-2 text-xl font-bold text-slate-800">
+                <p className="mt-2 text-xl font-bold text-white">
 
                   {formatNumber(productionSummary.total)} pcs
 
                 </p>
 
-                <p className="mt-1 text-[10px] text-slate-400">
+                <p className="mt-1 text-[10px] text-neutral-500">
 
                   Jahit + QC + Rework
 
@@ -1170,21 +1235,21 @@ export default function Home() {
 
               </div>
 
-              <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
+              <div className="rounded-2xl border border-blue-900/40 bg-blue-950/30 p-4">
 
-                <p className="text-[10px] font-bold uppercase tracking-wide text-blue-500">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-blue-300">
 
                   Sedang Jahit
 
                 </p>
 
-                <p className="mt-2 text-xl font-bold text-blue-700">
+                <p className="mt-2 text-xl font-bold text-blue-300">
 
                   {formatNumber(productionSummary.jahit)} pcs
 
                 </p>
 
-                <p className="mt-1 text-[10px] text-blue-500">
+                <p className="mt-1 text-[10px] text-blue-300">
 
                   Belum diterima dari penjahit
 
@@ -1192,21 +1257,21 @@ export default function Home() {
 
               </div>
 
-              <div className="rounded-2xl border border-violet-100 bg-violet-50 p-4">
+              <div className="rounded-2xl border border-white/10 bg-violet-950/30 p-4">
 
-                <p className="text-[10px] font-bold uppercase tracking-wide text-violet-500">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-violet-300">
 
                   Di QC
 
                 </p>
 
-                <p className="mt-2 text-xl font-bold text-violet-700">
+                <p className="mt-2 text-xl font-bold text-violet-200">
 
                   {formatNumber(productionSummary.qc)} pcs
 
                 </p>
 
-                <p className="mt-1 text-[10px] text-violet-500">
+                <p className="mt-1 text-[10px] text-violet-300">
 
                   Menunggu proses QC
 
@@ -1214,21 +1279,21 @@ export default function Home() {
 
               </div>
 
-              <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4">
+              <div className="rounded-2xl border border-amber-900/40 bg-amber-950/30 p-4">
 
-                <p className="text-[10px] font-bold uppercase tracking-wide text-amber-600">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-amber-300">
 
                   Rijek / pengerjaan ulang
 
                 </p>
 
-                <p className="mt-2 text-xl font-bold text-amber-700">
+                <p className="mt-2 text-xl font-bold text-amber-300">
 
                   {formatNumber(productionSummary.rijek)} pcs
 
                 </p>
 
-                <p className="mt-1 text-[10px] text-amber-600">
+                <p className="mt-1 text-[10px] text-amber-300">
 
                   Sedang dikerjakan ulang
 
@@ -1238,19 +1303,19 @@ export default function Home() {
 
             </div>
 
-            <div className="border-t border-slate-100 px-4 py-3 sm:px-6">
+            <div className="border-t border-white/10 px-4 py-3 sm:px-6">
 
               <div className="flex items-center justify-between gap-3">
 
                 <div>
 
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">
 
                     Rekap aktivitas produksi
 
                   </p>
 
-                  <p className="mt-1 text-[11px] text-slate-400">
+                  <p className="mt-1 text-[11px] text-neutral-500">
 
                     Akumulasi transaksi tercatat; angka ini bukan jumlah stok fisik.
 
@@ -1266,23 +1331,23 @@ export default function Home() {
 
               {[
 
-                ["Dikirim", productionSummary.sent, "bg-blue-50", "text-blue-700"],
+                ["Dikirim", productionSummary.sent, "bg-blue-950/30", "text-blue-300"],
 
-                ["Diterima", productionSummary.received, "bg-cyan-50", "text-cyan-700"],
+                ["Diterima", productionSummary.received, "bg-cyan-950/30", "text-cyan-300"],
 
-                ["QC Rijek", productionSummary.qcReject, "bg-amber-50", "text-amber-700"],
+                ["QC Rijek", productionSummary.qcReject, "bg-amber-950/30", "text-amber-300"],
 
-                ["Dikirim Rework", productionSummary.rejectSent, "bg-orange-50", "text-orange-700"],
+                ["Dikirim Rework", productionSummary.rejectSent, "bg-orange-950/30", "text-orange-300"],
 
-                ["Kembali Rework", productionSummary.rejectReceived, "bg-emerald-50", "text-emerald-700"],
+                ["Kembali Rework", productionSummary.rejectReceived, "bg-emerald-950/30", "text-emerald-300"],
 
-                ["QC ACC", productionSummary.qcAcc, "bg-emerald-50", "text-emerald-700"],
+                ["QC ACC", productionSummary.qcAcc, "bg-emerald-950/30", "text-emerald-300"],
 
               ].map(([label, value, bg, color]) => (
 
                 <div key={String(label)} className={`rounded-2xl ${bg} p-3`}>
 
-                  <p className="text-[9px] font-bold uppercase tracking-wide text-slate-400">
+                  <p className="text-[9px] font-bold uppercase tracking-wide text-neutral-500">
 
                     {label}
 
@@ -1302,31 +1367,31 @@ export default function Home() {
 
           </section>
 
-          <section className="relative mt-6 overflow-hidden rounded-3xl border border-white/80 bg-white/95 shadow-xl shadow-slate-200/50">
+          <section className="relative mt-6 overflow-hidden rounded-3xl border border-white/10 bg-[#111010] shadow-xl shadow-black/30">
 
-            <div className="flex items-center justify-between border-b border-indigo-50 px-4 py-4 sm:px-6 sm:py-5">
+            <div className="flex items-center justify-between border-b border-white/10 px-4 py-4 sm:px-6 sm:py-5">
 
               <div>
 
-                <h3 className="text-sm font-bold text-slate-800">Detail produksi aktif</h3>
+                <h3 className="text-sm font-bold text-white">Detail produksi aktif</h3>
 
-                <p className="mt-1 text-xs text-slate-400">Rincian posisi barang berdasarkan SPK dan produk.</p>
+                <p className="mt-1 text-xs text-neutral-500">Rincian posisi barang berdasarkan SPK dan produk.</p>
 
               </div>
 
-              <Link href="/operations/tracking" className="text-xs font-bold text-indigo-600 hover:text-indigo-700">Buka tracking</Link>
+              <Link href="/operations/tracking" className="text-xs font-bold text-rose-300 hover:text-rose-200">Buka tracking</Link>
 
             </div>
 
-            <div className="grid grid-cols-2 gap-3 border-b border-slate-100 p-4 sm:grid-cols-4 sm:px-6">
+            <div className="grid grid-cols-2 gap-3 border-b border-white/10 p-4 sm:grid-cols-4 sm:px-6">
 
-              <div className="rounded-2xl bg-slate-50 p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Total Process</p><p className="mt-1 text-lg font-bold text-slate-800">{formatNumber(productionSummary.total)} pcs</p></div>
+              <div className="rounded-2xl bg-white/[0.04] p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">Total Process</p><p className="mt-1 text-lg font-bold text-white">{formatNumber(productionSummary.total)} pcs</p></div>
 
-              <div className="rounded-2xl bg-blue-50 p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-blue-500">Jahit</p><p className="mt-1 text-lg font-bold text-blue-700">{formatNumber(productionSummary.jahit)} pcs</p></div>
+              <div className="rounded-2xl bg-blue-950/30 p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-blue-300">Jahit</p><p className="mt-1 text-lg font-bold text-blue-300">{formatNumber(productionSummary.jahit)} pcs</p></div>
 
-              <div className="rounded-2xl bg-violet-50 p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-violet-500">QC</p><p className="mt-1 text-lg font-bold text-violet-700">{formatNumber(productionSummary.qc)} pcs</p></div>
+              <div className="rounded-2xl bg-violet-950/30 p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-violet-300">QC</p><p className="mt-1 text-lg font-bold text-violet-200">{formatNumber(productionSummary.qc)} pcs</p></div>
 
-              <div className="rounded-2xl bg-amber-50 p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-amber-600">Rijek / pengerjaan ulang</p><p className="mt-1 text-lg font-bold text-amber-700">{formatNumber(productionSummary.rijek)} pcs</p></div>
+              <div className="rounded-2xl bg-amber-950/30 p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-amber-300">Rijek / pengerjaan ulang</p><p className="mt-1 text-lg font-bold text-amber-300">{formatNumber(productionSummary.rijek)} pcs</p></div>
 
             </div>
 
@@ -1336,11 +1401,11 @@ export default function Home() {
 
                 <thead>
 
-                  <tr className="border-b border-indigo-50 bg-gradient-to-r from-indigo-50/70 to-violet-50/50">
+                  <tr className="border-b border-white/10 bg-gradient-to-r from-rose-950/30 to-red-950/20">
 
                     {['SPK','Product','Penjahit','Qty SPK','Jahit','QC','Rijek','Proses','Next Action'].map((head, i) => (
 
-                      <th key={head} className={`px-6 py-3 text-xs font-bold uppercase tracking-wide text-slate-400 ${i >= 3 && i <= 7 ? 'text-right' : ''}`}>{head}</th>
+                      <th key={head} className={`px-6 py-3 text-xs font-bold uppercase tracking-wide text-neutral-500 ${i >= 3 && i <= 7 ? 'text-right' : ''}`}>{head}</th>
 
                     ))}
 
@@ -1352,31 +1417,31 @@ export default function Home() {
 
                   {metricProductionRows.slice(0, 10).map(({ spk, item, summary, nextAction }) => (
 
-                    <tr key={`${spk.id}-${item.id}`} className="border-b border-slate-100 last:border-0 hover:bg-indigo-50/30">
+                    <tr key={`${spk.id}-${item.id}`} className="border-b border-white/10 last:border-0 hover:bg-white/[0.04]">
 
-                      <td className="px-6 py-4"><Link href={`/operations/spk/${spk.id}`} className="font-bold text-indigo-600 hover:text-indigo-700">{spk.spkNumber}</Link></td>
+                      <td className="px-6 py-4"><Link href={`/operations/spk/${spk.id}`} className="font-bold text-rose-300 hover:text-rose-200">{spk.spkNumber}</Link></td>
 
-                      <td className="px-6 py-4"><p className="font-semibold text-slate-700">{item.product?.name ?? '-'}</p><p className="text-[10px] text-slate-400">{item.product?.code ?? '-'}</p></td>
+                      <td className="px-6 py-4"><p className="font-semibold text-neutral-200">{item.product?.name ?? '-'}</p><p className="text-[10px] text-neutral-500">{item.product?.code ?? '-'}</p></td>
 
-                      <td className="px-6 py-4 text-slate-600">{spk.tailor.name}</td>
+                      <td className="px-6 py-4 text-neutral-300">{spk.tailor.name}</td>
 
-                      <td className="px-6 py-4 text-right font-semibold text-slate-700">{formatNumber(item.quantity)}</td>
+                      <td className="px-6 py-4 text-right font-semibold text-neutral-200">{formatNumber(item.quantity)}</td>
 
-                      <td className="px-6 py-4 text-right font-semibold text-blue-700">{formatNumber(summary.sisaJahit)}</td>
+                      <td className="px-6 py-4 text-right font-semibold text-blue-300">{formatNumber(summary.sisaJahit)}</td>
 
-                      <td className="px-6 py-4 text-right font-semibold text-violet-700">{formatNumber(summary.barangDiQc)}</td>
+                      <td className="px-6 py-4 text-right font-semibold text-violet-200">{formatNumber(summary.barangDiQc)}</td>
 
-                      <td className="px-6 py-4 text-right font-semibold text-amber-700">{formatNumber(summary.jumlahRijek)}</td>
+                      <td className="px-6 py-4 text-right font-semibold text-amber-300">{formatNumber(summary.jumlahRijek)}</td>
 
-                      <td className="px-6 py-4 text-right font-bold text-slate-800">{formatNumber(summary.jumlahBarang)}</td>
+                      <td className="px-6 py-4 text-right font-bold text-white">{formatNumber(summary.jumlahBarang)}</td>
 
-                      <td className="px-6 py-4"><span className="inline-flex max-w-[190px] rounded-full bg-slate-50 px-2.5 py-1 text-[10px] font-bold text-slate-600 ring-1 ring-slate-200">{nextAction}</span></td>
+                      <td className="px-6 py-4"><span className="inline-flex max-w-[190px] rounded-full bg-white/[0.04] px-2.5 py-1 text-[10px] font-bold text-neutral-300 ring-1 ring-white/10">{nextAction}</span></td>
 
                     </tr>
 
                   ))}
 
-                  {metricProductionRows.length === 0 && <tr><td colSpan={9} className="px-6 py-12 text-center text-sm text-slate-400">Tidak ada data yang sesuai dengan filter aktif.</td></tr>}
+                  {metricProductionRows.length === 0 && <tr><td colSpan={9} className="px-6 py-12 text-center text-sm text-neutral-500">Tidak ada data yang sesuai dengan filter aktif.</td></tr>}
 
                 </tbody>
 
@@ -1386,23 +1451,23 @@ export default function Home() {
 
           </section>
 
-          <section className="relative mt-6 overflow-hidden rounded-3xl border border-amber-100 bg-white shadow-xl shadow-slate-200/40">
+          <section className="relative mt-6 overflow-hidden rounded-3xl border border-amber-900/40 bg-[#111010] shadow-xl shadow-black/30">
 
-            <div className="border-b border-amber-100 px-4 py-4 sm:px-6 sm:py-5">
+            <div className="border-b border-amber-900/40 px-4 py-4 sm:px-6 sm:py-5">
 
-              <h3 className="text-sm font-bold text-slate-800">Rijek / pengerjaan ulang Monitoring</h3>
+              <h3 className="text-sm font-bold text-white">Rijek / pengerjaan ulang Monitoring</h3>
 
-              <p className="mt-1 text-xs text-slate-400">Pantau barang yang perlu dikirim ulang, dikerjakan ulang, atau diperiksa kembali.</p>
+              <p className="mt-1 text-xs text-neutral-500">Pantau barang yang perlu dikirim ulang, dikerjakan ulang, atau diperiksa kembali.</p>
 
             </div>
 
             <div className="grid gap-4 p-4 sm:grid-cols-3 sm:p-6">
 
-              <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4"><div className="flex items-center gap-2"><ShieldAlert className="h-4 w-4 text-amber-600" /><p className="text-xs font-bold text-amber-700">Total QC Rijek</p></div><p className="mt-2 text-2xl font-bold text-amber-800">{formatNumber(productionSummary.qcReject)} pcs</p><p className="mt-1 text-[11px] text-amber-600">Total rejection yang tercatat.</p></div>
+              <div className="rounded-2xl border border-amber-900/40 bg-amber-950/30 p-4"><div className="flex items-center gap-2"><ShieldAlert className="h-4 w-4 text-amber-300" /><p className="text-xs font-bold text-amber-300">Total QC Rijek</p></div><p className="mt-2 text-2xl font-bold text-amber-200">{formatNumber(productionSummary.qcReject)} pcs</p><p className="mt-1 text-[11px] text-amber-300">Total rejection yang tercatat.</p></div>
 
-              <div className="rounded-2xl border border-orange-100 bg-orange-50 p-4"><div className="flex items-center gap-2"><Send className="h-4 w-4 text-orange-600" /><p className="text-xs font-bold text-orange-700">Belum Dikirim Rework</p></div><p className="mt-2 text-2xl font-bold text-orange-800">{formatNumber(rijekWaitingToSend)} pcs</p><p className="mt-1 text-[11px] text-orange-600">Rijek sudah QC tetapi belum dikirim kembali.</p></div>
+              <div className="rounded-2xl border border-orange-900/40 bg-orange-950/30 p-4"><div className="flex items-center gap-2"><Send className="h-4 w-4 text-orange-300" /><p className="text-xs font-bold text-orange-300">Belum Dikirim Rework</p></div><p className="mt-2 text-2xl font-bold text-orange-200">{formatNumber(rijekWaitingToSend)} pcs</p><p className="mt-1 text-[11px] text-orange-300">Rijek sudah QC tetapi belum dikirim kembali.</p></div>
 
-              <div className="rounded-2xl border border-red-100 bg-red-50 p-4"><div className="flex items-center gap-2"><RefreshCw className="h-4 w-4 text-red-600" /><p className="text-xs font-bold text-red-700">Sedang Rework</p></div><p className="mt-2 text-2xl font-bold text-red-800">{formatNumber(productionSummary.rijek)} pcs</p><p className="mt-1 text-[11px] text-red-600">Sudah dikirim ke penjahit dan belum kembali.</p></div>
+              <div className="rounded-2xl border border-red-900/40 bg-red-950/30 p-4"><div className="flex items-center gap-2"><RefreshCw className="h-4 w-4 text-red-300" /><p className="text-xs font-bold text-red-300">Sedang Rework</p></div><p className="mt-2 text-2xl font-bold text-red-200">{formatNumber(productionSummary.rijek)} pcs</p><p className="mt-1 text-[11px] text-red-300">Sudah dikirim ke penjahit dan belum kembali.</p></div>
 
             </div>
 
@@ -1410,25 +1475,25 @@ export default function Home() {
 
           <div className="relative mt-6 grid gap-6 xl:grid-cols-3">
 
-            <div className="overflow-hidden rounded-3xl border border-white/80 bg-white/95 shadow-xl shadow-slate-200/50 xl:col-span-2">
+            <div className="overflow-hidden rounded-3xl border border-white/10 bg-[#111010] shadow-xl shadow-black/30 xl:col-span-2">
 
-              <div className="flex items-center justify-between border-b border-indigo-50 px-4 py-4 sm:px-6 sm:py-5">
+              <div className="flex items-center justify-between border-b border-white/10 px-4 py-4 sm:px-6 sm:py-5">
 
                 <div>
 
-                  <h3 className="text-sm font-bold text-slate-800">Aktivitas transaksi terbaru</h3>
+                  <h3 className="text-sm font-bold text-white">Aktivitas transaksi terbaru</h3>
 
-                  <p className="mt-1 text-xs text-slate-400">Lima transaksi terbaru sesuai filter yang dipilih.</p>
+                  <p className="mt-1 text-xs text-neutral-500">Lima transaksi terbaru sesuai filter yang dipilih.</p>
 
                 </div>
 
-                <Link href="/operations/transactions" className="flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-700">Lihat semua <ArrowRight className="h-3.5 w-3.5" /></Link>
+                <Link href="/operations/transactions" className="flex items-center gap-1 text-xs font-bold text-rose-300 hover:text-rose-200">Lihat semua <ArrowRight className="h-3.5 w-3.5" /></Link>
 
               </div>
 
               {recentTransactions.length === 0 ? (
 
-                <div className="px-6 py-14 text-center"><Activity className="mx-auto h-8 w-8 text-slate-300" /><p className="mt-3 text-sm font-semibold text-slate-600">Belum ada transaksi</p><p className="mt-1 text-xs text-slate-400">Transaksi akan muncul setelah aktivitas dicatat.</p></div>
+                <div className="px-6 py-14 text-center"><Activity className="mx-auto h-8 w-8 text-neutral-600" /><p className="mt-3 text-sm font-semibold text-neutral-300">Belum ada transaksi</p><p className="mt-1 text-xs text-neutral-500">Transaksi akan muncul setelah aktivitas dicatat.</p></div>
 
               ) : (
 
@@ -1436,23 +1501,23 @@ export default function Home() {
 
                   {recentTransactions.map((transaction) => (
 
-                    <div key={transaction.id} className="flex gap-3 px-4 py-4 transition hover:bg-indigo-50/30 sm:items-center sm:justify-between sm:gap-4 sm:px-6">
+                    <div key={transaction.id} className="flex gap-3 px-4 py-4 transition hover:bg-white/[0.04] sm:items-center sm:justify-between sm:gap-4 sm:px-6">
 
                       <div className="flex min-w-0 items-start gap-3">
 
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600"><Activity className="h-4 w-4" /></div>
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-950/40 text-rose-300"><Activity className="h-4 w-4" /></div>
 
                         <div className="min-w-0">
 
-                          <p className="truncate text-sm font-bold text-slate-800">{transaction.transactionType.name}</p>
+                          <p className="truncate text-sm font-bold text-white">{transaction.transactionType.name}</p>
 
-                          <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-[11px] text-slate-400 sm:text-xs">
+                          <div className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-[11px] text-neutral-500 sm:text-xs">
 
                             <span>{transaction.transactionNumber}</span><span className="hidden sm:inline">•</span><span>{transaction.spk.spkNumber}</span><span className="hidden sm:inline">•</span><span className="hidden sm:inline">{transaction.employee.name}</span>
 
                           </div>
 
-                          <p className="mt-1 text-[10px] text-slate-400 sm:hidden">{transaction.employee.name}</p>
+                          <p className="mt-1 text-[10px] text-neutral-500 sm:hidden">{transaction.employee.name}</p>
 
                         </div>
 
@@ -1460,11 +1525,11 @@ export default function Home() {
 
                       <div className="shrink-0 text-right">
 
-                        <p className="text-sm font-bold text-slate-800">{formatNumber(transaction.quantity)}</p>
+                        <p className="text-sm font-bold text-white">{formatNumber(transaction.quantity)}</p>
 
-                        <p className="text-[9px] uppercase tracking-wide text-slate-400 sm:text-[10px]">units</p>
+                        <p className="text-[9px] uppercase tracking-wide text-neutral-500 sm:text-[10px]">units</p>
 
-                        <p className="mt-1 hidden text-xs font-medium text-slate-500 sm:block">{formatTime(transaction.createdAt)}</p>
+                        <p className="mt-1 hidden text-xs font-medium text-neutral-400 sm:block">{formatTime(transaction.createdAt)}</p>
 
                         <span className={`mt-1 hidden rounded-full px-2 py-0.5 text-[10px] font-bold ring-1 sm:inline-flex ${transactionTone(transaction.transactionType.code)}`}>Recorded</span>
 
@@ -1480,13 +1545,13 @@ export default function Home() {
 
             </div>
 
-            <div className="overflow-hidden rounded-3xl border border-white/80 bg-white/95 shadow-xl shadow-slate-200/50">
+            <div className="overflow-hidden rounded-3xl border border-white/10 bg-[#111010] shadow-xl shadow-black/30">
 
-              <div className="border-b border-indigo-50 px-4 py-4 sm:px-6 sm:py-5">
+              <div className="border-b border-white/10 px-4 py-4 sm:px-6 sm:py-5">
 
-                <h3 className="text-sm font-bold text-slate-800">Akses cepat</h3>
+                <h3 className="text-sm font-bold text-white">Akses cepat</h3>
 
-                <p className="mt-1 text-xs text-slate-400">Pintasan untuk pekerjaan operasional</p>
+                <p className="mt-1 text-xs text-neutral-500">Pintasan untuk pekerjaan operasional</p>
 
               </div>
 
@@ -1502,13 +1567,13 @@ export default function Home() {
 
               </div>
 
-              <div className="border-t border-slate-100 px-4 py-4 text-xs text-slate-400">
+              <div className="border-t border-white/10 px-4 py-4 text-xs text-neutral-500">
 
-                Produk aktif: <span className="font-bold text-slate-600">{formatNumber(activeProducts.length)}</span>
+                Produk aktif: <span className="font-bold text-neutral-300">{formatNumber(activeProducts.length)}</span>
 
                 <span className="mx-2">•</span>
 
-                Transaksi hari ini: <span className="font-bold text-slate-600">{formatNumber(todayTransactions.length)}</span>
+                Transaksi hari ini: <span className="font-bold text-neutral-300">{formatNumber(todayTransactions.length)}</span>
 
               </div>
 
@@ -1518,9 +1583,9 @@ export default function Home() {
 
           <PermissionGate permission="tailor-billing.view">
 
-            <section className="relative mt-6 overflow-hidden rounded-3xl border border-indigo-100 bg-white shadow-xl shadow-indigo-100/40">
+            <section className="relative mt-6 overflow-hidden rounded-3xl border border-rose-900/40 bg-[#111010] shadow-xl shadow-black/30">
 
-              <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-indigo-100/50 blur-3xl" />
+              <div className="absolute right-0 top-0 h-40 w-40 rounded-full bg-rose-950/30 blur-3xl" />
 
               <div className="relative p-4 sm:p-6">
 
@@ -1528,19 +1593,19 @@ export default function Home() {
 
                   <div className="flex items-start gap-3 sm:gap-4">
 
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-200 sm:h-12 sm:w-12 sm:rounded-2xl"><CircleDollarSign className="h-5 w-5 sm:h-6 sm:w-6" /></div>
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-rose-800 via-red-900 to-[#651b24] text-white shadow-lg shadow-black/30 sm:h-12 sm:w-12 sm:rounded-2xl"><CircleDollarSign className="h-5 w-5 sm:h-6 sm:w-6" /></div>
 
                     <div>
 
-                      <div className="flex flex-wrap items-center gap-2"><h3 className="text-sm font-bold text-slate-800 sm:text-base">Billing Penjahit</h3><span className="rounded-full bg-indigo-50 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-indigo-600 sm:px-2.5 sm:text-[10px]">Live</span></div>
+                      <div className="flex flex-wrap items-center gap-2"><h3 className="text-sm font-bold text-white sm:text-base">Billing Penjahit</h3><span className="rounded-full bg-rose-950/40 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-rose-300 sm:px-2.5 sm:text-[10px]">Live</span></div>
 
-                      <p className="mt-1 text-xs leading-5 text-slate-500 sm:text-sm">Quantity QC ACC yang sudah siap dibuatkan billing.</p>
+                      <p className="mt-1 text-xs leading-5 text-neutral-400 sm:text-sm">Quantity QC ACC yang sudah siap dibuatkan billing.</p>
 
                     </div>
 
                   </div>
 
-                  {billingLoading ? <div className="flex items-center gap-2 text-xs font-medium text-slate-400 sm:text-sm"><Loader2 className="h-4 w-4 animate-spin" />Menghitung billing...</div> : billingSummary ? (
+                  {billingLoading ? <div className="flex items-center gap-2 text-xs font-medium text-neutral-500 sm:text-sm"><Loader2 className="h-4 w-4 animate-spin" />Menghitung billing...</div> : billingSummary ? (
 
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
 
@@ -1554,23 +1619,23 @@ export default function Home() {
 
                     </div>
 
-                  ) : <div className="text-xs text-slate-400 sm:text-sm">Data billing tidak tersedia.</div>}
+                  ) : <div className="text-xs text-neutral-500 sm:text-sm">Data billing tidak tersedia.</div>}
 
                 </div>
 
                 {billingSummary && billingSummary.readySpkCount > 0 && (
 
-                  <div className="mt-5 flex flex-col gap-4 border-t border-slate-100 pt-5 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="mt-5 flex flex-col gap-4 border-t border-white/10 pt-5 lg:flex-row lg:items-center lg:justify-between">
 
-                    <div><p className="text-sm font-semibold text-slate-700">Ada {formatNumber(billingSummary.readySpkCount)} SPK yang siap ditagihkan.</p><p className="mt-1 text-xs text-slate-400">Generate akan membuat satu Draft Billing untuk setiap penjahit.</p></div>
+                    <div><p className="text-sm font-semibold text-neutral-200">Ada {formatNumber(billingSummary.readySpkCount)} SPK yang siap ditagihkan.</p><p className="mt-1 text-xs text-neutral-500">Generate akan membuat satu Draft Billing untuk setiap penjahit.</p></div>
 
                     <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
 
-                      <Link href="/master/tailor-billing" className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 sm:w-auto">Lihat Billing <ArrowRight className="h-4 w-4" /></Link>
+                      <Link href="/master/tailor-billing" className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#111010] px-4 text-sm font-semibold text-neutral-300 hover:border-rose-800/50 hover:bg-white/[0.06] hover:text-rose-200 sm:w-auto">Lihat Billing <ArrowRight className="h-4 w-4" /></Link>
 
                       <PermissionGate permission="tailor-billing.create">
 
-                        <button type="button" onClick={() => setShowBillingConfirm(true)} disabled={generatingBilling} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 text-sm font-semibold text-white shadow-lg shadow-indigo-200 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"><CircleDollarSign className="h-4 w-4" />Generate Semua Billing</button>
+                        <button type="button" onClick={() => setShowBillingConfirm(true)} disabled={generatingBilling} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-rose-800 via-red-900 to-[#651b24] px-4 text-sm font-semibold text-white shadow-lg shadow-black/30 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"><CircleDollarSign className="h-4 w-4" />Generate Semua Billing</button>
 
                       </PermissionGate>
 
@@ -1582,11 +1647,11 @@ export default function Home() {
 
                 {billingSummary && billingSummary.readySpkCount === 0 && (
 
-                  <div className="mt-5 flex flex-col gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="mt-5 flex flex-col gap-3 border-t border-white/10 pt-5 sm:flex-row sm:items-center sm:justify-between">
 
-                    <div className="flex items-start gap-3"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600"><Check className="h-4 w-4" /></div><div><p className="text-sm font-semibold text-slate-700">Tidak ada billing yang menunggu dibuat.</p><p className="mt-1 text-xs text-slate-400">Semua quantity yang saat ini sudah memenuhi syarat telah ditagihkan.</p></div></div>
+                    <div className="flex items-start gap-3"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-950/30 text-emerald-300"><Check className="h-4 w-4" /></div><div><p className="text-sm font-semibold text-neutral-200">Tidak ada billing yang menunggu dibuat.</p><p className="mt-1 text-xs text-neutral-500">Semua quantity yang saat ini sudah memenuhi syarat telah ditagihkan.</p></div></div>
 
-                    <Link href="/master/tailor-billing" className="inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700">Lihat Billing <ArrowRight className="h-4 w-4" /></Link>
+                    <Link href="/master/tailor-billing" className="inline-flex items-center gap-2 text-sm font-semibold text-rose-300 hover:text-rose-200">Lihat Billing <ArrowRight className="h-4 w-4" /></Link>
 
                   </div>
 
@@ -1594,11 +1659,11 @@ export default function Home() {
 
                 {billingSummary && billingSummary.missingRateSpkCount > 0 && (
 
-                  <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" /><div><p className="text-xs font-bold text-amber-800">Ada {formatNumber(billingSummary.missingRateSpkCount)} SPK yang belum memiliki tarif penjahit.</p><p className="mt-1 text-xs text-amber-700">SPK tersebut tidak akan ikut dalam Generate Semua Billing.</p></div></div>
+                  <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-900/40 bg-amber-950/30 px-4 py-3"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" /><div><p className="text-xs font-bold text-amber-200">Ada {formatNumber(billingSummary.missingRateSpkCount)} SPK yang belum memiliki tarif penjahit.</p><p className="mt-1 text-xs text-amber-300">SPK tersebut tidak akan ikut dalam Generate Semua Billing.</p></div></div>
 
                 )}
 
-                {billingMessage && <div className="mt-4 flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-medium text-emerald-700 sm:text-sm"><Check className="h-4 w-4 shrink-0" />{billingMessage}</div>}
+                {billingMessage && <div className="mt-4 flex items-center gap-3 rounded-2xl border border-emerald-900/40 bg-emerald-950/30 px-4 py-3 text-xs font-medium text-emerald-300 sm:text-sm"><Check className="h-4 w-4 shrink-0" />{billingMessage}</div>}
 
               </div>
 
@@ -1612,19 +1677,19 @@ export default function Home() {
 
       {showBillingConfirm && billingSummary && (
 
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/75 p-0 backdrop-blur-sm sm:items-center sm:p-4">
 
-          <div className="max-h-[90vh] w-full overflow-y-auto rounded-t-3xl bg-white shadow-2xl sm:max-w-md sm:rounded-3xl">
+          <div className="max-h-[90vh] w-full overflow-y-auto rounded-t-3xl bg-[#111010] shadow-2xl sm:max-w-md sm:rounded-3xl">
 
-            <div className="border-b border-slate-100 px-5 py-5 sm:px-6">
+            <div className="border-b border-white/10 px-5 py-5 sm:px-6">
 
-              <div className="flex items-start justify-between"><div><div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600"><CircleDollarSign className="h-5 w-5" /></div><h3 className="text-lg font-bold text-slate-800">Generate Semua Billing?</h3><p className="mt-1 text-sm text-slate-500">Sistem akan membuat billing sebagai <strong>Draft</strong>.</p></div><button type="button" onClick={() => setShowBillingConfirm(false)} disabled={generatingBilling} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 disabled:opacity-50"><X className="h-5 w-5" /></button></div>
+              <div className="flex items-start justify-between"><div><div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-rose-950/40 text-rose-300"><CircleDollarSign className="h-5 w-5" /></div><h3 className="text-lg font-bold text-white">Generate Semua Billing?</h3><p className="mt-1 text-sm text-neutral-400">Sistem akan membuat billing sebagai <strong>Draft</strong>.</p></div><button type="button" onClick={() => setShowBillingConfirm(false)} disabled={generatingBilling} className="rounded-lg p-2 text-neutral-500 hover:bg-white/[0.06] disabled:opacity-50"><X className="h-5 w-5" /></button></div>
 
             </div>
 
             <div className="space-y-3 px-5 py-5 sm:px-6">
 
-              <div className="rounded-2xl bg-slate-50 p-4"><div className="grid grid-cols-2 gap-4">
+              <div className="rounded-2xl bg-white/[0.04] p-4"><div className="grid grid-cols-2 gap-4">
 
                 <ConfirmMetric label="Penjahit" value={formatNumber(billingSummary.readyTailorCount)} />
 
@@ -1636,17 +1701,17 @@ export default function Home() {
 
               </div></div>
 
-              <div className="rounded-xl border border-cyan-100 bg-cyan-50 px-4 py-3 text-xs leading-5 text-cyan-700">Generate hanya membuat <strong>Draft Billing</strong>. Pembayaran tetap harus melalui proses Submit dan Pay.</div>
+              <div className="rounded-xl border border-cyan-900/40 bg-cyan-950/30 px-4 py-3 text-xs leading-5 text-cyan-300">Generate hanya membuat <strong>Draft Billing</strong>. Pembayaran tetap harus melalui proses Submit dan Pay.</div>
 
             </div>
 
-            <div className="flex flex-col-reverse gap-2 border-t border-slate-100 bg-slate-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-end sm:px-6">
+            <div className="flex flex-col-reverse gap-2 border-t border-white/10 bg-white/[0.04] px-5 py-4 sm:flex-row sm:items-center sm:justify-end sm:px-6">
 
-              <button type="button" onClick={() => setShowBillingConfirm(false)} disabled={generatingBilling} className="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 disabled:opacity-50 sm:w-auto">Batal</button>
+              <button type="button" onClick={() => setShowBillingConfirm(false)} disabled={generatingBilling} className="h-11 w-full rounded-xl border border-white/10 bg-[#111010] px-4 text-sm font-semibold text-neutral-300 disabled:opacity-50 sm:w-auto">Batal</button>
 
               <PermissionGate permission="tailor-billing.create">
 
-                <button type="button" onClick={generateAllBilling} disabled={generatingBilling} className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-5 text-sm font-semibold text-white shadow-lg shadow-indigo-200 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto">{generatingBilling ? <><Loader2 className="h-4 w-4 animate-spin" />Generating...</> : <><Check className="h-4 w-4" />Generate Billing</>}</button>
+                <button type="button" onClick={generateAllBilling} disabled={generatingBilling} className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-rose-800 via-red-900 to-[#651b24] px-5 text-sm font-semibold text-white shadow-lg shadow-black/30 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto">{generatingBilling ? <><Loader2 className="h-4 w-4 animate-spin" />Generating...</> : <><Check className="h-4 w-4" />Generate Billing</>}</button>
 
               </PermissionGate>
 
@@ -1666,18 +1731,18 @@ export default function Home() {
 
 function BillingMetric({ label, value }: { label: string; value: string }) {
 
-  return <div className="min-w-0 rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2.5 sm:min-w-[120px] sm:rounded-2xl sm:px-4 sm:py-3"><p className="truncate text-[9px] font-bold uppercase tracking-wider text-slate-400 sm:text-[10px]">{label}</p><p className="mt-1 truncate text-xs font-bold text-slate-800 sm:text-sm">{value}</p></div>;
+  return <div className="min-w-0 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5 sm:min-w-[120px] sm:rounded-2xl sm:px-4 sm:py-3"><p className="truncate text-[9px] font-bold uppercase tracking-wider text-neutral-500 sm:text-[10px]">{label}</p><p className="mt-1 truncate text-xs font-bold text-white sm:text-sm">{value}</p></div>;
 
 }
 
 function ConfirmMetric({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) {
 
-  return <div><p className="text-xs text-slate-400">{label}</p><p className={`mt-1 text-lg font-bold ${accent ? "text-indigo-700" : "text-slate-800"}`}>{value}</p></div>;
+  return <div><p className="text-xs text-neutral-500">{label}</p><p className={`mt-1 text-lg font-bold ${accent ? "text-rose-200" : "text-white"}`}>{value}</p></div>;
 
 }
 
 function QuickAction({ href, icon: Icon, title, description }: { href: string; icon: typeof Activity; title: string; description: string }) {
 
-  return <Link href={href} className="group flex w-full items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50/70 p-3 text-left transition hover:-translate-y-0.5 hover:border-indigo-100 hover:bg-indigo-50/60 hover:shadow-sm"><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-indigo-600 shadow-sm ring-1 ring-slate-100 transition group-hover:bg-indigo-600 group-hover:text-white"><Icon className="h-4 w-4" /></div><div className="min-w-0"><p className="text-sm font-bold text-slate-700">{title}</p><p className="mt-0.5 text-xs text-slate-400">{description}</p></div><ArrowRight className="ml-auto h-4 w-4 shrink-0 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-indigo-500" /></Link>;
+  return <Link href={href} className="group flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3 text-left transition hover:-translate-y-0.5 hover:border-rose-800/50 hover:bg-rose-950/30 hover:shadow-sm"><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#111010] text-rose-300 shadow-sm ring-1 ring-white/10 transition group-hover:bg-rose-800 group-hover:text-white"><Icon className="h-4 w-4" /></div><div className="min-w-0"><p className="text-sm font-bold text-neutral-200">{title}</p><p className="mt-0.5 text-xs text-neutral-500">{description}</p></div><ArrowRight className="ml-auto h-4 w-4 shrink-0 text-neutral-600 transition group-hover:translate-x-0.5 group-hover:text-rose-300" /></Link>;
 
 }

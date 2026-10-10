@@ -1,1076 +1,987 @@
 ﻿"use client";
 
+
+
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+
+import { usePathname, useRouter } from "next/navigation";
+
 import { useEffect, useRef, useState } from "react";
 
 import {
+
   Activity,
+
   BarChart3,
+
   ChevronDown,
+
   ChevronRight,
+
   CircleDollarSign,
-  CircleDot,
+
   ClipboardList,
-  Factory,
+
   History,
+
   LayoutDashboard,
+
   LogOut,
-  ShieldCheck,
+
   Menu,
+
   Package,
+
   ScanLine,
+
   Settings,
-  UserCircle,
+
+  ShieldCheck,
+
   Users,
+
   Workflow,
+
   X,
+
 } from "lucide-react";
 
+
+
 type AuthUser = {
+
   id: number;
+
   name: string;
+
   email: string;
+
   status: string;
 
-  role: {
-    id: number;
-    name: string;
-  } | null;
+  role: { id: number; name: string } | null;
 
   permissions: string[];
+
 };
+
+
 
 type MenuItem = {
+
   label: string;
+
   href: string;
-  icon: React.ComponentType<{
-    className?: string;
-  }>;
+
+  icon: React.ComponentType<{ className?: string }>;
+
   permission: string;
+
 };
+
+
 
 type MenuGroup = {
+
   title: string;
+
   items: MenuItem[];
+
 };
 
+
+
 const menuGroups: MenuGroup[] = [
+
   {
+
     title: "OPERATIONS",
+
     items: [
-      {
-        label: "Dashboard",
-        href: "/",
-        icon: LayoutDashboard,
-        permission: "dashboard.view",
-      },
-      {
-        label: "Report",
-        href: "/reports/production",
-        icon: BarChart3,
-        permission: "report.view",
-      },
-      {
-        label: "SPK",
-        href: "/operations/spk",
-        icon: ClipboardList,
-        permission: "spk.view",
-      },
-      {
-        label: "Transactions",
-        href: "/operations/transactions",
-        icon: Activity,
-        permission: "transaction.view",
-      },
-      {
-        label: "Tracking",
-        href: "/operations/tracking",
-        icon: BarChart3,
-        permission: "tracking.view",
-      },
-      {
-        label: "Field Scanner",
-        href: "/operations/scanner",
-        icon: ScanLine,
-        permission: "scanner.view",
-      },
-      {
-        label: "Scanner History",
-        href: "/operations/scanner/history",
-        icon: History,
-        permission: "scanner.view",
-      },
-      {
-        label: "Quality Control",
-        href: "/qc",
-        icon: ShieldCheck,
-        permission: "qc.view",
-      }
+
+      { label: "Dashboard", href: "/", icon: LayoutDashboard, permission: "dashboard.view" },
+
+      { label: "Report", href: "/reports/production", icon: BarChart3, permission: "report.view" },
+
+      { label: "SPK", href: "/operations/spk", icon: ClipboardList, permission: "spk.view" },
+
+      { label: "Transactions", href: "/operations/transactions", icon: Activity, permission: "transaction.view" },
+
+      { label: "Tracking", href: "/operations/tracking", icon: BarChart3, permission: "tracking.view" },
+
+      { label: "Field Scanner", href: "/operations/scanner", icon: ScanLine, permission: "scanner.view" },
+
+      { label: "Scanner History", href: "/operations/scanner/history", icon: History, permission: "scanner.view" },
+
+      { label: "Quality Control", href: "/qc", icon: ShieldCheck, permission: "qc.view" },
+
     ],
+
   },
 
   {
+
     title: "MASTER DATA",
+
     items: [
-      {
-        label: "Products",
-        href: "/master/products",
-        icon: Package,
-        permission: "product.view",
-      },
-      {
-        label: "Tailors",
-        href: "/master/tailors",
-        icon: Users,
-        permission: "tailor.view",
-      },
-      {
-        label: "Employees",
-        href: "/master/employees",
-        icon: Users,
-        permission: "employee.view",
-      },
-      {
-        label: "Tailor Rates",
-        href: "/master/tailor-rates",
-        icon: CircleDollarSign,
-        permission: "tailor-rate.view",
-      },
-      {
-        label: "Tailor Billing",
-        href: "/master/tailor-billing",
-        icon: CircleDollarSign,
-        permission: "tailor-billing.view",
-      },
+
+      { label: "Products", href: "/master/products", icon: Package, permission: "product.view" },
+
+      { label: "Tailors", href: "/master/tailors", icon: Users, permission: "tailor.view" },
+
+      { label: "Employees", href: "/master/employees", icon: Users, permission: "employee.view" },
+
+      { label: "Tailor Rates", href: "/master/tailor-rates", icon: CircleDollarSign, permission: "tailor-rate.view" },
+
+      { label: "Tailor Billing", href: "/master/tailor-billing", icon: CircleDollarSign, permission: "tailor-billing.view" },
+
     ],
+
   },
 
   {
+
     title: "AUTOMATION",
+
     items: [
-      {
-        label: "Workflows",
-        href: "/automation/workflows",
-        icon: Workflow,
-        permission: "workflow.view",
-      },
-      {
-        label: "Business Rules",
-        href: "/automation/rules",
-        icon: Settings,
-        permission: "rule.view",
-      },
+
+      { label: "Workflows", href: "/automation/workflows", icon: Workflow, permission: "workflow.view" },
+
+      { label: "Business Rules", href: "/automation/rules", icon: Settings, permission: "rule.view" },
+
     ],
+
   },
+
 ];
 
-function isActivePath(
-  pathname: string,
-  href: string,
-) {
-  if (href === "/") {
-    return pathname === "/";
-  }
 
-  return (
-    pathname === href ||
-    pathname.startsWith(`${href}/`)
-  );
+
+const mobileItems = [
+
+  { label: "Home", href: "/", icon: LayoutDashboard, permission: "dashboard.view" },
+
+  { label: "Report", href: "/reports/production", icon: BarChart3, permission: "report.view" },
+
+  { label: "SPK", href: "/operations/spk", icon: ClipboardList, permission: "spk.view" },
+
+  { label: "Transaction", href: "/operations/transactions", icon: Activity, permission: "transaction.view" },
+
+  { label: "Tracking", href: "/operations/tracking", icon: BarChart3, permission: "tracking.view" },
+
+  { label: "QC", href: "/qc", icon: ShieldCheck, permission: "qc.view" },
+
+  { label: "Billing", href: "/master/tailor-billing", icon: CircleDollarSign, permission: "tailor-billing.view" },
+
+  { label: "Scanner", href: "/operations/scanner", icon: ScanLine, permission: "scanner.view" },
+
+];
+
+
+
+function isActivePath(pathname: string, href: string) {
+
+  if (href === "/") return pathname === "/";
+
+  return pathname === href || pathname.startsWith(`${href}/`);
+
 }
 
-export default function AppShell({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+
+
+function initials(name?: string) {
+
+  return (name || "User")
+
+    .trim()
+
+    .split(/\s+/)
+
+    .slice(0, 2)
+
+    .map((part) => part[0]?.toUpperCase() || "")
+
+    .join("");
+
+}
+
+
+
+export default function AppShell({ children }: { children: React.ReactNode }) {
+
   const pathname = usePathname();
 
-  const [mobileMenuOpen, setMobileMenuOpen] =
-    useState(false);
+  const router = useRouter();
 
-  const [userMenuOpen, setUserMenuOpen] =
-    useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const [loggingOut, setLoggingOut] =
-    useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
 
-  const [authUser, setAuthUser] =
-    useState<AuthUser | null>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
 
-  const [authLoading, setAuthLoading] =
-    useState(true);
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
 
-  const userMenuRef =
-    useRef<HTMLDivElement>(null);
+  const [authLoading, setAuthLoading] = useState(true);
 
-  /*
-   * ==========================================================
-   * LOAD AUTH USER
-   * ==========================================================
-   */
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+
 
   useEffect(() => {
+
     let cancelled = false;
 
+
+
     async function loadAuthUser() {
+
       try {
-        const response = await fetch(
-          "/api/auth/me",
-          {
-            method: "GET",
-            credentials: "include",
-            cache: "no-store",
-          },
-        );
 
-        const result =
-          await response.json();
+        const response = await fetch("/api/auth/me", {
 
-        if (cancelled) {
-          return;
-        }
+          method: "GET",
 
-        if (
-          !response.ok ||
-          !result?.authenticated ||
-          !result?.user
-        ) {
+          credentials: "include",
+
+          cache: "no-store",
+
+        });
+
+        const result = await response.json();
+
+
+
+        if (cancelled) return;
+
+        if (!response.ok || !result?.authenticated || !result?.user) {
+
           setAuthUser(null);
+
           return;
+
         }
 
         setAuthUser(result.user);
-      } catch (error) {
-        console.error(
-          "[AppShell] Failed to load auth:",
-          error,
-        );
 
-        if (!cancelled) {
-          setAuthUser(null);
-        }
+      } catch (error) {
+
+        console.error("[AppShell] Failed to load auth:", error);
+
+        if (!cancelled) setAuthUser(null);
+
       } finally {
-        if (!cancelled) {
-          setAuthLoading(false);
-        }
+
+        if (!cancelled) setAuthLoading(false);
+
       }
+
     }
 
-    loadAuthUser();
+
+
+    void loadAuthUser();
 
     return () => {
+
       cancelled = true;
+
     };
+
   }, []);
 
-  /*
-   * ==========================================================
-   * CLOSE MOBILE MENU WHEN ROUTE CHANGES
-   * ==========================================================
-   */
+
 
   useEffect(() => {
+
     setMobileMenuOpen(false);
+
     setUserMenuOpen(false);
+
   }, [pathname]);
 
-  /*
-   * ==========================================================
-   * LOCK BODY SCROLL WHEN MOBILE DRAWER IS OPEN
-   * ==========================================================
-   */
+
 
   useEffect(() => {
-    if (!mobileMenuOpen) {
-      document.body.style.overflow = "";
-      return;
-    }
 
-    document.body.style.overflow = "hidden";
+    document.body.style.overflow = mobileMenuOpen ? "hidden" : "";
 
     return () => {
+
       document.body.style.overflow = "";
+
     };
+
   }, [mobileMenuOpen]);
 
-  /*
-   * ==========================================================
-   * CLOSE USER MENU WHEN CLICKING OUTSIDE
-   * ==========================================================
-   */
+
 
   useEffect(() => {
-    function handleClickOutside(
-      event: MouseEvent,
-    ) {
-      if (
-        userMenuRef.current &&
-        !userMenuRef.current.contains(
-          event.target as Node,
-        )
-      ) {
+
+    function handleClickOutside(event: MouseEvent) {
+
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+
         setUserMenuOpen(false);
+
       }
+
     }
 
-    document.addEventListener(
-      "mousedown",
-      handleClickOutside,
-    );
+    document.addEventListener("mousedown", handleClickOutside);
 
-    return () => {
-      document.removeEventListener(
-        "mousedown",
-        handleClickOutside,
-      );
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+
   }, []);
 
-  /*
-   * ==========================================================
-   * LOGOUT
-   * ==========================================================
-   */
+
 
   async function handleLogout() {
-    if (loggingOut) {
-      return;
-    }
+
+    if (loggingOut) return;
+
+    setLoggingOut(true);
 
     try {
-      setLoggingOut(true);
 
-      const response = await fetch(
-        "/api/auth/logout",
-        {
-          method: "POST",
-          credentials: "include",
-        },
-      );
+      await fetch("/api/auth/logout", {
 
-      if (!response.ok) {
-        throw new Error(
-          "Logout failed",
-        );
-      }
+        method: "POST",
+
+        credentials: "include",
+
+      });
+
+    } catch (error) {
+
+      console.error("[AppShell] Logout request failed:", error);
+
+    } finally {
 
       setAuthUser(null);
+
       setUserMenuOpen(false);
+
       setMobileMenuOpen(false);
 
-      window.location.href = "/login";
-    } catch (error) {
-      console.error(
-        "Logout error:",
-        error,
-      );
+      router.replace("/login");
+
+      router.refresh();
 
       setLoggingOut(false);
 
-      alert(
-        "Logout gagal. Silakan coba lagi.",
-      );
     }
+
   }
 
-  /*
-   * ==========================================================
-   * PUBLIC / AUTH PAGE
-   * ==========================================================
-   */
 
-  if (pathname.startsWith("/login")) {
-    return <>{children}</>;
-  }
+  if (pathname === "/login") return <>{children}</>;
 
-  /*
-   * ==========================================================
-   * PERMISSION
-   * ==========================================================
-   */
 
- function canAccess(permission: string) {
-  if (authLoading || !authUser) {
-    return false;
-  }
 
-  if (
-    authUser.role?.name?.toLowerCase() ===
-    "administrator"
-  ) {
-    return true;
-  }
+  const permissions = authUser?.permissions ?? [];
 
-  return authUser.permissions.includes(permission);
-}
+  const hasPermission = (permission: string) => permissions.includes(permission);
 
-  /*
-   * ==========================================================
-   * VISIBLE MENU
-   * ==========================================================
-   */
+  const visibleGroups = menuGroups
 
-  function getVisibleItems(
-    group: MenuGroup,
-  ) {
-    return group.items.filter((item) =>
-      canAccess(item.permission),
-    );
-  }
+    .map((group) => ({
 
-  function getActiveHref(
-    items: MenuItem[],
-  ) {
-    return items
-      .filter((item) =>
-        isActivePath(
-          pathname,
-          item.href,
-        ),
-      )
-      .sort(
-        (a, b) =>
-          b.href.length -
-          a.href.length,
-      )[0]?.href;
-  }
+      ...group,
 
-  function getMobileNavItems() {
-    const candidates: MenuItem[] = [
-      {
-        label: "Home",
-        href: "/",
-        icon: LayoutDashboard,
-        permission: "dashboard.view",
-      },
-      {
-        label: "Report",
-        href: "/reports/production",
-        icon: BarChart3,
-        permission: "report.view",
-      },
-      {
-        label: "SPK",
-        href: "/operations/spk",
-        icon: ClipboardList,
-        permission: "spk.view",
-      },
-      {
-        label: "Transaction",
-        href: "/operations/transactions",
-        icon: Activity,
-        permission: "transaction.view",
-      },
-      {
-        label: "Tracking",
-        href: "/operations/tracking",
-        icon: BarChart3,
-        permission: "tracking.view",
-      },
-      {
-        label: "QC",
-        href: "/qc",
-        icon: ShieldCheck,
-        permission: "qc.view",
-      },
-      {
-        label: "Billing",
-        href: "/master/tailor-billing",
-        icon: CircleDollarSign,
-        permission: "tailor-billing.view",
-      },
-      {
-        label: "Scanner",
-        href: "/operations/scanner",
-        icon: ScanLine,
-        permission: "scanner.view",
-      },
-    ];
+      items: group.items.filter((item) => hasPermission(item.permission)),
 
-    return candidates
-      .filter((item) => canAccess(item.permission))
-      .slice(0, 5);
-  }
+    }))
 
-  /*
-   * ==========================================================
-   * APPLICATION SHELL
-   * ==========================================================
-   */
+    .filter((group) => group.items.length > 0);
+
+  const visibleMobileItems = mobileItems.filter((item) => hasPermission(item.permission));
+
+
 
   return (
-    <div className="min-h-screen w-full min-w-0 overflow-x-clip bg-slate-50">
 
-      {/* ======================================================
-          DESKTOP SIDEBAR
-          ====================================================== */}
+    <div className="min-h-screen bg-[#080808] text-white">
 
-      <aside className="fixed inset-y-0 left-0 z-50 hidden w-64 flex-col border-r border-slate-200/80 bg-white shadow-xl shadow-slate-200/30 xl:flex">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-white/10 bg-[#111010] shadow-2xl shadow-black/30 xl:flex">
 
-        {/* BRAND */}
+        <Link href="/" className="flex h-20 items-center gap-3 border-b border-white/10 px-6">
 
-        <div className="flex h-20 shrink-0 items-center border-b border-slate-100 px-5">
-          <Link
-            href="/"
-            className="flex items-center gap-3"
-          >
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 text-sm font-black text-white shadow-lg shadow-indigo-200">
-              BO
-            </div>
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-600 via-red-800 to-[#651b24] text-sm font-black tracking-wide text-white shadow-lg shadow-red-950/40">
 
-            <div>
-              <p className="text-sm font-bold tracking-tight text-slate-800">
-                Business Operation
-              </p>
+            OV
 
-              <p className="text-[11px] font-medium text-slate-400">
-                Operations Platform
-              </p>
-            </div>
-          </Link>
-        </div>
-
-        {/* NAVIGATION */}
-
-        <nav className="flex-1 overflow-y-auto px-3 py-5">
-          {menuGroups.map((group) => {
-            const visibleItems =
-              getVisibleItems(group);
-
-            const activeHref =
-              getActiveHref(
-                visibleItems,
-              );
-
-            if (
-              !authLoading &&
-              authUser &&
-              visibleItems.length === 0
-            ) {
-              return null;
-            }
-
-            return (
-              <div
-                key={group.title}
-                className="mb-7"
-              >
-                <p className="mb-2 px-3 text-[10px] font-bold tracking-[0.16em] text-slate-400">
-                  {group.title}
-                </p>
-
-                <div className="space-y-1">
-                  {visibleItems.map(
-                    (item) => {
-                      const Icon =
-                        item.icon;
-
-                      const active =
-                        item.href ===
-                        activeHref;
-
-                      return (
-                        <Link
-                          key={item.href}
-                          href={item.href}
-                          className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
-                            active
-                              ? "bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-200"
-                              : "text-slate-600 hover:bg-indigo-50 hover:text-indigo-700"
-                          }`}
-                        >
-                          <span
-                            className={`flex h-8 w-8 items-center justify-center rounded-lg ${
-                              active
-                                ? "bg-white/15"
-                                : "bg-slate-50 group-hover:bg-white"
-                            }`}
-                          >
-                            <Icon className="h-4 w-4" />
-                          </span>
-
-                          <span>
-                            {item.label}
-                          </span>
-
-                          {active && (
-                            <span className="ml-auto h-1.5 w-1.5 rounded-full bg-white" />
-                          )}
-                        </Link>
-                      );
-                    },
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </nav>
-
-        {/* SYSTEM STATUS */}
-
-        <div className="mx-3 mb-3 rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50 to-violet-50 p-3">
-          <div className="flex items-center gap-2">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-indigo-600 shadow-sm">
-              <CircleDot className="h-3.5 w-3.5" />
-            </span>
-
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-400">
-                System
-              </p>
-
-              <p className="text-xs font-semibold text-indigo-700">
-                Operational
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* USER */}
-
-        <div
-          ref={userMenuRef}
-          className="relative shrink-0 border-t border-slate-100 p-3"
-        >
-          <button
-            type="button"
-            onClick={() =>
-              setUserMenuOpen(
-                (open) => !open,
-              )
-            }
-            className={`flex w-full items-center gap-3 rounded-xl p-2.5 text-left transition ${
-              userMenuOpen
-                ? "bg-indigo-50"
-                : "hover:bg-slate-50"
-            }`}
-          >
-            <UserAvatar
-              name={
-                authUser?.name ??
-                "User"
-              }
-            />
-
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-slate-800">
-                {authUser?.name ??
-                  "User"}
-              </p>
-
-              <p className="truncate text-xs text-slate-400">
-                {authUser?.email ?? ""}
-              </p>
-            </div>
-
-            <ChevronDown
-              className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${
-                userMenuOpen
-                  ? "rotate-180"
-                  : ""
-              }`}
-            />
-          </button>
-
-          {userMenuOpen && (
-            <UserMenu
-              loggingOut={loggingOut}
-              onLogout={handleLogout}
-            />
-          )}
-        </div>
-      </aside>
-
-      {/* ======================================================
-          MOBILE HEADER
-          ====================================================== */}
-
-      <header className="sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b border-slate-200/80 bg-white/95 px-4 shadow-sm backdrop-blur-xl xl:hidden">
-
-        <div className="flex min-w-0 items-center gap-3">
-          <button
-            type="button"
-            onClick={() =>
-              setMobileMenuOpen(true)
-            }
-            aria-label="Open navigation menu"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition active:scale-95"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
-
-          <Link
-            href="/"
-            className="flex min-w-0 items-center gap-2.5"
-          >
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-xs font-black text-white shadow-md shadow-indigo-200">
-              BO
-            </div>
-
-            <div className="min-w-0">
-              <p className="truncate text-sm font-bold text-slate-800">
-                Business Operation
-              </p>
-
-              <p className="truncate text-[10px] font-medium text-slate-400">
-                Operations Platform
-              </p>
-            </div>
-          </Link>
-        </div>
-
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-50 text-indigo-700">
-          <UserCircle className="h-5 w-5" />
-        </div>
-      </header>
-
-      {/* ======================================================
-          MOBILE DRAWER OVERLAY
-          ====================================================== */}
-
-      {mobileMenuOpen && (
-        <button
-          type="button"
-          aria-label="Close navigation"
-          onClick={() =>
-            setMobileMenuOpen(false)
-          }
-          className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-[2px] xl:hidden"
-        />
-      )}
-
-      {/* ======================================================
-          MOBILE DRAWER
-          ====================================================== */}
-
-      <aside
-        className={`fixed inset-y-0 left-0 z-[60] flex w-[min(88vw,380px)] flex-col border-r border-slate-200 bg-white shadow-2xl transition-transform duration-300 ease-out xl:hidden ${
-          mobileMenuOpen
-            ? "translate-x-0"
-            : "-translate-x-full"
-        }`}
-      >
-        {/* DRAWER HEADER */}
-
-        <div className="flex h-20 shrink-0 items-center justify-between border-b border-slate-100 px-5">
-          <Link
-            href="/"
-            onClick={() =>
-              setMobileMenuOpen(false)
-            }
-            className="flex items-center gap-3"
-          >
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 text-sm font-black text-white shadow-lg shadow-indigo-200">
-              BO
-            </div>
-
-            <div>
-              <p className="text-sm font-bold tracking-tight text-slate-800">
-                Business Operation
-              </p>
-
-              <p className="text-[11px] font-medium text-slate-400">
-                Operations Platform
-              </p>
-            </div>
-          </Link>
-
-          <button
-            type="button"
-            onClick={() =>
-              setMobileMenuOpen(false)
-            }
-            aria-label="Close menu"
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-800"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        {/* DRAWER NAVIGATION */}
-
-        <nav className="flex-1 overflow-y-auto px-4 py-5">
-          {menuGroups.map((group) => {
-            const visibleItems =
-              getVisibleItems(group);
-
-            const activeHref =
-              getActiveHref(
-                visibleItems,
-              );
-
-            if (
-              !authLoading &&
-              authUser &&
-              visibleItems.length === 0
-            ) {
-              return null;
-            }
-
-            return (
-              <div
-                key={group.title}
-                className="mb-7"
-              >
-                <p className="mb-2 px-3 text-[10px] font-bold tracking-[0.16em] text-slate-400">
-                  {group.title}
-                </p>
-
-                <div className="space-y-1">
-                  {visibleItems.map(
-                    (item) => {
-                      const Icon =
-                        item.icon;
-
-                      const active =
-                        item.href ===
-                        activeHref;
-
-                      return (
-                        <Link
-                          key={item.href}
-                          href={item.href}
-                          onClick={() =>
-                            setMobileMenuOpen(
-                              false,
-                            )
-                          }
-                          className={`group flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition ${
-                            active
-                              ? "bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-200"
-                              : "text-slate-600 hover:bg-indigo-50 hover:text-indigo-700"
-                          }`}
-                        >
-                          <span
-                            className={`flex h-9 w-9 items-center justify-center rounded-lg ${
-                              active
-                                ? "bg-white/15"
-                                : "bg-slate-50 group-hover:bg-white"
-                            }`}
-                          >
-                            <Icon className="h-4 w-4" />
-                          </span>
-
-                          <span className="flex-1">
-                            {item.label}
-                          </span>
-
-                          {active && (
-                            <ChevronRight className="h-4 w-4 opacity-80" />
-                          )}
-                        </Link>
-                      );
-                    },
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </nav>
-
-        {/* DRAWER FOOTER */}
-
-        <div className="shrink-0 border-t border-slate-100 p-4">
-          <div className="mb-3 rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50 to-violet-50 p-3">
-            <div className="flex items-center gap-2">
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-indigo-600 shadow-sm">
-                <CircleDot className="h-3.5 w-3.5" />
-              </span>
-
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-400">
-                  System
-                </p>
-
-                <p className="text-xs font-semibold text-indigo-700">
-                  Operational
-                </p>
-              </div>
-            </div>
           </div>
 
-          <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3">
-            <UserAvatar
-              name={
-                authUser?.name ??
-                "User"
-              }
-            />
+          <div className="min-w-0">
 
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-slate-800">
-                {authUser?.name ??
-                  "User"}
+            <p className="truncate text-sm font-bold tracking-[0.12em] text-white">OVERPASSION</p>
+
+            <p className="mt-1 text-[10px] font-semibold tracking-[0.24em] text-neutral-500">OPERATION SYSTEM</p>
+
+          </div>
+
+        </Link>
+
+
+
+        <div className="flex-1 space-y-7 overflow-y-auto px-3 py-6">
+
+          {visibleGroups.map((group) => (
+
+            <section key={group.title}>
+
+              <p className="mb-3 px-3 text-[10px] font-bold tracking-[0.22em] text-neutral-500">
+
+                {group.title}
+
               </p>
 
-              <p className="truncate text-xs text-slate-400">
-                {authUser?.role?.name ??
-                  "User"}
-              </p>
+              <nav className="space-y-1">
+
+                {group.items.map((item) => {
+
+                  const active = isActivePath(pathname, item.href);
+
+                  const Icon = item.icon;
+
+                  return (
+
+                    <Link
+
+                      key={item.href}
+
+                      href={item.href}
+
+                      className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+
+                        active
+
+                          ? "bg-gradient-to-r from-rose-800 via-red-900 to-[#651b24] text-white shadow-lg shadow-red-950/30"
+
+                          : "text-neutral-400 hover:bg-white/[0.06] hover:text-rose-200"
+
+                      }`}
+
+                    >
+
+                      <Icon className={`h-[18px] w-[18px] shrink-0 ${active ? "text-rose-100" : "text-neutral-500 group-hover:text-rose-300"}`} />
+
+                      <span className="flex-1">{item.label}</span>
+
+                      {active && <ChevronRight className="h-4 w-4 text-rose-200" />}
+
+                    </Link>
+
+                  );
+
+                })}
+
+              </nav>
+
+            </section>
+
+          ))}
+
+        </div>
+
+
+
+        <div className="border-t border-white/10 p-4 space-y-3">
+          {/* User profile and logout CTA — visible on desktop */}
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <UserAvatar name={authUser?.name} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-white">
+                  {authLoading ? "Loading user..." : authUser?.name || "User"}
+                </p>
+                <p className="truncate text-xs text-neutral-500">
+                  {authUser?.role?.name || authUser?.email || "Account"}
+                </p>
+              </div>
             </div>
-
             <button
               type="button"
               onClick={handleLogout}
               disabled={loggingOut}
-              aria-label="Logout"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-rose-500 transition hover:bg-rose-50 disabled:opacity-50"
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-rose-900/50 bg-rose-950/40 px-3 py-2.5 text-sm font-semibold text-rose-200 transition hover:border-rose-700 hover:bg-rose-900/50 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
               <LogOut className="h-4 w-4" />
+              <span>{loggingOut ? "Signing out..." : "Logout"}</span>
             </button>
           </div>
+          <div className="rounded-2xl border border-rose-900/30 bg-gradient-to-br from-rose-950/40 to-[#151010] p-4">
+
+            <div className="mb-2 flex items-center gap-2">
+
+              <span className="h-2 w-2 rounded-full bg-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.7)]" />
+
+              <span className="text-xs font-semibold text-rose-100">System Operational</span>
+
+            </div>
+
+            <p className="text-[11px] leading-relaxed text-neutral-500">
+
+              Operation system is running and ready to use.
+
+            </p>
+
+          </div>
+
         </div>
+
       </aside>
 
-      {/* ======================================================
-          MAIN CONTENT
-          ====================================================== */}
 
-      <main className="min-h-screen min-w-0 max-w-full overflow-x-clip pb-20 xl:ml-64 xl:pb-0">
-        {children}
-      </main>
 
-      {/* ======================================================
-          MOBILE BOTTOM NAVIGATION
-          ====================================================== */}
 
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200/80 bg-white/95 px-2 pb-[env(safe-area-inset-bottom)] shadow-[0_-8px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl xl:hidden">
-        <div className="mx-auto flex h-16 max-w-lg items-center justify-around">
-          {authLoading ? (
-            <div className="flex w-full items-center justify-center">
-              <div className="h-5 w-24 animate-pulse rounded-lg bg-slate-100" />
+      <div className="min-h-screen xl:pl-64">
+
+        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-white/10 bg-[#111010]/95 px-4 shadow-lg shadow-black/10 backdrop-blur-xl xl:hidden">
+
+          <div className="flex items-center gap-3">
+
+            <button
+
+              type="button"
+
+              onClick={() => setMobileMenuOpen(true)}
+
+              aria-label="Open navigation menu"
+
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-neutral-200 transition hover:bg-white/[0.08]"
+
+            >
+
+              <Menu className="h-5 w-5" />
+
+            </button>
+
+            <Link href="/" className="flex items-center gap-2.5">
+
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-rose-600 via-red-800 to-[#651b24] text-xs font-black text-white">
+
+                BO
+
+              </div>
+
+              <div>
+
+                <p className="text-xs font-bold tracking-[0.1em] text-white">OVERPASSION</p>
+
+                <p className="text-[9px] font-semibold tracking-[0.18em] text-neutral-500">OPERATIONS</p>
+
+              </div>
+
+            </Link>
+
+          </div>
+
+
+
+          <div className="relative" ref={userMenuRef}>
+
+            <button
+
+              type="button"
+
+              onClick={() => setUserMenuOpen((open) => !open)}
+
+              aria-label="Open user menu"
+
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-rose-900/50 bg-rose-950/40 text-xs font-bold text-rose-100 transition hover:bg-rose-900/40"
+
+            >
+
+              {authUser ? initials(authUser.name) : <Users className="h-4 w-4" />}
+
+            </button>
+
+            {userMenuOpen && (
+
+              <UserMenu
+
+                user={authUser}
+
+                authLoading={authLoading}
+
+                loggingOut={loggingOut}
+
+                onLogout={handleLogout}
+
+              />
+
+            )}
+
+          </div>
+
+        </header>
+
+
+
+        <main className="min-h-[calc(100vh-4rem)] bg-[#080808]">{children}</main>
+
+      </div>
+
+
+
+      {mobileMenuOpen && (
+
+        <div className="fixed inset-0 z-50 xl:hidden">
+
+          <button
+
+            type="button"
+
+            aria-label="Close navigation overlay"
+
+            onClick={() => setMobileMenuOpen(false)}
+
+            className="absolute inset-0 h-full w-full bg-black/75 backdrop-blur-sm"
+
+          />
+
+          <aside className="absolute inset-y-0 left-0 flex w-[min(20rem,88vw)] flex-col border-r border-white/10 bg-[#111010] shadow-2xl shadow-black/60">
+
+            <div className="flex h-20 items-center justify-between border-b border-white/10 px-5">
+
+              <Link href="/" className="flex items-center gap-3" onClick={() => setMobileMenuOpen(false)}>
+
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-600 via-red-800 to-[#651b24] text-sm font-black text-white">
+
+                  BO
+
+                </div>
+
+                <div>
+
+                  <p className="text-sm font-bold tracking-[0.1em] text-white">OVERPASSION</p>
+
+                  <p className="mt-1 text-[10px] font-semibold tracking-[0.2em] text-neutral-500">OPERATION SYSTEM</p>
+
+                </div>
+
+              </Link>
+
+              <button
+
+                type="button"
+
+                aria-label="Close navigation menu"
+
+                onClick={() => setMobileMenuOpen(false)}
+
+                className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 text-neutral-300 transition hover:bg-white/[0.06]"
+
+              >
+
+                <X className="h-5 w-5" />
+
+              </button>
+
             </div>
-          ) : (
-            getMobileNavItems().map((item) => {
-              const Icon = item.icon;
 
-              const active = isActivePath(
-                pathname,
-                item.href,
-              );
 
-              return (
-                <MobileNavItem
-                  key={item.href}
-                  href={item.href}
-                  icon={Icon}
-                  label={item.label}
-                  active={active}
-                />
-              );
-            })
-          )}
+
+            <div className="flex-1 space-y-7 overflow-y-auto px-3 py-6">
+
+              {visibleGroups.map((group) => (
+
+                <section key={group.title}>
+
+                  <p className="mb-3 px-3 text-[10px] font-bold tracking-[0.22em] text-neutral-500">
+
+                    {group.title}
+
+                  </p>
+
+                  <nav className="space-y-1">
+
+                    {group.items.map((item) => {
+
+                      const active = isActivePath(pathname, item.href);
+
+                      const Icon = item.icon;
+
+                      return (
+
+                        <Link
+
+                          key={item.href}
+
+                          href={item.href}
+
+                          onClick={() => setMobileMenuOpen(false)}
+
+                          className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition ${
+
+                            active
+
+                              ? "bg-gradient-to-r from-rose-800 via-red-900 to-[#651b24] text-white shadow-lg shadow-red-950/30"
+
+                              : "text-neutral-400 hover:bg-white/[0.06] hover:text-rose-200"
+
+                          }`}
+
+                        >
+
+                          <Icon className={`h-[18px] w-[18px] ${active ? "text-rose-100" : "text-neutral-500"}`} />
+
+                          <span className="flex-1">{item.label}</span>
+
+                          {active && <ChevronRight className="h-4 w-4 text-rose-200" />}
+
+                        </Link>
+
+                      );
+
+                    })}
+
+                  </nav>
+
+                </section>
+
+              ))}
+
+            </div>
+
+
+
+            <div className="border-t border-white/10 p-4">
+
+              <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+
+                <UserAvatar name={authUser?.name} />
+
+                <div className="min-w-0 flex-1">
+
+                  <p className="truncate text-sm font-semibold text-white">
+
+                    {authLoading ? "Loading user..." : authUser?.name || "User"}
+
+                  </p>
+
+                  <p className="truncate text-xs text-neutral-500">{authUser?.role?.name || "Account"}</p>
+
+                </div>
+
+                <button
+
+                  type="button"
+
+                  onClick={handleLogout}
+
+                  disabled={loggingOut}
+
+                  aria-label="Logout"
+
+                  className="flex shrink-0 items-center justify-center gap-2 rounded-xl border border-rose-900/50 bg-rose-950/40 px-3 py-2 text-xs font-semibold text-rose-200 transition hover:bg-rose-900/50 disabled:cursor-not-allowed disabled:opacity-50"
+
+                >
+
+                  <LogOut className="h-4 w-4" />
+
+                  <span>{loggingOut ? "Signing out..." : "Logout"}</span>
+
+                </button>
+
+              </div>
+
+            </div>
+
+          </aside>
+
         </div>
-      </nav>
+
+      )}
+
+
+
+      {visibleMobileItems.length > 0 && (
+
+        <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-[#111010]/95 px-1 pb-[max(env(safe-area-inset-bottom),0.35rem)] pt-2 shadow-[0_-12px_35px_rgba(0,0,0,0.25)] backdrop-blur-xl xl:hidden">
+
+          <div className="mx-auto flex max-w-xl items-stretch justify-around gap-1">
+
+            {visibleMobileItems.slice(0, 5).map((item) => (
+
+              <MobileNavItem key={item.href} {...item} active={isActivePath(pathname, item.href)} />
+
+            ))}
+
+            <button
+
+              type="button"
+
+              onClick={() => setMobileMenuOpen(true)}
+
+              className="flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 text-neutral-500 transition hover:text-rose-200"
+
+            >
+
+              <Menu className="h-[18px] w-[18px]" />
+
+              <span className="max-w-full truncate text-[10px] font-medium">More</span>
+
+            </button>
+
+          </div>
+
+        </nav>
+
+      )}
+
+      <div className="h-20 xl:hidden" />
+
     </div>
+
   );
+
 }
 
 
-function UserAvatar({
-  name,
-}: {
-  name: string;
-}) {
-  const initials = name
-    .split(" ")
-    .filter(Boolean)
-    .map((part) =>
-      part.charAt(0),
-    )
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+
+function UserAvatar({ name }: { name?: string }) {
 
   return (
-    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-100 to-violet-100 text-xs font-bold text-indigo-700 ring-1 ring-indigo-200">
-      {initials || "US"}
+
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-rose-900/50 bg-gradient-to-br from-rose-950 to-[#251114] text-xs font-bold text-rose-100 ring-2 ring-rose-950/40">
+
+      {initials(name)}
+
     </div>
+
   );
+
 }
 
 
 
 function UserMenu({
+
+  user,
+
+  authLoading,
+
   loggingOut,
+
   onLogout,
+
 }: {
+
+  user: AuthUser | null;
+
+  authLoading: boolean;
+
   loggingOut: boolean;
+
   onLogout: () => void;
+
 }) {
+
   return (
-    <div className="absolute bottom-[calc(100%-8px)] left-3 right-3 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200/50">
-      <button
-        type="button"
-        disabled
-        className="flex w-full cursor-not-allowed items-center gap-3 px-4 py-3 text-left opacity-50"
-      >
-        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-50">
-          <UserCircle className="h-4 w-4 text-slate-500" />
-        </span>
 
-        <div>
-          <p className="text-sm font-medium text-slate-700">
-            Profile
-          </p>
+    <div className="absolute right-0 top-12 z-50 w-64 overflow-hidden rounded-2xl border border-white/10 bg-[#171313] shadow-2xl shadow-black/50">
 
-          <p className="text-[11px] text-slate-400">
-            Coming soon
-          </p>
+      <div className="border-b border-white/10 p-4">
+
+        <div className="flex items-center gap-3">
+
+          <UserAvatar name={user?.name} />
+
+          <div className="min-w-0">
+
+            <p className="truncate text-sm font-semibold text-white">
+
+              {authLoading ? "Loading user..." : user?.name || "User"}
+
+            </p>
+
+            <p className="truncate text-xs text-neutral-500">{user?.email || "No email available"}</p>
+
+          </div>
+
         </div>
-      </button>
 
-      <div className="mx-3 border-t border-slate-100" />
+        <div className="mt-3 inline-flex max-w-full items-center rounded-full border border-rose-900/40 bg-rose-950/40 px-2.5 py-1 text-[10px] font-semibold text-rose-200">
+
+          <span className="truncate">{user?.role?.name || "Account"}</span>
+
+        </div>
+
+      </div>
 
       <button
-        type="button"
-        onClick={onLogout}
-        disabled={loggingOut}
-        className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-medium text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-50">
-          <LogOut className="h-4 w-4" />
-        </span>
 
-        <span>
-          {loggingOut
-            ? "Logging out..."
-            : "Logout"}
-        </span>
+        type="button"
+
+        onClick={onLogout}
+
+        disabled={loggingOut}
+
+        className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-medium text-neutral-300 transition hover:bg-rose-950/40 hover:text-rose-200 disabled:cursor-not-allowed disabled:opacity-50"
+
+      >
+
+        <LogOut className="h-4 w-4" />
+
+        {loggingOut ? "Signing out..." : "Logout"}
+
       </button>
+
     </div>
+
   );
+
 }
 
 
-function MobileNavItem({
-  href,
-  icon: Icon,
-  label,
-  active = false,
-}: {
-  href: string;
-  icon: React.ComponentType<{
-    className?: string;
-  }>;
-  label: string;
-  active?: boolean;
-}) {
-  return (
-    <Link
-      href={href}
-      className={`flex min-w-[58px] flex-col items-center justify-center gap-1 rounded-xl px-2 py-1.5 transition ${
-        active
-          ? "text-indigo-600"
-          : "text-slate-400 hover:text-slate-600"
-      }`}
-    >
-      <Icon className="h-5 w-5" />
 
-      <span className="text-[9px] font-semibold">
-        {label}
+function MobileNavItem({
+
+  href,
+
+  icon: Icon,
+
+  label,
+
+  active,
+
+}: {
+
+  href: string;
+
+  icon: React.ComponentType<{ className?: string }>;
+
+  label: string;
+
+  active: boolean;
+
+}) {
+
+  return (
+
+    <Link
+
+      href={href}
+
+      className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 transition ${
+
+        active ? "text-rose-300" : "text-neutral-500 hover:text-rose-200"
+
+      }`}
+
+    >
+
+      <span className={`flex h-7 w-10 items-center justify-center rounded-xl transition ${active ? "bg-rose-950/60" : ""}`}>
+
+        <Icon className="h-[18px] w-[18px]" />
+
       </span>
+
+      <span className="max-w-full truncate text-[10px] font-medium">{label}</span>
+
     </Link>
+
   );
+
 }

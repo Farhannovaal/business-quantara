@@ -71,7 +71,7 @@ export default async function HomePage() {
 
         <p className="mt-2 text-sm leading-6 text-slate-500">
           Akun Anda belum memiliki permission untuk
-          mengakses modul Business Operation.
+          mengakses modul Overpassion Operation.
         </p>
 
         <a
