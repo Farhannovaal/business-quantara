@@ -1,7 +1,5 @@
 ﻿"use client";
 
-
-
 import Link from "next/link";
 
 import { usePathname, useRouter } from "next/navigation";
@@ -38,6 +36,8 @@ import {
 
   ShieldCheck,
 
+  UserCog,
+
   Users,
 
   Workflow,
@@ -45,8 +45,6 @@ import {
   X,
 
 } from "lucide-react";
-
-
 
 type AuthUser = {
 
@@ -64,8 +62,6 @@ type AuthUser = {
 
 };
 
-
-
 type MenuItem = {
 
   label: string;
@@ -78,8 +74,6 @@ type MenuItem = {
 
 };
 
-
-
 type MenuGroup = {
 
   title: string;
@@ -87,8 +81,6 @@ type MenuGroup = {
   items: MenuItem[];
 
 };
-
-
 
 const menuGroups: MenuGroup[] = [
 
@@ -134,6 +126,8 @@ const menuGroups: MenuGroup[] = [
 
       { label: "Tailor Billing", href: "/master/tailor-billing", icon: CircleDollarSign, permission: "tailor-billing.view" },
 
+      { label: "User Management", href: "/settings/users", icon: UserCog, permission: "user.view" },
+
     ],
 
   },
@@ -153,8 +147,6 @@ const menuGroups: MenuGroup[] = [
   },
 
 ];
-
-
 
 const mobileItems = [
 
@@ -176,8 +168,6 @@ const mobileItems = [
 
 ];
 
-
-
 function isActivePath(pathname: string, href: string) {
 
   if (href === "/") return pathname === "/";
@@ -186,15 +176,13 @@ function isActivePath(pathname: string, href: string) {
 
 }
 
-
-
 function initials(name?: string) {
 
   return (name || "User")
 
     .trim()
 
-    .split(/\s+/)
+    .split(/s+/)
 
     .slice(0, 2)
 
@@ -203,8 +191,6 @@ function initials(name?: string) {
     .join("");
 
 }
-
-
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
 
@@ -224,13 +210,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   const userMenuRef = useRef<HTMLDivElement>(null);
 
-
-
   useEffect(() => {
 
     let cancelled = false;
-
-
 
     async function loadAuthUser() {
 
@@ -247,8 +229,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         });
 
         const result = await response.json();
-
-
 
         if (cancelled) return;
 
@@ -276,8 +256,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
     }
 
-
-
     void loadAuthUser();
 
     return () => {
@@ -288,8 +266,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   }, []);
 
-
-
   useEffect(() => {
 
     setMobileMenuOpen(false);
@@ -297,8 +273,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     setUserMenuOpen(false);
 
   }, [pathname]);
-
-
 
   useEffect(() => {
 
@@ -311,8 +285,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     };
 
   }, [mobileMenuOpen]);
-
-
 
   useEffect(() => {
 
@@ -331,8 +303,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
 
   }, []);
-
-
 
   async function handleLogout() {
 
@@ -372,10 +342,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   }
 
-
   if (pathname === "/login") return <>{children}</>;
-
-
 
   const permissions = authUser?.permissions ?? [];
 
@@ -394,8 +361,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     .filter((group) => group.items.length > 0);
 
   const visibleMobileItems = mobileItems.filter((item) => hasPermission(item.permission));
-
-
 
   return (
 
@@ -420,8 +385,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </div>
 
         </Link>
-
-
 
         <div className="flex-1 space-y-7 overflow-y-auto px-3 py-6">
 
@@ -483,32 +446,52 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
         </div>
 
-
-
         <div className="border-t border-white/10 p-4 space-y-3">
-          {/* User profile and logout CTA — visible on desktop */}
+
           <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+
             <div className="flex min-w-0 items-center gap-3">
+
               <UserAvatar name={authUser?.name} />
+
               <div className="min-w-0 flex-1">
+
                 <p className="truncate text-sm font-semibold text-white">
+
                   {authLoading ? "Loading user..." : authUser?.name || "User"}
+
                 </p>
+
                 <p className="truncate text-xs text-neutral-500">
+
                   {authUser?.role?.name || authUser?.email || "Account"}
+
                 </p>
+
               </div>
+
             </div>
+
             <button
+
               type="button"
+
               onClick={handleLogout}
+
               disabled={loggingOut}
+
               className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-rose-900/50 bg-rose-950/40 px-3 py-2.5 text-sm font-semibold text-rose-200 transition hover:border-rose-700 hover:bg-rose-900/50 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+
             >
+
               <LogOut className="h-4 w-4" />
+
               <span>{loggingOut ? "Signing out..." : "Logout"}</span>
+
             </button>
+
           </div>
+
           <div className="rounded-2xl border border-rose-900/30 bg-gradient-to-br from-rose-950/40 to-[#151010] p-4">
 
             <div className="mb-2 flex items-center gap-2">
@@ -530,9 +513,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
       </aside>
-
-
-
 
       <div className="min-h-screen xl:pl-64">
 
@@ -576,8 +556,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
           </div>
 
-
-
           <div className="relative" ref={userMenuRef}>
 
             <button
@@ -616,13 +594,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
         </header>
 
-
-
         <main className="min-h-[calc(100vh-4rem)] bg-[#080808]">{children}</main>
 
       </div>
-
-
 
       {mobileMenuOpen && (
 
@@ -679,8 +653,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               </button>
 
             </div>
-
-
 
             <div className="flex-1 space-y-7 overflow-y-auto px-3 py-6">
 
@@ -744,8 +716,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
             </div>
 
-
-
             <div className="border-t border-white/10 p-4">
 
               <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
@@ -794,8 +764,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       )}
 
-
-
       {visibleMobileItems.length > 0 && (
 
         <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-[#111010]/95 px-1 pb-[max(env(safe-area-inset-bottom),0.35rem)] pt-2 shadow-[0_-12px_35px_rgba(0,0,0,0.25)] backdrop-blur-xl xl:hidden">
@@ -813,6 +781,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               type="button"
 
               onClick={() => setMobileMenuOpen(true)}
+
+              aria-label="Open mobile menu"
 
               className="flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 text-neutral-500 transition hover:text-rose-200"
 
@@ -838,8 +808,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
 }
 
-
-
 function UserAvatar({ name }: { name?: string }) {
 
   return (
@@ -853,8 +821,6 @@ function UserAvatar({ name }: { name?: string }) {
   );
 
 }
-
-
 
 function UserMenu({
 
@@ -933,8 +899,6 @@ function UserMenu({
   );
 
 }
-
-
 
 function MobileNavItem({
 
