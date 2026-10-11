@@ -18,6 +18,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import RolePermissionManager from "./_components/RolePermissionManager";
 
 type UserStatus = "ACTIVE" | "INACTIVE";
 
@@ -463,6 +464,8 @@ export default function UserManagementPage() {
           tone="amber"
         />
       </div>
+
+      <RolePermissionManager />
 
       <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-[#111111] shadow-xl shadow-black/40">
         <div className="flex flex-col gap-4 border-b border-white/10 p-5 md:flex-row md:items-center md:justify-between">
