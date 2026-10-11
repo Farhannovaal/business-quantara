@@ -1,12 +1,8 @@
 "use client";
 
-
-
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { CalendarDays, Download, Loader2, RefreshCw, Search } from "lucide-react";
-
-
 
 type Summary = {
 
@@ -140,8 +136,6 @@ type ReportData = {
 
 };
 
-
-
 const numberFormat = new Intl.NumberFormat("id-ID");
 
 const dateToday = () => {
@@ -174,8 +168,6 @@ const fmtDate = (value: string) => new Date(value).toLocaleString("id-ID", {
 
 });
 
-
-
 export default function ProductionReportPage() {
 
   const today = useMemo(() => dateToday(), []);
@@ -197,8 +189,8 @@ export default function ProductionReportPage() {
   const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "COMPLETED" | "CANCELLED">("ALL");
 
   const [activeMetric, setActiveMetric] = useState<"all" | "spk" | "transactions" | "quantity" | "sewing" | "qc" | "reject">("all");
-
-
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const loadReport = useCallback(async () => {
 
@@ -250,11 +242,7 @@ export default function ProductionReportPage() {
 
   }, [startDate, endDate]);
 
-
-
   useEffect(() => { void loadReport(); }, [loadReport]);
-
-
 
   const filteredSpks = useMemo(() => {
 
@@ -284,8 +272,6 @@ export default function ProductionReportPage() {
 
   }, [data, search, statusFilter, activeMetric]);
 
-
-
   const filteredTransactions = useMemo(() => {
 
     const transactions = data?.activity.transactions ?? [];
@@ -296,7 +282,28 @@ export default function ProductionReportPage() {
 
   }, [data, activeMetric]);
 
+  const positionRows = useMemo(
+    () =>
+      filteredSpks.flatMap((spk) =>
+        spk.items.map((item) => ({ spk, item })),
+      ),
+    [filteredSpks],
+  );
 
+  const currentRows = tab === "position" ? positionRows : filteredTransactions;
+  const totalPages = Math.max(1, Math.ceil(currentRows.length / pageSize));
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, currentRows.length);
+  const paginatedPositionRows = positionRows.slice(startIndex, endIndex);
+  const paginatedTransactions = filteredTransactions.slice(startIndex, endIndex);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, statusFilter, activeMetric, tab, startDate, endDate, pageSize]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
 
   const selectMetric = (metric: typeof activeMetric) => {
 
@@ -305,8 +312,6 @@ export default function ProductionReportPage() {
     setTab(metric === "transactions" || metric === "quantity" ? "activity" : "position");
 
   };
-
-
 
   const exportCsv = () => {
 
@@ -348,8 +353,6 @@ export default function ProductionReportPage() {
 
   };
 
-
-
   const totals = data?.position.totals;
 
   const statCards = [
@@ -367,8 +370,6 @@ export default function ProductionReportPage() {
     { label: "Sisa rijek", value: totals?.jumlahRijek ?? 0, detail: "Rijek yang belum diterima kembali" },
 
   ];
-
-
 
   return (
 
@@ -394,8 +395,6 @@ export default function ProductionReportPage() {
 
       </div>
 
-
-
       <section className="rounded-xl border border-white/10 bg-[#11141b] p-4 shadow-[0_8px_24px_rgba(0,0,0,0.18)] md:p-5">
 
         <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-200"><CalendarDays className="h-4 w-4" /> Periode laporan </div>
@@ -416,13 +415,9 @@ export default function ProductionReportPage() {
 
       </section>
 
-
-
       {error && <div role="alert" className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">{error}</div>}
 
       {loading && !data && <div className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#11141b] p-12 text-sm text-slate-400"><Loader2 className="h-5 w-5 animate-spin" /> Memuat laporan...</div>}
-
-
 
       {data && <>
 
@@ -490,8 +485,6 @@ export default function ProductionReportPage() {
 
         </section>
 
-
-
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
 
           {statCards.map((card, index) => {
@@ -515,8 +508,6 @@ export default function ProductionReportPage() {
           })}
 
         </div>
-
-
 
         <section className="overflow-hidden rounded-xl border border-white/10 bg-[#11141b] shadow-[0_8px_24px_rgba(0,0,0,0.18)]">
 
@@ -548,8 +539,6 @@ export default function ProductionReportPage() {
 
           </div>
 
-
-
           <div className="border-b border-white/5 bg-white/[0.03] px-4 py-2.5 text-xs text-slate-400">
 
             {activeMetric === "all" && "Menampilkan seluruh data sesuai filter status dan pencarian."}
@@ -580,7 +569,7 @@ export default function ProductionReportPage() {
 
               </tr></thead>
 
-              <tbody className="divide-y divide-white/5">{filteredSpks.flatMap(spk => spk.items.map(item => <tr key={`${spk.id}-${item.id}`} className="hover:bg-white/[0.03]">
+              <tbody className="divide-y divide-white/5">{paginatedPositionRows.map(({ spk, item }) => <tr key={`${spk.id}-${item.id}`} className="hover:bg-white/[0.03]">
 
                 <td className="px-4 py-3"><div className="font-semibold text-slate-100">{spk.spkNumber}</div><div className="mt-0.5 text-xs text-slate-400">{spk.tailor.name}</div><div className="mt-1 text-[11px] text-slate-400">Status saat ini: {spk.currentStatus}</div></td>
 
@@ -606,7 +595,7 @@ export default function ProductionReportPage() {
 
                 <td className="px-4 py-3 text-right tabular-nums">{fmt(item.targetQuantity)}</td><td className="px-4 py-3 text-right tabular-nums">{fmt(item.summary.totalPengiriman)}</td><td className="px-4 py-3 text-right tabular-nums">{fmt(item.summary.totalPenerimaan)}</td><td className="px-4 py-3 text-right font-semibold tabular-nums">{fmt(item.summary.sisaJahit)}</td><td className="px-4 py-3 text-right tabular-nums">{fmt(item.summary.barangDiQc)}</td><td className="px-4 py-3 text-right tabular-nums">{fmt(item.summary.totalQcAcc)}</td><td className="px-4 py-3 text-right tabular-nums">{fmt(item.summary.totalQcRijek)}</td><td className="px-4 py-3 text-right tabular-nums">{fmt(item.summary.jumlahRijek)}</td>
 
-              </tr>))}</tbody>
+              </tr>)}</tbody>
 
             </table>
 
@@ -616,15 +605,72 @@ export default function ProductionReportPage() {
 
             <table className="min-w-[950px] w-full text-left text-sm"><thead className="bg-white/[0.03] text-xs uppercase tracking-wide text-slate-400"><tr><th className="px-4 py-3">Waktu</th><th className="px-4 py-3">Nomor transaksi</th><th className="px-4 py-3">SPK</th><th className="px-4 py-3">Produk</th><th className="px-4 py-3">Jenis transaksi</th><th className="px-4 py-3">Penjahit</th><th className="px-4 py-3 text-right">Qty</th><th className="px-4 py-3">Petugas</th></tr></thead>
 
-              <tbody className="divide-y divide-white/5">{filteredTransactions.map(tx => <tr key={tx.id} className="hover:bg-white/[0.03]"><td className="whitespace-nowrap px-4 py-3 text-slate-400">{fmtDate(tx.createdAt)}</td><td className="px-4 py-3 font-medium text-slate-100">{tx.transactionNumber}</td><td className="px-4 py-3">{tx.spk.spkNumber}</td><td className="px-4 py-3"><div>{tx.product.name}</div><div className="text-xs text-slate-400">{tx.product.code}</div></td><td className="px-4 py-3">{tx.transactionType.name}</td><td className="px-4 py-3">{tx.tailor.name}</td><td className="px-4 py-3 text-right tabular-nums">{fmt(tx.quantity)}</td><td className="px-4 py-3">{tx.employee.name}</td></tr>)}</tbody></table>
+              <tbody className="divide-y divide-white/5">{paginatedTransactions.map(tx => <tr key={tx.id} className="hover:bg-white/[0.03]"><td className="whitespace-nowrap px-4 py-3 text-slate-400">{fmtDate(tx.createdAt)}</td><td className="px-4 py-3 font-medium text-slate-100">{tx.transactionNumber}</td><td className="px-4 py-3">{tx.spk.spkNumber}</td><td className="px-4 py-3"><div>{tx.product.name}</div><div className="text-xs text-slate-400">{tx.product.code}</div></td><td className="px-4 py-3">{tx.transactionType.name}</td><td className="px-4 py-3">{tx.tailor.name}</td><td className="px-4 py-3 text-right tabular-nums">{fmt(tx.quantity)}</td><td className="px-4 py-3">{tx.employee.name}</td></tr>)}</tbody></table>
 
             {filteredTransactions.length === 0 && <div className="p-10 text-center text-sm text-slate-400">Tidak ada transaksi yang cocok dengan kartu terpilih.</div>}
 
           </div>}
 
+          {currentRows.length > 0 && (
+            <div className="flex flex-col gap-3 border-t border-white/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-xs text-slate-400">
+                Menampilkan <span className="font-semibold text-slate-200">{startIndex + 1}-{endIndex}</span> dari{" "}
+                <span className="font-semibold text-slate-200">{currentRows.length}</span>{" "}
+                {tab === "position" ? "baris produk SPK" : "transaksi"}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="flex items-center gap-2 text-xs text-slate-400">
+                  Baris
+                  <select
+                    value={pageSize}
+                    onChange={(event) => setPageSize(Number(event.target.value))}
+                    className="rounded-lg border border-white/10 bg-[#0b0d12] px-2 py-1.5 text-slate-200 outline-none focus:border-rose-500"
+                  >
+                    <option value={10}>10</option>
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                  </select>
+                  per halaman
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1}
+                  className="rounded-lg border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-white/[0.05] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Awal
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                  disabled={currentPage === 1}
+                  className="rounded-lg border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-white/[0.05] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Sebelumnya
+                </button>
+                <span className="px-1 text-xs text-slate-400">
+                  {currentPage} / {totalPages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                  disabled={currentPage >= totalPages}
+                  className="rounded-lg border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-white/[0.05] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Berikutnya
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage >= totalPages}
+                  className="rounded-lg border border-white/10 px-3 py-1.5 text-xs font-medium text-slate-300 hover:bg-white/[0.05] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Akhir
+                </button>
+              </div>
+            </div>
+          )}
         </section>
-
-
 
         <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-200">
 
