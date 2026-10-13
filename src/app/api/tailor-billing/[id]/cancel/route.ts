@@ -31,7 +31,7 @@ export async function POST(
     );
   }
 
-  if (!hasPermission(user, "tailor-billing.update")) {
+  if (!hasPermission(user, "tailor-billing.cancel")) {
     return NextResponse.json(
       {
         success: false,

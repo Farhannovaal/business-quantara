@@ -1,7 +1,5 @@
 "use client";
 
-
-
 import { useEffect, useMemo, useState } from "react";
 
 import {
@@ -12,8 +10,6 @@ import {
 
   Check,
 
-  ChevronDown,
-
   CircleDollarSign,
 
   FileText,
@@ -21,10 +17,9 @@ import {
   Loader2,
 
   Plus,
+  Printer,
 
   RefreshCw,
-
-  Search,
 
   Send,
 
@@ -32,311 +27,17 @@ import {
 
 } from "lucide-react";
 
-
-
 import PermissionGate from "@/components/auth/permission-gate";
 
+import BillingFilters from "@/components/tailor-billing/BillingFilters";
 
+import BillingStatusBadge from "@/components/tailor-billing/BillingStatusBadge";
 
-type BillStatus = "DRAFT" | "SUBMITTED" | "PAID" | "CANCELLED";
+import BillingSummaryCards from "@/components/tailor-billing/BillingSummaryCards";
 
+import type { BillStatus, BillingSummary, SelectedItem, Tailor, TailorBill } from "@/lib/tailor-billing/types";
 
-
-type Tailor = {
-
-  id: number;
-
-  name: string;
-
-};
-
-
-
-type BillingSummary = {
-
-  spkId: number;
-
-  spkNumber: string;
-
-
-
-  tailorId: number;
-
-  tailorName: string;
-
-
-
-  productId: number;
-
-  productCode: string;
-
-  productName: string;
-
-
-
-  totalPengiriman: number;
-
-  totalPenerimaan: number;
-
-
-
-  totalQcRijek: number;
-
-  totalQcAcc: number;
-
-
-
-  totalPengirimanRijek: number;
-
-  totalPenerimaanRijek: number;
-
-
-
-  sisaJahit: number;
-
-  barangDiQc: number;
-
-  jumlahRijek: number;
-
-  jumlahBarang: number;
-
-
-
-  totalAlreadyBilled: number;
-
-  billableQuantity: number;
-
-
-
-  rate: number;
-
-  billableAmount: number;
-
-};
-
-
-
-type BillItem = {
-
-  id: number;
-
-  spkId: number;
-
-  productId: number;
-
-  quantity: number | string;
-
-  rate: number | string;
-
-  amount: number | string;
-
-  spk: {
-
-    id: number;
-
-    spkNumber: string;
-
-  };
-
-  product: {
-
-    id: number;
-
-    code: string;
-
-    name: string;
-
-  };
-
-};
-
-
-
-type TailorBill = {
-
-  id: number;
-
-  billNumber: string;
-
-  tailorId: number;
-
-  status: BillStatus;
-
-  subtotal: number | string;
-
-  totalAmount: number | string;
-
-  notes: string | null;
-
-  paidAt: string | null;
-
-  createdAt: string;
-
-  updatedAt: string;
-
-
-
-  tailor: {
-
-    id: number;
-
-    name: string;
-
-  };
-
-
-
-  createdBy: {
-
-    id: number;
-
-    name: string;
-
-    email: string;
-
-  } | null;
-
-
-
-  items: BillItem[];
-
-};
-
-
-
-type SelectedItem = {
-
-  spkId: number;
-
-  productId: number;
-
-  quantity: number;
-
-};
-
-
-
-const STATUS_CONFIG: Record<
-
-  BillStatus,
-
-  {
-
-    label: string;
-
-    className: string;
-
-  }
-
-> = {
-
-  DRAFT: {
-
-    label: "Draft",
-
-    className:
-
-      "bg-amber-950/40 text-amber-300 border border-amber-800/40",
-
-  },
-
-  SUBMITTED: {
-
-    label: "Submitted",
-
-    className:
-
-      "bg-neutral-800 text-neutral-200 border border-white/10",
-
-  },
-
-  PAID: {
-
-    label: "Paid",
-
-    className:
-
-      "bg-emerald-950/40 text-emerald-300 border border-emerald-800/40",
-
-  },
-
-  CANCELLED: {
-
-    label: "Cancelled",
-
-    className:
-
-      "bg-rose-950/40 text-rose-300 border border-rose-800/40",
-
-  },
-
-};
-
-
-
-function formatCurrency(value: number | string) {
-
-  return new Intl.NumberFormat("id-ID", {
-
-    style: "currency",
-
-    currency: "IDR",
-
-    maximumFractionDigits: 0,
-
-  }).format(Number(value) || 0);
-
-}
-
-
-
-function formatNumber(value: number | string) {
-
-  return new Intl.NumberFormat("id-ID").format(
-
-    Number(value) || 0,
-
-  );
-
-}
-
-
-
-function formatDate(value: string) {
-
-  if (!value) return "-";
-
-
-
-  return new Intl.DateTimeFormat("id-ID", {
-
-    day: "2-digit",
-
-    month: "short",
-
-    year: "numeric",
-
-    hour: "2-digit",
-
-    minute: "2-digit",
-
-  }).format(new Date(value));
-
-}
-
-
-
-function getErrorMessage(error: unknown) {
-
-  return error instanceof Error
-
-    ? error.message
-
-    : "Terjadi kesalahan.";
-
-}
-
-
+import { formatCurrency, formatDate, formatNumber, getErrorMessage } from "@/lib/tailor-billing/utils";
 
 export default function TailorBillingPage() {
 
@@ -346,15 +47,11 @@ export default function TailorBillingPage() {
 
   const [tailors, setTailors] = useState<Tailor[]>([]);
 
-
-
   const [loading, setLoading] = useState(true);
 
   const [loadingEligible, setLoadingEligible] =
 
     useState(false);
-
-
 
   const [search, setSearch] = useState("");
 
@@ -366,25 +63,17 @@ export default function TailorBillingPage() {
 
     useState<number | "ALL">("ALL");
 
-
-
   const [showCreate, setShowCreate] = useState(false);
 
   const [showDetail, setShowDetail] = useState(false);
-
-
 
   const [selectedBill, setSelectedBill] =
 
     useState<TailorBill | null>(null);
 
-
-
   const [selectedTailorId, setSelectedTailorId] =
 
     useState<number | "">("");
-
-
 
   const [selectedItems, setSelectedItems] = useState<
 
@@ -392,19 +81,13 @@ export default function TailorBillingPage() {
 
   >([]);
 
-
-
   const [notes, setNotes] = useState("");
-
-
 
   const [saving, setSaving] = useState(false);
 
   const [processingId, setProcessingId] =
 
     useState<number | null>(null);
-
-
 
   const [error, setError] = useState("");
 
@@ -418,11 +101,7 @@ export default function TailorBillingPage() {
 
       setError("");
 
-
-
       const params = new URLSearchParams();
-
-
 
       if (statusFilter !== "ALL") {
 
@@ -430,23 +109,17 @@ export default function TailorBillingPage() {
 
       }
 
-
-
       if (tailorFilter !== "ALL") {
 
         params.set("tailorId", String(tailorFilter));
 
       }
 
-
-
       if (search.trim()) {
 
         params.set("search", search.trim());
 
       }
-
-
 
       const response = await fetch(
 
@@ -460,11 +133,7 @@ export default function TailorBillingPage() {
 
       );
 
-
-
       const result = await response.json();
-
-
 
       if (!response.ok || !result.success) {
 
@@ -477,8 +146,6 @@ export default function TailorBillingPage() {
         );
 
       }
-
-
 
       setBills(result.data || []);
 
@@ -504,11 +171,7 @@ export default function TailorBillingPage() {
 
       });
 
-
-
       const result = await response.json();
-
-
 
       if (!response.ok || !result.success) {
 
@@ -521,8 +184,6 @@ export default function TailorBillingPage() {
         );
 
       }
-
-
 
       setTailors(result.data || []);
 
@@ -542,8 +203,6 @@ export default function TailorBillingPage() {
 
       setError("");
 
-
-
       const response = await fetch(
 
         "/api/tailor-billing/eligible",
@@ -556,11 +215,7 @@ export default function TailorBillingPage() {
 
       );
 
-
-
       const result = await response.json();
-
-
 
       if (!response.ok || !result.success) {
 
@@ -573,8 +228,6 @@ export default function TailorBillingPage() {
         );
 
       }
-
-
 
       setEligible(result.data || []);
 
@@ -590,15 +243,11 @@ export default function TailorBillingPage() {
 
   }
 
-
-
   useEffect(() => {
 
     fetchTailors();
 
   }, []);
-
-
 
   useEffect(() => {
 
@@ -648,8 +297,6 @@ export default function TailorBillingPage() {
 
     }
 
-
-
     return eligible.filter(
 
       (item) => item.tailorId === selectedTailorId,
@@ -668,15 +315,11 @@ export default function TailorBillingPage() {
 
       );
 
-
-
       if (!item) {
 
         return total;
 
       }
-
-
 
       return (
 
@@ -704,8 +347,6 @@ export default function TailorBillingPage() {
 
     setSuccess("");
 
-
-
     fetchEligible();
 
   }
@@ -713,8 +354,6 @@ export default function TailorBillingPage() {
   function closeCreateModal() {
 
     if (saving) return;
-
-
 
     setShowCreate(false);
 
@@ -737,8 +376,6 @@ export default function TailorBillingPage() {
       ? Number(value)
 
       : "";
-
-
 
     setSelectedTailorId(tailorId);
 
@@ -774,8 +411,6 @@ export default function TailorBillingPage() {
 
     const exists = isSelected(item.spkId);
 
-
-
     if (exists) {
 
       setSelectedItems((current) =>
@@ -790,13 +425,9 @@ export default function TailorBillingPage() {
 
       );
 
-
-
       return;
 
     }
-
-
 
     setSelectedItems((current) => [
 
@@ -826,19 +457,13 @@ export default function TailorBillingPage() {
 
     let quantity = Number(value);
 
-
-
     if (!Number.isFinite(quantity)) {
 
       quantity = 0;
 
     }
 
-
-
     quantity = Math.floor(quantity);
-
-
 
     if (quantity < 0) {
 
@@ -846,15 +471,11 @@ export default function TailorBillingPage() {
 
     }
 
-
-
     if (quantity > item.billableQuantity) {
 
       quantity = item.billableQuantity;
 
     }
-
-
 
     setSelectedItems((current) => {
 
@@ -865,8 +486,6 @@ export default function TailorBillingPage() {
           selected.spkId === item.spkId,
 
       );
-
-
 
       if (!exists) {
 
@@ -887,8 +506,6 @@ export default function TailorBillingPage() {
         ];
 
       }
-
-
 
       return current.map((selected) =>
 
@@ -920,8 +537,6 @@ export default function TailorBillingPage() {
 
       setSuccess("");
 
-
-
       if (!selectedTailorId) {
 
         throw new Error(
@@ -932,15 +547,11 @@ export default function TailorBillingPage() {
 
       }
 
-
-
       const validItems = selectedItems.filter(
 
         (item) => item.quantity > 0,
 
       );
-
-
 
       if (validItems.length === 0) {
 
@@ -951,8 +562,6 @@ export default function TailorBillingPage() {
         );
 
       }
-
-
 
       const response = await fetch(
 
@@ -982,11 +591,7 @@ export default function TailorBillingPage() {
 
       );
 
-
-
       const result = await response.json();
-
-
 
       if (!response.ok || !result.success) {
 
@@ -1000,19 +605,13 @@ export default function TailorBillingPage() {
 
       }
 
-
-
       setSuccess(
 
         `Tagihan ${result.data?.billNumber || ""} berhasil dibuat.`,
 
       );
 
-
-
       setShowCreate(false);
-
-
 
       await fetchBills();
 
@@ -1038,8 +637,6 @@ export default function TailorBillingPage() {
 
       setError("");
 
-
-
       const response = await fetch(
 
         `/api/tailor-billing/${bill.id}`,
@@ -1052,11 +649,7 @@ export default function TailorBillingPage() {
 
       );
 
-
-
       const result = await response.json();
-
-
 
       if (!response.ok || !result.success) {
 
@@ -1070,8 +663,6 @@ export default function TailorBillingPage() {
 
       }
 
-
-
       setSelectedBill(result.data);
 
       setShowDetail(true);
@@ -1082,6 +673,33 @@ export default function TailorBillingPage() {
 
     }
 
+  }
+
+  async function downloadInvoice(bill: TailorBill) {
+    try {
+      setError("");
+      const response = await fetch(
+        `/api/tailor-billing/${bill.id}/invoice`,
+        { method: "GET", cache: "no-store" },
+      );
+
+      if (!response.ok) {
+        const result = await response.json().catch(() => null);
+        throw new Error(result?.error || "Gagal membuat invoice PDF.");
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `Invoice-${bill.billNumber}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
   }
 
   async function processBillAction(
@@ -1110,23 +728,17 @@ export default function TailorBillingPage() {
 
           : "batalkan";
 
-
-
     const confirmed = window.confirm(
 
       `Yakin ingin ${actionLabel} tagihan ini?`,
 
     );
 
-
-
     if (!confirmed) {
 
       return;
 
     }
-
-
 
     try {
 
@@ -1135,8 +747,6 @@ export default function TailorBillingPage() {
       setError("");
 
       setSuccess("");
-
-
 
       const response = await fetch(
 
@@ -1150,11 +760,7 @@ export default function TailorBillingPage() {
 
       );
 
-
-
       const result = await response.json();
-
-
 
       if (!response.ok || !result.success) {
 
@@ -1167,8 +773,6 @@ export default function TailorBillingPage() {
         );
 
       }
-
-
 
       setSuccess(
 
@@ -1188,8 +792,6 @@ export default function TailorBillingPage() {
 
       );
 
-
-
       if (
 
         selectedBill &&
@@ -1201,8 +803,6 @@ export default function TailorBillingPage() {
         setSelectedBill(result.data);
 
       }
-
-
 
       await fetchBills();
 
@@ -1222,8 +822,6 @@ export default function TailorBillingPage() {
 
     await fetchBills();
 
-
-
     if (showCreate) {
 
       await fetchEligible();
@@ -1231,8 +829,6 @@ export default function TailorBillingPage() {
     }
 
   }
-
-
 
   return (
 
@@ -1258,15 +854,11 @@ export default function TailorBillingPage() {
 
               </div>
 
-
-
               <h1 className="text-2xl font-bold text-neutral-100">
 
                 Tailor Billing
 
               </h1>
-
-
 
               <p className="mt-1 text-sm text-neutral-400">
 
@@ -1277,8 +869,6 @@ export default function TailorBillingPage() {
               </p>
 
             </div>
-
-
 
             <div className="flex items-center gap-3">
 
@@ -1297,8 +887,6 @@ export default function TailorBillingPage() {
                 Refresh
 
               </button>
-
-
 
               <PermissionGate permission="tailor-billing.create">
 
@@ -1330,15 +918,11 @@ export default function TailorBillingPage() {
 
               <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
 
-
-
               <div className="flex-1">
 
                 {error}
 
               </div>
-
-
 
               <button
 
@@ -1358,23 +942,17 @@ export default function TailorBillingPage() {
 
           )}
 
-
-
           {success && (
 
             <div className="mb-5 flex items-start gap-3 rounded-xl border border-emerald-800/50 bg-emerald-950/30 px-4 py-3 text-sm text-emerald-300">
 
               <Check className="mt-0.5 h-5 w-5 shrink-0" />
 
-
-
               <div className="flex-1">
 
                 {success}
 
               </div>
-
-
 
               <button
 
@@ -1394,251 +972,27 @@ export default function TailorBillingPage() {
 
           )}
 
-          <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-5">
+          <BillingSummaryCards summary={summary} />
 
-            <SummaryCard
+          <BillingFilters
 
-              label="Total Tagihan"
+            search={search}
 
-              value={summary.total}
+            statusFilter={statusFilter}
 
-              icon={<FileText className="h-5 w-5" />}
+            tailorFilter={tailorFilter}
 
-            />
+            tailors={tailors}
 
+            onSearchChange={setSearch}
 
+            onStatusChange={setStatusFilter}
 
-            <SummaryCard
+            onTailorChange={setTailorFilter}
 
-              label="Draft"
+            onSearch={fetchBills}
 
-              value={summary.draft}
-
-              icon={
-
-                <FileText className="h-5 w-5" />
-
-              }
-
-            />
-
-
-
-            <SummaryCard
-
-              label="Submitted"
-
-              value={summary.submitted}
-
-              icon={
-
-                <Send className="h-5 w-5" />
-
-              }
-
-            />
-
-
-
-            <SummaryCard
-
-              label="Paid"
-
-              value={summary.paid}
-
-              icon={
-
-                <CircleDollarSign className="h-5 w-5" />
-
-              }
-
-            />
-
-
-
-            <SummaryCard
-
-              label="Cancelled"
-
-              value={summary.cancelled}
-
-              icon={
-
-                <X className="h-5 w-5" />
-
-              }
-
-            />
-
-          </div>
-
-          <div className="mb-5 rounded-xl border border-white/10 bg-[#151313] p-4 shadow-lg shadow-black/20">
-
-            <div className="grid gap-3 lg:grid-cols-[1fr_200px_240px_auto]">
-
-              <div className="relative">
-
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500" />
-
-
-
-                <input
-
-                  value={search}
-
-                  onChange={(event) =>
-
-                    setSearch(event.target.value)
-
-                  }
-
-                  onKeyDown={(event) => {
-
-                    if (event.key === "Enter") {
-
-                      fetchBills();
-
-                    }
-
-                  }}
-
-                  placeholder="Cari nomor tagihan atau penjahit..."
-
-                  className="h-10 w-full rounded-lg border border-white/10 bg-[#151313] pl-10 pr-3 text-sm text-neutral-200 outline-none transition placeholder:text-neutral-500 focus:border-rose-600 focus:ring-2 focus:ring-rose-900/30"
-
-                />
-
-              </div>
-
-
-
-              <select
-
-                value={statusFilter}
-
-                onChange={(event) =>
-
-                  setStatusFilter(
-
-                    event.target.value as
-
-                      | BillStatus
-
-                      | "ALL",
-
-                  )
-
-                }
-
-                className="h-10 rounded-lg border border-white/10 bg-[#151313] px-3 text-sm text-neutral-200 outline-none focus:border-rose-600 focus:ring-2 focus:ring-rose-900/30"
-
-              >
-
-                <option value="ALL">
-
-                  Semua Status
-
-                </option>
-
-                <option value="DRAFT">
-
-                  Draft
-
-                </option>
-
-                <option value="SUBMITTED">
-
-                  Submitted
-
-                </option>
-
-                <option value="PAID">
-
-                  Paid
-
-                </option>
-
-                <option value="CANCELLED">
-
-                  Cancelled
-
-                </option>
-
-              </select>
-
-
-
-              <select
-
-                value={tailorFilter}
-
-                onChange={(event) =>
-
-                  setTailorFilter(
-
-                    event.target.value === "ALL"
-
-                      ? "ALL"
-
-                      : Number(
-
-                          event.target.value,
-
-                        ),
-
-                  )
-
-                }
-
-                className="h-10 rounded-lg border border-white/10 bg-[#151313] px-3 text-sm text-neutral-200 outline-none focus:border-rose-600 focus:ring-2 focus:ring-rose-900/30"
-
-              >
-
-                <option value="ALL">
-
-                  Semua Penjahit
-
-                </option>
-
-
-
-                {tailors.map((tailor) => (
-
-                  <option
-
-                    key={tailor.id}
-
-                    value={tailor.id}
-
-                  >
-
-                    {tailor.name}
-
-                  </option>
-
-                ))}
-
-              </select>
-
-
-
-              <button
-
-                type="button"
-
-                onClick={fetchBills}
-
-                className="h-10 rounded-lg bg-neutral-800 px-4 text-sm font-medium text-white transition hover:bg-neutral-700"
-
-              >
-
-                Cari
-
-              </button>
-
-            </div>
-
-          </div>
+          />
 
           <div className="overflow-hidden rounded-xl border border-white/10 bg-[#151313] shadow-lg shadow-black/20">
 
@@ -1650,8 +1004,6 @@ export default function TailorBillingPage() {
 
               </h2>
 
-
-
               <p className="mt-1 text-xs text-neutral-400">
 
                 Menampilkan {bills.length} tagihan.
@@ -1659,8 +1011,6 @@ export default function TailorBillingPage() {
               </p>
 
             </div>
-
-
 
             {loading ? (
 
@@ -1686,15 +1036,11 @@ export default function TailorBillingPage() {
 
                 </div>
 
-
-
                 <h3 className="font-semibold text-neutral-200">
 
                   Belum ada tagihan
 
                 </h3>
-
-
 
                 <p className="mt-1 max-w-md text-sm text-neutral-400">
 
@@ -1722,15 +1068,11 @@ export default function TailorBillingPage() {
 
                       </th>
 
-
-
                       <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-400">
 
                         Penjahit
 
                       </th>
-
-
 
                       <th className="px-5 py-3 text-center text-xs font-semibold uppercase tracking-wide text-neutral-400">
 
@@ -1738,15 +1080,11 @@ export default function TailorBillingPage() {
 
                       </th>
 
-
-
                       <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-neutral-400">
 
                         Total
 
                       </th>
-
-
 
                       <th className="px-5 py-3 text-center text-xs font-semibold uppercase tracking-wide text-neutral-400">
 
@@ -1754,15 +1092,11 @@ export default function TailorBillingPage() {
 
                       </th>
 
-
-
                       <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-400">
 
                         Dibuat
 
                       </th>
-
-
 
                       <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-neutral-400">
 
@@ -1773,8 +1107,6 @@ export default function TailorBillingPage() {
                     </tr>
 
                   </thead>
-
-
 
                   <tbody className="divide-y divide-white/10">
 
@@ -1810,8 +1142,6 @@ export default function TailorBillingPage() {
 
                         </td>
 
-
-
                         <td className="px-5 py-4">
 
                           <div className="font-medium text-neutral-100">
@@ -1819,8 +1149,6 @@ export default function TailorBillingPage() {
                             {bill.tailor.name}
 
                           </div>
-
-
 
                           <div className="mt-0.5 text-xs text-neutral-400">
 
@@ -1832,15 +1160,11 @@ export default function TailorBillingPage() {
 
                         </td>
 
-
-
                         <td className="px-5 py-4 text-center text-sm text-neutral-300">
 
                           {bill.items.length}
 
                         </td>
-
-
 
                         <td className="px-5 py-4 text-right">
 
@@ -1853,8 +1177,6 @@ export default function TailorBillingPage() {
                             )}
 
                           </div>
-
-
 
                           <div className="text-xs text-neutral-500">
 
@@ -1884,19 +1206,15 @@ export default function TailorBillingPage() {
 
                         </td>
 
-
-
                         <td className="px-5 py-4 text-center">
 
-                          <StatusBadge
+                          <BillingStatusBadge
 
                             status={bill.status}
 
                           />
 
                         </td>
-
-
 
                         <td className="px-5 py-4 text-sm text-neutral-400">
 
@@ -1907,8 +1225,6 @@ export default function TailorBillingPage() {
                           )}
 
                         </td>
-
-
 
                         <td className="px-5 py-4 text-right">
 
@@ -1964,8 +1280,6 @@ export default function TailorBillingPage() {
 
                   </h2>
 
-
-
                   <p className="mt-1 text-sm text-neutral-400">
 
                     Pilih hasil QC ACC yang ingin
@@ -1975,8 +1289,6 @@ export default function TailorBillingPage() {
                   </p>
 
                 </div>
-
-
 
                 <button
 
@@ -2004,8 +1316,6 @@ export default function TailorBillingPage() {
 
                   </label>
 
-
-
                   <select
 
                     value={selectedTailorId}
@@ -2029,8 +1339,6 @@ export default function TailorBillingPage() {
                       Pilih penjahit...
 
                     </option>
-
-
 
                     {tailors.map((tailor) => (
 
@@ -2080,15 +1388,11 @@ export default function TailorBillingPage() {
 
                       <CircleDollarSign className="mx-auto mb-3 h-8 w-8 text-neutral-500" />
 
-
-
                       <h3 className="font-semibold text-neutral-200">
 
                         Pilih penjahit terlebih dahulu
 
                       </h3>
-
-
 
                       <p className="mt-1 text-sm text-neutral-400">
 
@@ -2116,8 +1420,6 @@ export default function TailorBillingPage() {
 
                       <AlertCircle className="mx-auto mb-3 h-8 w-8 text-neutral-500" />
 
-
-
                       <h3 className="font-semibold text-neutral-200">
 
                         Tidak ada SPK yang dapat
@@ -2125,8 +1427,6 @@ export default function TailorBillingPage() {
                         ditagihkan
 
                       </h3>
-
-
 
                       <p className="mt-1 text-sm text-neutral-400">
 
@@ -2162,8 +1462,6 @@ export default function TailorBillingPage() {
 
                           </h3>
 
-
-
                           <p className="text-xs text-neutral-400">
 
                             Pilih SPK dan tentukan
@@ -2173,8 +1471,6 @@ export default function TailorBillingPage() {
                           </p>
 
                         </div>
-
-
 
                         <div className="rounded-lg bg-rose-950/30 px-3 py-2 text-xs font-semibold text-rose-300">
 
@@ -2196,8 +1492,6 @@ export default function TailorBillingPage() {
 
                       </div>
 
-
-
                       <div className="space-y-3">
 
                         {eligibleForSelectedTailor.map(
@@ -2212,8 +1506,6 @@ export default function TailorBillingPage() {
 
                               );
 
-
-
                             const quantity =
 
                               getSelectedQuantity(
@@ -2222,15 +1514,11 @@ export default function TailorBillingPage() {
 
                               );
 
-
-
                             const amount =
 
                               quantity *
 
                               Number(item.rate);
-
-
 
                             return (
 
@@ -2296,8 +1584,6 @@ export default function TailorBillingPage() {
 
                                       </span>
 
-
-
                                       <span className="rounded bg-[#201c1c] px-2 py-0.5 text-xs text-neutral-400">
 
                                         {item.productCode}
@@ -2306,15 +1592,11 @@ export default function TailorBillingPage() {
 
                                     </div>
 
-
-
                                     <div className="mt-1 text-sm text-neutral-200">
 
                                       {item.productName}
 
                                     </div>
-
-
 
                                     <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-neutral-400">
 
@@ -2336,8 +1618,6 @@ export default function TailorBillingPage() {
 
                                       </span>
 
-
-
                                       <span>
 
                                         Sudah ditagihkan:{" "}
@@ -2355,8 +1635,6 @@ export default function TailorBillingPage() {
                                         </strong>
 
                                       </span>
-
-
 
                                       <span>
 
@@ -2388,8 +1666,6 @@ export default function TailorBillingPage() {
 
                                     </div>
 
-
-
                                     <div className="mt-1 font-semibold text-neutral-100">
 
                                       {formatCurrency(
@@ -2409,8 +1685,6 @@ export default function TailorBillingPage() {
                                       Qty dibayar
 
                                     </label>
-
-
 
                                     <input
 
@@ -2486,8 +1760,6 @@ export default function TailorBillingPage() {
 
                                     </div>
 
-
-
                                     <div className="mt-1 font-bold text-rose-300">
 
                                       {formatCurrency(
@@ -2530,8 +1802,6 @@ export default function TailorBillingPage() {
 
                       </label>
 
-
-
                       <textarea
 
                         value={notes}
@@ -2572,8 +1842,6 @@ export default function TailorBillingPage() {
 
                     </div>
 
-
-
                     <div className="text-xl font-bold text-neutral-100">
 
                       {formatCurrency(
@@ -2585,8 +1853,6 @@ export default function TailorBillingPage() {
                     </div>
 
                   </div>
-
-
 
                   <div className="flex items-center gap-3">
 
@@ -2605,8 +1871,6 @@ export default function TailorBillingPage() {
                       Batal
 
                     </button>
-
-
 
                     <button
 
@@ -2680,9 +1944,7 @@ export default function TailorBillingPage() {
 
                     </h2>
 
-
-
-                    <StatusBadge
+                    <BillingStatusBadge
 
                       status={
 
@@ -2694,8 +1956,6 @@ export default function TailorBillingPage() {
 
                   </div>
 
-
-
                   <p className="text-sm text-neutral-400">
 
                     {selectedBill.tailor.name}
@@ -2703,8 +1963,6 @@ export default function TailorBillingPage() {
                   </p>
 
                 </div>
-
-
 
                 <button
 
@@ -2742,8 +2000,6 @@ export default function TailorBillingPage() {
 
                   />
 
-
-
                   <InfoBox
 
                     label="Dibuat Oleh"
@@ -2757,8 +2013,6 @@ export default function TailorBillingPage() {
                     }
 
                   />
-
-
 
                   <InfoBox
 
@@ -2786,8 +2040,6 @@ export default function TailorBillingPage() {
 
                   </div>
 
-
-
                   <div className="overflow-x-auto">
 
                     <table className="w-full min-w-[700px]">
@@ -2802,15 +2054,11 @@ export default function TailorBillingPage() {
 
                           </th>
 
-
-
                           <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-400">
 
                             Produk
 
                           </th>
-
-
 
                           <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-neutral-400">
 
@@ -2818,15 +2066,11 @@ export default function TailorBillingPage() {
 
                           </th>
 
-
-
                           <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-neutral-400">
 
                             Tarif
 
                           </th>
-
-
 
                           <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-neutral-400">
 
@@ -2837,8 +2081,6 @@ export default function TailorBillingPage() {
                         </tr>
 
                       </thead>
-
-
 
                       <tbody className="divide-y divide-white/10">
 
@@ -2858,8 +2100,6 @@ export default function TailorBillingPage() {
 
                               </td>
 
-
-
                               <td className="px-4 py-3">
 
                                 <div className="text-sm text-neutral-200">
@@ -2868,8 +2108,6 @@ export default function TailorBillingPage() {
 
                                 </div>
 
-
-
                                 <div className="text-xs text-neutral-500">
 
                                   {item.product.code}
@@ -2877,8 +2115,6 @@ export default function TailorBillingPage() {
                                 </div>
 
                               </td>
-
-
 
                               <td className="px-4 py-3 text-right text-sm text-neutral-200">
 
@@ -2892,8 +2128,6 @@ export default function TailorBillingPage() {
 
                               </td>
 
-
-
                               <td className="px-4 py-3 text-right text-sm text-neutral-200">
 
                                 {formatCurrency(
@@ -2903,8 +2137,6 @@ export default function TailorBillingPage() {
                                 )}
 
                               </td>
-
-
 
                               <td className="px-4 py-3 text-right text-sm font-semibold text-neutral-100">
 
@@ -2938,8 +2170,6 @@ export default function TailorBillingPage() {
 
                       <span>Subtotal</span>
 
-
-
                       <span className="font-medium text-neutral-200">
 
                         {formatCurrency(
@@ -2952,8 +2182,6 @@ export default function TailorBillingPage() {
 
                     </div>
 
-
-
                     <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-3">
 
                       <span className="font-semibold text-neutral-100">
@@ -2961,8 +2189,6 @@ export default function TailorBillingPage() {
                         Total
 
                       </span>
-
-
 
                       <span className="text-xl font-bold text-rose-300">
 
@@ -2989,8 +2215,6 @@ export default function TailorBillingPage() {
                       Catatan
 
                     </div>
-
-
 
                     <p className="whitespace-pre-wrap text-sm text-neutral-300">
 
@@ -3046,9 +2270,20 @@ export default function TailorBillingPage() {
 
                 </button>
 
-
-
                 <div className="flex flex-wrap justify-end gap-2">
+                  {selectedBill.status === "PAID" && (
+                    <PermissionGate permission="tailor-billing.view">
+                      <button
+                        type="button"
+                        onClick={() => downloadInvoice(selectedBill)}
+                        className="inline-flex h-10 items-center gap-2 rounded-lg border border-emerald-700/50 bg-emerald-950/30 px-4 text-sm font-semibold text-emerald-300 transition hover:bg-emerald-900/40"
+                      >
+                        <Printer className="h-4 w-4" />
+                        Cetak Invoice PDF
+                      </button>
+                    </PermissionGate>
+                  )}
+
 
                   {selectedBill.status ===
 
@@ -3056,7 +2291,7 @@ export default function TailorBillingPage() {
 
                     <>
 
-                      <PermissionGate permission="tailor-billing.update">
+                      <PermissionGate permission="tailor-billing.submit">
 
                         <button
 
@@ -3091,8 +2326,6 @@ export default function TailorBillingPage() {
                           Cancel
 
                         </button>
-
-
 
                         <button
 
@@ -3144,15 +2377,13 @@ export default function TailorBillingPage() {
 
                   )}
 
-
-
                   {selectedBill.status ===
 
                     "SUBMITTED" && (
 
                     <>
 
-                      <PermissionGate permission="tailor-billing.update">
+                      <PermissionGate permission="tailor-billing.cancel">
 
                         <button
 
@@ -3189,8 +2420,6 @@ export default function TailorBillingPage() {
                         </button>
 
                       </PermissionGate>
-
-
 
                       <PermissionGate permission="tailor-billing.pay">
 
@@ -3262,94 +2491,6 @@ export default function TailorBillingPage() {
 
 }
 
-function SummaryCard({
-
-  label,
-
-  value,
-
-  icon,
-
-}: {
-
-  label: string;
-
-  value: number;
-
-  icon: React.ReactNode;
-
-}) {
-
-  return (
-
-    <div className="rounded-xl border border-white/10 bg-[#151313] p-4 shadow-lg shadow-black/20">
-
-      <div className="mb-3 flex items-center justify-between">
-
-        <div className="text-sm text-neutral-400">
-
-          {label}
-
-        </div>
-
-
-
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-rose-950/30 text-rose-400">
-
-          {icon}
-
-        </div>
-
-      </div>
-
-
-
-      <div className="text-2xl font-bold text-neutral-100">
-
-        {value}
-
-      </div>
-
-    </div>
-
-  );
-
-}
-
-
-
-function StatusBadge({
-
-  status,
-
-}: {
-
-  status: BillStatus;
-
-}) {
-
-  const config = STATUS_CONFIG[status];
-
-
-
-  return (
-
-    <span
-
-      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${config.className}`}
-
-    >
-
-      {config.label}
-
-    </span>
-
-  );
-
-}
-
-
-
 function InfoBox({
 
   label,
@@ -3373,8 +2514,6 @@ function InfoBox({
         {label}
 
       </div>
-
-
 
       <div className="mt-1 text-sm font-semibold text-neutral-200">
 
