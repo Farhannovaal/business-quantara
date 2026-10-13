@@ -242,25 +242,25 @@ function getStatusStyle(
 ) {
   switch (status) {
     case "PROCESSED":
-      return "border-emerald-200 bg-emerald-50 text-emerald-700";
+      return "border-emerald-500/25 bg-emerald-500/[0.08] text-emerald-300";
 
     case "VALID":
-      return "border-cyan-200 bg-cyan-50 text-cyan-700";
+      return "border-cyan-500/25 bg-cyan-500/[0.08] text-cyan-300";
 
     case "PENDING":
-      return "border-amber-200 bg-amber-50 text-amber-700";
+      return "border-amber-500/25 bg-amber-500/[0.08] text-amber-300";
 
     case "DUPLICATE":
-      return "border-violet-200 bg-violet-50 text-violet-700";
+      return "border-rose-500/20 bg-rose-500/[0.08]0/[0.08] text-rose-300";
 
     case "INVALID":
-      return "border-rose-200 bg-rose-50 text-rose-700";
+      return "border-rose-500/25 bg-rose-500/[0.08] text-rose-300";
 
     case "REVIEW_REQUIRED":
-      return "border-orange-200 bg-orange-50 text-orange-700";
+      return "border-orange-500/25 bg-orange-500/[0.08] text-orange-300";
 
     default:
-      return "border-slate-200 bg-slate-50 text-slate-600";
+      return "border-white/10 bg-[#191919] text-gray-300";
   }
 }
 
@@ -1428,12 +1428,12 @@ export default function ScannerPage() {
     loadingInitialData
   ) {
     return (
-      <main className="min-h-screen bg-slate-50 p-4 sm:p-6 lg:p-8">
+      <main className="min-h-screen bg-gradient-to-br from-[#090909] via-[#111111] to-[#18090b] p-4 sm:p-6 lg:p-8">
         <div className="mx-auto max-w-7xl">
-          <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-            <RefreshCw className="mx-auto h-6 w-6 animate-spin text-indigo-600" />
+          <div className="rounded-2xl border border-white/10 bg-[#111111] p-8 text-center shadow-[0_12px_35px_rgba(0,0,0,0.22)]">
+            <RefreshCw className="mx-auto h-6 w-6 animate-spin text-rose-400" />
 
-            <p className="mt-3 text-sm font-medium text-slate-600">
+            <p className="mt-3 text-sm font-medium text-gray-300">
               Loading Field Scanner...
             </p>
           </div>
@@ -1449,7 +1449,7 @@ export default function ScannerPage() {
    */
 
   return (
-    <main className="min-h-screen bg-slate-50 p-4 sm:p-6 lg:p-8">
+    <main className="min-h-screen bg-gradient-to-br from-[#090909] via-[#111111] to-[#18090b] p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl">
         {/* ====================================================== */}
         {/* HEADER */}
@@ -1457,16 +1457,16 @@ export default function ScannerPage() {
 
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.12em] text-indigo-600">
+            <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.12em] text-rose-400">
               <ScanLine className="h-4 w-4" />
               Operations
             </div>
 
-            <h1 className="text-2xl font-bold tracking-tight text-slate-800 sm:text-3xl">
+            <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
               Field Scanner
             </h1>
 
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-400">
               Scan QR atau barcode pada nota
               fisik, validasi dokumen, lalu
               proses transaksi melalui
@@ -1476,7 +1476,7 @@ export default function ScannerPage() {
 
           <Link
             href="/operations/scanner/history"
-            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#111111] px-4 py-2 text-sm font-semibold text-gray-200 shadow-[0_12px_35px_rgba(0,0,0,0.22)] transition hover:bg-[#191919]"
           >
             <History className="h-4 w-4" />
             Scanner History
@@ -1488,16 +1488,16 @@ export default function ScannerPage() {
         {/* ====================================================== */}
 
         {error && (
-          <div className="mb-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3">
+          <div className="mb-5 rounded-2xl border border-rose-500/25 bg-rose-500/[0.08] px-4 py-3">
             <div className="flex items-start gap-3">
-              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-rose-600" />
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-rose-400" />
 
               <div>
-                <p className="text-sm font-bold text-rose-700">
+                <p className="text-sm font-bold text-rose-300">
                   Terjadi kesalahan
                 </p>
 
-                <p className="mt-1 text-sm leading-6 text-rose-600">
+                <p className="mt-1 text-sm leading-6 text-rose-400">
                   {error}
                 </p>
               </div>
@@ -1507,7 +1507,7 @@ export default function ScannerPage() {
                 onClick={() =>
                   setError("")
                 }
-                className="ml-auto rounded-lg p-1 text-rose-400 hover:bg-rose-100 hover:text-rose-600"
+                className="ml-auto rounded-lg p-1 text-rose-400 hover:bg-rose-500/15 hover:text-rose-400"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -1516,16 +1516,16 @@ export default function ScannerPage() {
         )}
 
         {success && (
-          <div className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+          <div className="mb-5 rounded-2xl border border-emerald-500/25 bg-emerald-500/[0.08] px-4 py-3">
             <div className="flex items-start gap-3">
-              <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
+              <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-400" />
 
               <div>
-                <p className="text-sm font-bold text-emerald-700">
+                <p className="text-sm font-bold text-emerald-300">
                   Berhasil
                 </p>
 
-                <p className="mt-1 text-sm leading-6 text-emerald-600">
+                <p className="mt-1 text-sm leading-6 text-emerald-400">
                   {success}
                 </p>
               </div>
@@ -1538,18 +1538,18 @@ export default function ScannerPage() {
         {/* ====================================================== */}
 
         {isDuplicate && processedTransaction && (
-          <div className="mb-6 overflow-hidden rounded-2xl border border-amber-200 bg-white shadow-sm">
-            <div className="border-b border-amber-100 bg-amber-50 px-5 py-4">
+          <div className="mb-6 overflow-hidden rounded-2xl border border-amber-500/25 bg-[#111111] shadow-[0_12px_35px_rgba(0,0,0,0.22)]">
+            <div className="border-b border-amber-500/15 bg-amber-500/[0.08] px-5 py-4">
               <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-600">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400">
                   <AlertCircle className="h-5 w-5" />
                 </div>
 
                 <div>
-                  <p className="text-sm font-bold text-amber-800">
+                  <p className="text-sm font-bold text-amber-300">
                     Dokumen Sudah Diproses
                   </p>
-                  <p className="mt-0.5 text-xs leading-5 text-amber-700">
+                  <p className="mt-0.5 text-xs leading-5 text-amber-300">
                     Dokumen ini sudah memiliki transaksi dan tidak dapat diproses kembali.
                   </p>
                 </div>
@@ -1558,28 +1558,28 @@ export default function ScannerPage() {
 
             <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-gray-500">
                   No. Dokumen
                 </p>
-                <p className="mt-1 break-all font-mono text-sm font-bold text-slate-800">
+                <p className="mt-1 break-all font-mono text-sm font-bold text-white">
                   {scannedDocument?.documentNumber ?? documentNumber}
                 </p>
               </div>
 
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-gray-500">
                   No. Transaksi
                 </p>
-                <p className="mt-1 break-all font-mono text-sm font-bold text-indigo-600">
+                <p className="mt-1 break-all font-mono text-sm font-bold text-rose-400">
                   {processedTransaction.transactionNumber}
                 </p>
               </div>
 
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-gray-500">
                   Process
                 </p>
-                <p className="mt-1 text-sm font-semibold text-slate-800">
+                <p className="mt-1 text-sm font-semibold text-white">
                   {getTransactionLabel(
                     processedTransaction.transactionType.code,
                     processedTransaction.transactionType.name,
@@ -1588,63 +1588,63 @@ export default function ScannerPage() {
               </div>
 
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-gray-500">
                   Quantity
                 </p>
-                <p className="mt-1 text-sm font-bold text-slate-800">
+                <p className="mt-1 text-sm font-bold text-white">
                   {processedTransaction.quantity}
                 </p>
               </div>
             </div>
 
-            <div className="grid gap-4 border-t border-slate-100 px-5 py-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 border-t border-white/[0.07] px-5 py-4 sm:grid-cols-2 lg:grid-cols-4">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-gray-500">
                   SPK
                 </p>
-                <p className="mt-1 text-sm font-semibold text-slate-800">
+                <p className="mt-1 text-sm font-semibold text-white">
                   {processedTransaction.spk.spkNumber}
                 </p>
               </div>
 
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-gray-500">
                   Product
                 </p>
-                <p className="mt-1 text-sm font-semibold text-slate-800">
+                <p className="mt-1 text-sm font-semibold text-white">
                   {processedTransaction.product.name}
                 </p>
               </div>
 
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-gray-500">
                   Penjahit
                 </p>
-                <p className="mt-1 text-sm font-semibold text-slate-800">
+                <p className="mt-1 text-sm font-semibold text-white">
                   {processedTransaction.tailor.name}
                 </p>
               </div>
 
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-gray-500">
                   Employee
                 </p>
-                <p className="mt-1 text-sm font-semibold text-slate-800">
+                <p className="mt-1 text-sm font-semibold text-white">
                   {processedTransaction.employee.name}
                 </p>
               </div>
             </div>
 
-            <div className="border-t border-slate-100 bg-slate-50 px-5 py-4">
-              <div className="flex flex-col gap-1 text-xs text-slate-500">
+            <div className="border-t border-white/[0.07] bg-[#191919] px-5 py-4">
+              <div className="flex flex-col gap-1 text-xs text-gray-400">
                 <span>
-                  Diproses pada: <span className="font-semibold text-slate-700">{formatDate(processedTransaction.createdAt)}</span>
+                  Diproses pada: <span className="font-semibold text-gray-200">{formatDate(processedTransaction.createdAt)}</span>
                 </span>
                 {scannedDocument?.source && (
                   <span>
-                    Scan saat ini: <span className="font-semibold text-slate-700">{scannerSource}</span>
+                    Scan saat ini: <span className="font-semibold text-gray-200">{scannerSource}</span>
                     {scannedDocument.source !== scannerSource && (
-                      <span className="ml-1 text-slate-400">
+                      <span className="ml-1 text-gray-500">
                         (dokumen pertama kali tercatat melalui {scannedDocument.source})
                       </span>
                     )}
@@ -1653,11 +1653,11 @@ export default function ScannerPage() {
               </div>
             </div>
 
-            <div className="flex flex-col gap-3 border-t border-slate-100 px-5 py-4 sm:flex-row sm:justify-end">
+            <div className="flex flex-col gap-3 border-t border-white/[0.07] px-5 py-4 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 onClick={resetScanner}
-                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-indigo-700"
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-rose-700"
               >
                 <ScanLine className="h-4 w-4" />
                 Scan Dokumen Lain
@@ -1665,7 +1665,7 @@ export default function ScannerPage() {
 
               <Link
                 href="/operations/scanner/history"
-                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#111111] px-4 py-2 text-sm font-bold text-gray-200 transition hover:bg-[#191919]"
               >
                 <History className="h-4 w-4" />
                 Lihat History
@@ -1679,19 +1679,19 @@ export default function ScannerPage() {
         {/* ====================================================== */}
 
         {processedTransaction && !isDuplicate && (
-          <div className="mb-6 overflow-hidden rounded-2xl border border-emerald-200 bg-white shadow-sm">
-            <div className="border-b border-emerald-100 bg-emerald-50 px-5 py-4">
+          <div className="mb-6 overflow-hidden rounded-2xl border border-emerald-500/25 bg-[#111111] shadow-[0_12px_35px_rgba(0,0,0,0.22)]">
+            <div className="border-b border-emerald-500/15 bg-emerald-500/[0.08] px-5 py-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400">
                   <CheckCircle2 className="h-5 w-5" />
                 </div>
 
                 <div>
-                  <p className="text-sm font-bold text-emerald-800">
+                  <p className="text-sm font-bold text-emerald-300">
                     Transaksi berhasil diproses
                   </p>
 
-                  <p className="mt-0.5 text-xs text-emerald-600">
+                  <p className="mt-0.5 text-xs text-emerald-400">
                     Document dan transaction
                     sudah tercatat di sistem.
                   </p>
@@ -1701,11 +1701,11 @@ export default function ScannerPage() {
 
             <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-gray-500">
                   Transaction
                 </p>
 
-                <p className="mt-1 font-mono text-sm font-bold text-indigo-600">
+                <p className="mt-1 font-mono text-sm font-bold text-rose-400">
                   {
                     processedTransaction.transactionNumber
                   }
@@ -1713,21 +1713,21 @@ export default function ScannerPage() {
               </div>
 
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-gray-500">
                   Document
                 </p>
 
-                <p className="mt-1 font-mono text-sm font-bold text-slate-800">
+                <p className="mt-1 font-mono text-sm font-bold text-white">
                   {documentNumber}
                 </p>
               </div>
 
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-gray-500">
                   Process
                 </p>
 
-                <p className="mt-1 text-sm font-semibold text-slate-800">
+                <p className="mt-1 text-sm font-semibold text-white">
                   {getTransactionLabel(
                     processedTransaction
                       .transactionType
@@ -1740,11 +1740,11 @@ export default function ScannerPage() {
               </div>
 
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-gray-500">
                   Quantity
                 </p>
 
-                <p className="mt-1 text-sm font-bold text-slate-800">
+                <p className="mt-1 text-sm font-bold text-white">
                   {
                     processedTransaction.quantity
                   }
@@ -1752,11 +1752,11 @@ export default function ScannerPage() {
               </div>
             </div>
 
-            <div className="flex flex-col gap-3 border-t border-slate-100 px-5 py-4 sm:flex-row sm:justify-end">
+            <div className="flex flex-col gap-3 border-t border-white/[0.07] px-5 py-4 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 onClick={resetScanner}
-                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#111111] px-4 py-2 text-sm font-bold text-gray-200 transition hover:bg-[#191919]"
               >
                 <ScanLine className="h-4 w-4" />
                 Scan Dokumen Berikutnya
@@ -1764,7 +1764,7 @@ export default function ScannerPage() {
 
               <Link
                 href="/operations/scanner/history"
-                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-indigo-700"
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-rose-700"
               >
                 <History className="h-4 w-4" />
                 Lihat History
@@ -1786,30 +1786,30 @@ export default function ScannerPage() {
             <div className="space-y-6">
               {/* SCANNER INPUT */}
               {showCamera && (
-                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                  <div className="border-b border-slate-100 px-5 py-4">
+                <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#111111] shadow-[0_12px_35px_rgba(0,0,0,0.22)]">
+                  <div className="border-b border-white/[0.07] px-5 py-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <div className="flex items-center gap-2">
-                          <ScanLine className="h-5 w-5 text-indigo-600" />
-                          <h2 className="text-sm font-bold text-slate-800">
+                          <ScanLine className="h-5 w-5 text-rose-400" />
+                          <h2 className="text-sm font-bold text-white">
                             Scanner Input
                           </h2>
                         </div>
-                        <p className="mt-1 text-xs leading-5 text-slate-500">
+                        <p className="mt-1 text-xs leading-5 text-gray-400">
                           Gunakan QR / barcode atau OCR untuk membaca nomor nota.
                         </p>
                       </div>
 
-                      <div className="inline-flex rounded-xl border border-slate-200 bg-slate-50 p-1">
+                      <div className="inline-flex rounded-xl border border-white/10 bg-[#191919] p-1">
                         <button
                           type="button"
                           onClick={() => setScannerMode("QR")}
                           disabled={Boolean(scannedDocument) || scanningDocument}
                           className={`rounded-lg px-3 py-2 text-xs font-bold transition ${
                             scannerMode === "QR"
-                              ? "bg-white text-indigo-600 shadow-sm"
-                              : "text-slate-500 hover:text-slate-700"
+                              ? "bg-[#111111] text-rose-400 shadow-[0_12px_35px_rgba(0,0,0,0.22)]"
+                              : "text-gray-400 hover:text-gray-200"
                           } disabled:cursor-not-allowed disabled:opacity-50`}
                         >
                           QR / Barcode
@@ -1820,8 +1820,8 @@ export default function ScannerPage() {
                           disabled={Boolean(scannedDocument) || scanningDocument}
                           className={`rounded-lg px-3 py-2 text-xs font-bold transition ${
                             scannerMode === "OCR"
-                              ? "bg-white text-indigo-600 shadow-sm"
-                              : "text-slate-500 hover:text-slate-700"
+                              ? "bg-[#111111] text-rose-400 shadow-[0_12px_35px_rgba(0,0,0,0.22)]"
+                              : "text-gray-400 hover:text-gray-200"
                           } disabled:cursor-not-allowed disabled:opacity-50`}
                         >
                           OCR Nota
@@ -1854,17 +1854,17 @@ export default function ScannerPage() {
 
               {/* GEMINI DATABASE MATCH */}
               {aiOcrData && (
-                <div className="mt-6 overflow-hidden rounded-2xl border border-indigo-100 bg-white shadow-sm">
-                  <div className="border-b border-indigo-100 bg-indigo-50/70 px-5 py-4">
+                <div className="mt-6 overflow-hidden rounded-2xl border border-rose-500/15 bg-[#111111] shadow-[0_12px_35px_rgba(0,0,0,0.22)]">
+                  <div className="border-b border-rose-500/15 bg-rose-500/[0.08]0/[0.08] px-5 py-4">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-indigo-600 shadow-sm">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#111111] text-rose-400 shadow-[0_12px_35px_rgba(0,0,0,0.22)]">
                         <ShieldCheck className="h-4 w-4" />
                       </div>
                       <div>
-                        <h3 className="text-sm font-bold text-slate-800">
+                        <h3 className="text-sm font-bold text-white">
                           Gemini AI → Database Validation
                         </h3>
-                        <p className="mt-1 text-xs text-slate-500">
+                        <p className="mt-1 text-xs text-gray-400">
                           Hasil pembacaan AI dicocokkan dengan Master Data.
                         </p>
                       </div>
@@ -1875,20 +1875,20 @@ export default function ScannerPage() {
                     <div
                       className={`rounded-xl border p-4 ${
                         aiMatchStatus === "MATCHED"
-                          ? "border-emerald-200 bg-emerald-50"
+                          ? "border-emerald-500/25 bg-emerald-500/[0.08]"
                           : aiMatchStatus === "PARTIAL"
-                            ? "border-amber-200 bg-amber-50"
-                            : "border-rose-200 bg-rose-50"
+                            ? "border-amber-500/25 bg-amber-500/[0.08]"
+                            : "border-rose-500/25 bg-rose-500/[0.08]"
                       }`}
                     >
                       <div className="flex items-start gap-3">
                         {aiMatchStatus === "MATCHED" ? (
-                          <CheckCircle2 className="mt-0.5 h-5 w-5 text-emerald-600" />
+                          <CheckCircle2 className="mt-0.5 h-5 w-5 text-emerald-400" />
                         ) : (
-                          <AlertCircle className="mt-0.5 h-5 w-5 text-amber-600" />
+                          <AlertCircle className="mt-0.5 h-5 w-5 text-amber-400" />
                         )}
                         <div>
-                          <p className="text-sm font-bold text-slate-800">
+                          <p className="text-sm font-bold text-white">
                             {aiMatchStatus === "MATCHED"
                               ? "Data berhasil dicocokkan"
                               : aiMatchStatus === "PARTIAL"
@@ -1896,7 +1896,7 @@ export default function ScannerPage() {
                                 : "Perlu pemeriksaan manual"}
                           </p>
                           {aiMatchMessage && (
-                            <p className="mt-1 text-xs leading-5 text-slate-600">
+                            <p className="mt-1 text-xs leading-5 text-gray-300">
                               {aiMatchMessage}
                             </p>
                           )}
@@ -1905,39 +1905,39 @@ export default function ScannerPage() {
                     </div>
 
                     <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">SPK</p>
-                        <p className="mt-1 text-sm font-bold text-slate-800">
+                      <div className="rounded-xl border border-white/10 bg-[#191919] p-3">
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">SPK</p>
+                        <p className="mt-1 text-sm font-bold text-white">
                           {selectedSpk?.spkNumber ?? aiOcrData.spkNumber ?? "-"}
                         </p>
                       </div>
 
-                      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Proses</p>
-                        <p className="mt-1 text-sm font-bold text-slate-800">
+                      <div className="rounded-xl border border-white/10 bg-[#191919] p-3">
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Proses</p>
+                        <p className="mt-1 text-sm font-bold text-white">
                           {selectedTransactionType?.name ?? aiOcrData.transactionType ?? "-"}
                         </p>
                       </div>
 
-                      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Quantity</p>
-                        <p className="mt-1 text-sm font-bold text-slate-800">
+                      <div className="rounded-xl border border-white/10 bg-[#191919] p-3">
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Quantity</p>
+                        <p className="mt-1 text-sm font-bold text-white">
                           {quantity ? `${quantity}${aiOcrData.unit ? ` ${aiOcrData.unit}` : ""}` : "-"}
                         </p>
                       </div>
 
-                      <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Employee</p>
-                        <p className="mt-1 text-sm font-bold text-slate-800">
+                      <div className="rounded-xl border border-white/10 bg-[#191919] p-3">
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Employee</p>
+                        <p className="mt-1 text-sm font-bold text-white">
                           {employees.find((employee) => String(employee.id) === selectedEmployeeId)?.name ?? aiOcrData.employeeName ?? "-"}
                         </p>
                       </div>
                     </div>
 
                     {!aiOcrData.documentNumber && (
-                      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-                        <p className="text-xs font-bold text-amber-800">Nomor nota belum terbaca</p>
-                        <p className="mt-1 text-xs leading-5 text-amber-700">
+                      <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.08] p-4">
+                        <p className="text-xs font-bold text-amber-300">Nomor nota belum terbaca</p>
+                        <p className="mt-1 text-xs leading-5 text-amber-300">
                           Masukkan nomor nota secara manual sebelum transaksi dapat diproses.
                         </p>
                       </div>
@@ -1947,19 +1947,19 @@ export default function ScannerPage() {
               )}
 
               {/* MANUAL */}
-              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                <div className="border-b border-slate-100 px-5 py-4">
+              <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#111111] shadow-[0_12px_35px_rgba(0,0,0,0.22)]">
+                <div className="border-b border-white/[0.07] px-5 py-4">
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <div className="flex items-center gap-2">
-                        <ClipboardList className="h-5 w-5 text-indigo-600" />
+                        <ClipboardList className="h-5 w-5 text-rose-400" />
 
-                        <h2 className="text-sm font-bold text-slate-800">
+                        <h2 className="text-sm font-bold text-white">
                           Manual Input
                         </h2>
                       </div>
 
-                      <p className="mt-1 text-xs leading-5 text-slate-500">
+                      <p className="mt-1 text-xs leading-5 text-gray-400">
                         Gunakan input manual jika
                         kamera tidak tersedia.
                       </p>
@@ -1973,7 +1973,7 @@ export default function ScannerPage() {
                             !value,
                         )
                       }
-                      className="text-xs font-semibold text-indigo-600 hover:text-indigo-800"
+                      className="text-xs font-semibold text-rose-400 hover:text-rose-300"
                     >
                       {showCamera
                         ? "Sembunyikan scanner"
@@ -1988,13 +1988,13 @@ export default function ScannerPage() {
                   }
                   className="p-5"
                 >
-                  <label className="block text-xs font-bold uppercase tracking-[0.1em] text-slate-500">
+                  <label className="block text-xs font-bold uppercase tracking-[0.1em] text-gray-400">
                     Nomor Dokumen
                   </label>
 
                   <div className="mt-2 flex flex-col gap-3 sm:flex-row">
                     <div className="relative flex-1">
-                      <ClipboardList className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <ClipboardList className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
 
                       <input
                         value={
@@ -2007,7 +2007,7 @@ export default function ScannerPage() {
                           )
                         }
                         placeholder="Contoh: NT-20260930-00128"
-                        className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-3 font-mono text-sm font-medium text-slate-800 outline-none transition placeholder:font-sans placeholder:text-slate-400 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50"
+                        className="h-11 w-full rounded-xl border border-white/10 bg-[#111111] pl-10 pr-3 font-mono text-sm font-medium text-white outline-none transition placeholder:font-sans placeholder:text-gray-500 focus:border-rose-500 focus:ring-4 focus:ring-rose-500/15"
                       />
                     </div>
 
@@ -2017,7 +2017,7 @@ export default function ScannerPage() {
                         scanningDocument ||
                         !documentNumber.trim()
                       }
-                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {scanningDocument ? (
                         <>
@@ -2037,15 +2037,15 @@ export default function ScannerPage() {
 
               {/* DOCUMENT RESULT */}
               {scannedDocument && (
-                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                  <div className="border-b border-slate-100 px-5 py-4">
+                <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#111111] shadow-[0_12px_35px_rgba(0,0,0,0.22)]">
+                  <div className="border-b border-white/[0.07] px-5 py-4">
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-gray-500">
                           Scanned Document
                         </p>
 
-                        <h2 className="mt-1 font-mono text-lg font-bold text-slate-800">
+                        <h2 className="mt-1 font-mono text-lg font-bold text-white">
                           {
                             scannedDocument.documentNumber
                           }
@@ -2066,11 +2066,11 @@ export default function ScannerPage() {
 
                   <div className="grid gap-4 p-5 sm:grid-cols-3">
                     <div>
-                      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-gray-500">
                         Source
                       </p>
 
-                      <p className="mt-1 text-sm font-bold text-slate-700">
+                      <p className="mt-1 text-sm font-bold text-gray-200">
                         {
                           scannedDocument.source
                         }
@@ -2078,11 +2078,11 @@ export default function ScannerPage() {
                     </div>
 
                     <div>
-                      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-gray-500">
                         Scanned At
                       </p>
 
-                      <p className="mt-1 text-sm font-medium text-slate-700">
+                      <p className="mt-1 text-sm font-medium text-gray-200">
                         {formatDate(
                           scannedDocument.scannedAt,
                         )}
@@ -2090,11 +2090,11 @@ export default function ScannerPage() {
                     </div>
 
                     <div>
-                      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-gray-500">
                         Processed At
                       </p>
 
-                      <p className="mt-1 text-sm font-medium text-slate-700">
+                      <p className="mt-1 text-sm font-medium text-gray-200">
                         {formatDate(
                           scannedDocument.processedAt,
                         )}
@@ -2103,8 +2103,8 @@ export default function ScannerPage() {
                   </div>
 
                   {scanMessage && (
-                    <div className="border-t border-slate-100 bg-slate-50 px-5 py-3">
-                      <p className="text-xs leading-5 text-slate-600">
+                    <div className="border-t border-white/[0.07] bg-[#191919] px-5 py-3">
+                      <p className="text-xs leading-5 text-gray-300">
                         {scanMessage}
                       </p>
                     </div>
@@ -2115,19 +2115,19 @@ export default function ScannerPage() {
               {/* TRANSACTION FORM */}
               {scannedDocument &&
                 !processedTransaction && (
-                  <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                    <div className="border-b border-slate-100 px-5 py-4">
+                  <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#111111] shadow-[0_12px_35px_rgba(0,0,0,0.22)]">
+                    <div className="border-b border-white/[0.07] px-5 py-4">
                       <div className="flex items-start gap-3">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-500/[0.08]0/[0.08] text-rose-400">
                           <FileCheck2 className="h-4 w-4" />
                         </div>
 
                         <div>
-                          <h2 className="text-sm font-bold text-slate-800">
+                          <h2 className="text-sm font-bold text-white">
                             Transaction Details
                           </h2>
 
-                          <p className="mt-1 text-xs leading-5 text-slate-500">
+                          <p className="mt-1 text-xs leading-5 text-gray-400">
                             Lengkapi data transaksi
                             sebelum melakukan
                             konfirmasi.
@@ -2139,12 +2139,12 @@ export default function ScannerPage() {
                     <div className="space-y-5 p-5">
                       {/* SPK */}
                       <div>
-                        <label className="block text-xs font-bold uppercase tracking-[0.1em] text-slate-500">
+                        <label className="block text-xs font-bold uppercase tracking-[0.1em] text-gray-400">
                           SPK
                         </label>
 
                         <div className="relative mt-2">
-                          <ClipboardList className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                          <ClipboardList className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
 
                           <select
                             value={
@@ -2158,7 +2158,7 @@ export default function ScannerPage() {
                                   .value,
                               )
                             }
-                            className="h-11 w-full appearance-none rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-sm font-medium text-slate-800 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50"
+                            className="h-11 w-full appearance-none rounded-xl border border-white/10 bg-[#111111] pl-10 pr-3 text-sm font-medium text-white outline-none transition focus:border-rose-500 focus:ring-4 focus:ring-rose-500/15"
                           >
                             <option value="">
                               Pilih SPK
@@ -2182,7 +2182,7 @@ export default function ScannerPage() {
                         {/* SPK SEARCH */}
                         <div className="mt-2">
                           <div className="relative">
-                            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-500" />
 
                             <input
                               value={
@@ -2198,7 +2198,7 @@ export default function ScannerPage() {
                                 )
                               }
                               placeholder="Cari SPK / product / penjahit..."
-                              className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-3 text-xs text-slate-700 outline-none transition focus:border-indigo-300 focus:bg-white"
+                              className="h-9 w-full rounded-lg border border-white/10 bg-[#191919] pl-9 pr-3 text-xs text-gray-200 outline-none transition focus:border-rose-500 focus:bg-[#111111]"
                             />
                           </div>
                         </div>
@@ -2207,7 +2207,7 @@ export default function ScannerPage() {
                       {/* PRODUCT */}
                       {selectedSpk && (
                         <div>
-                          <label className="block text-xs font-bold uppercase tracking-[0.1em] text-slate-500">
+                          <label className="block text-xs font-bold uppercase tracking-[0.1em] text-gray-400">
                             Product
                           </label>
                           <select
@@ -2218,7 +2218,7 @@ export default function ScannerPage() {
                               setQuantity("");
                               setError("");
                             }}
-                            className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50"
+                            className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#111111] px-3 text-sm font-medium text-white outline-none transition focus:border-rose-500 focus:ring-4 focus:ring-rose-500/15"
                           >
                             <option value="">Pilih product</option>
                             {selectedSpk.items.map((item) => (
@@ -2232,20 +2232,20 @@ export default function ScannerPage() {
 
                       {/* SPK INFO */}
                       {selectedSpk && (
-                        <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 p-4">
+                        <div className="rounded-xl border border-rose-500/15 bg-rose-500/[0.08]0/[0.08]/60 p-4">
                           <div className="grid gap-4 sm:grid-cols-3">
                             <div>
-                              <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-indigo-400">
+                              <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-rose-400">
                                 Product
                               </p>
 
-                              <p className="mt-1 text-sm font-bold text-slate-800">
+                              <p className="mt-1 text-sm font-bold text-white">
                                 {
                                   selectedProduct?.name ?? "Belum dipilih"
                                 }
                               </p>
 
-                              <p className="mt-0.5 font-mono text-[11px] text-slate-500">
+                              <p className="mt-0.5 font-mono text-[11px] text-gray-400">
                                 {
                                   selectedProduct?.code ?? "-"
                                 }
@@ -2253,11 +2253,11 @@ export default function ScannerPage() {
                             </div>
 
                             <div>
-                              <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-indigo-400">
+                              <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-rose-400">
                                 Penjahit
                               </p>
 
-                              <p className="mt-1 text-sm font-bold text-slate-800">
+                              <p className="mt-1 text-sm font-bold text-white">
                                 {
                                   selectedSpk
                                     .tailor
@@ -2267,17 +2267,17 @@ export default function ScannerPage() {
                             </div>
 
                             <div>
-                              <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-indigo-400">
+                              <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-rose-400">
                                 Available
                               </p>
 
-                              <p className="mt-1 text-sm font-bold text-slate-800">
+                              <p className="mt-1 text-sm font-bold text-white">
                                 {
                                   selectedProductSummary?.summary.jumlahBarang ?? 0
                                 }
                               </p>
 
-                              <p className="mt-0.5 text-[11px] text-slate-500">
+                              <p className="mt-0.5 text-[11px] text-gray-400">
                                 Total barang
                               </p>
                             </div>
@@ -2287,7 +2287,7 @@ export default function ScannerPage() {
 
                       {/* TRANSACTION TYPE */}
                       <div>
-                        <label className="block text-xs font-bold uppercase tracking-[0.1em] text-slate-500">
+                        <label className="block text-xs font-bold uppercase tracking-[0.1em] text-gray-400">
                           Transaction Type
                         </label>
 
@@ -2312,7 +2312,7 @@ export default function ScannerPage() {
                           disabled={
                             !selectedSpk || !selectedProductId
                           }
-                          className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-800 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+                          className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#111111] px-3 text-sm font-medium text-white outline-none transition focus:border-rose-500 focus:ring-4 focus:ring-rose-500/15 disabled:cursor-not-allowed disabled:bg-[#191919] disabled:text-gray-500"
                         >
                           <option value="">
                             Pilih proses
@@ -2340,7 +2340,7 @@ export default function ScannerPage() {
                         {selectedSpk &&
                           availableTransactionTypes.length ===
                             0 && (
-                            <p className="mt-2 text-xs text-amber-600">
+                            <p className="mt-2 text-xs text-amber-400">
                               Tidak ada proses
                               transaksi yang
                               tersedia untuk
@@ -2352,12 +2352,12 @@ export default function ScannerPage() {
 
                       {/* EMPLOYEE */}
                       <div>
-                        <label className="block text-xs font-bold uppercase tracking-[0.1em] text-slate-500">
+                        <label className="block text-xs font-bold uppercase tracking-[0.1em] text-gray-400">
                           Employee
                         </label>
 
                         <div className="relative mt-2">
-                          <UserRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                          <UserRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
 
                           <select
                             value={
@@ -2372,7 +2372,7 @@ export default function ScannerPage() {
                                   .value,
                               )
                             }
-                            className="h-11 w-full appearance-none rounded-xl border border-slate-200 bg-white pl-10 pr-3 text-sm font-medium text-slate-800 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50"
+                            className="h-11 w-full appearance-none rounded-xl border border-white/10 bg-[#111111] pl-10 pr-3 text-sm font-medium text-white outline-none transition focus:border-rose-500 focus:ring-4 focus:ring-rose-500/15"
                           >
                             <option value="">
                               Pilih employee
@@ -2401,13 +2401,13 @@ export default function ScannerPage() {
                       {/* QUANTITY */}
                       <div>
                         <div className="flex items-center justify-between gap-3">
-                          <label className="block text-xs font-bold uppercase tracking-[0.1em] text-slate-500">
+                          <label className="block text-xs font-bold uppercase tracking-[0.1em] text-gray-400">
                             Quantity
                           </label>
 
                           {maxQuantity !==
                             null && (
-                            <span className="text-xs font-semibold text-indigo-600">
+                            <span className="text-xs font-semibold text-rose-400">
                               Available:{" "}
                               {
                                 maxQuantity
@@ -2439,12 +2439,12 @@ export default function ScannerPage() {
                             !selectedTransactionType
                           }
                           placeholder="Masukkan quantity"
-                          className="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 disabled:cursor-not-allowed disabled:bg-slate-50"
+                          className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#111111] px-3 text-sm font-bold text-white outline-none transition focus:border-rose-500 focus:ring-4 focus:ring-rose-500/15 disabled:cursor-not-allowed disabled:bg-[#191919]"
                         />
 
                         {maxQuantity !==
                           null && (
-                          <p className="mt-2 text-[11px] leading-5 text-slate-400">
+                          <p className="mt-2 text-[11px] leading-5 text-gray-500">
                             Maximum quantity
                             mengikuti
                             business rule SPK.
@@ -2453,13 +2453,13 @@ export default function ScannerPage() {
                       </div>
 
                       {/* ACTION */}
-                      <div className="flex flex-col gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:justify-end">
+                      <div className="flex flex-col gap-3 border-t border-white/[0.07] pt-5 sm:flex-row sm:justify-end">
                         <button
                           type="button"
                           onClick={
                             resetScanner
                           }
-                          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600 transition hover:bg-slate-50"
+                          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#111111] px-4 py-2.5 text-sm font-bold text-gray-300 transition hover:bg-[#191919]"
                         >
                           <RefreshCw className="h-4 w-4" />
                           Clear
@@ -2474,7 +2474,7 @@ export default function ScannerPage() {
                             !canProcess ||
                             submitting
                           }
-                          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-rose-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           <FileCheck2 className="h-4 w-4" />
                           Preview & Confirm
@@ -2483,8 +2483,8 @@ export default function ScannerPage() {
                       </div>
 
                       {!canProcess && (
-                        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-                          <p className="text-xs leading-5 text-amber-700">
+                        <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.08] px-4 py-3">
+                          <p className="text-xs leading-5 text-amber-300">
                             Akun ini dapat
                             melihat scanner,
                             tetapi tidak
@@ -2508,13 +2508,13 @@ export default function ScannerPage() {
 
             <aside className="space-y-6">
               {/* WORKFLOW */}
-              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                <div className="border-b border-slate-100 px-5 py-4">
-                  <h2 className="text-sm font-bold text-slate-800">
+              <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#111111] shadow-[0_12px_35px_rgba(0,0,0,0.22)]">
+                <div className="border-b border-white/[0.07] px-5 py-4">
+                  <h2 className="text-sm font-bold text-white">
                     Scanner Workflow
                   </h2>
 
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="mt-1 text-xs text-gray-400">
                     Alur pemrosesan dokumen.
                   </p>
                 </div>
@@ -2562,31 +2562,31 @@ export default function ScannerPage() {
                             }
                             className="flex gap-3"
                           >
-                            <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                            <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-500/[0.08]0/[0.08] text-rose-400">
                               <Icon className="h-4 w-4" />
 
                               {index <
                                 3 && (
-                                <span className="absolute left-1/2 top-full h-5 w-px -translate-x-1/2 bg-slate-200" />
+                                <span className="absolute left-1/2 top-full h-5 w-px -translate-x-1/2 bg-white/10" />
                               )}
                             </div>
 
                             <div>
                               <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-bold text-slate-400">
+                                <span className="text-[10px] font-bold text-gray-500">
                                   {
                                     step.number
                                   }
                                 </span>
 
-                                <p className="text-sm font-bold text-slate-800">
+                                <p className="text-sm font-bold text-white">
                                   {
                                     step.title
                                   }
                                 </p>
                               </div>
 
-                              <p className="mt-1 text-xs leading-5 text-slate-500">
+                              <p className="mt-1 text-xs leading-5 text-gray-400">
                                 {
                                   step.description
                                 }
@@ -2602,13 +2602,13 @@ export default function ScannerPage() {
 
               {/* CURRENT DOCUMENT */}
               {scannedDocument && (
-                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                  <div className="border-b border-slate-100 px-5 py-4">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#111111] shadow-[0_12px_35px_rgba(0,0,0,0.22)]">
+                  <div className="border-b border-white/[0.07] px-5 py-4">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-gray-500">
                       Current Document
                     </p>
 
-                    <p className="mt-2 break-all font-mono text-sm font-bold text-slate-800">
+                    <p className="mt-2 break-all font-mono text-sm font-bold text-white">
                       {
                         scannedDocument.documentNumber
                       }
@@ -2617,11 +2617,11 @@ export default function ScannerPage() {
 
                   <div className="space-y-3 p-5">
                     <div className="flex items-center justify-between gap-3">
-                      <span className="text-xs text-slate-500">
+                      <span className="text-xs text-gray-400">
                         Source
                       </span>
 
-                      <span className="text-xs font-bold text-slate-700">
+                      <span className="text-xs font-bold text-gray-200">
                         {
                           scannedDocument.source
                         }
@@ -2629,7 +2629,7 @@ export default function ScannerPage() {
                     </div>
 
                     <div className="flex items-center justify-between gap-3">
-                      <span className="text-xs text-slate-500">
+                      <span className="text-xs text-gray-400">
                         Status
                       </span>
 
@@ -2646,11 +2646,11 @@ export default function ScannerPage() {
 
                     {selectedSpk && (
                       <div className="flex items-center justify-between gap-3">
-                        <span className="text-xs text-slate-500">
+                        <span className="text-xs text-gray-400">
                           SPK
                         </span>
 
-                        <span className="text-right text-xs font-bold text-slate-700">
+                        <span className="text-right text-xs font-bold text-gray-200">
                           {
                             selectedSpk.spkNumber
                           }
@@ -2660,8 +2660,8 @@ export default function ScannerPage() {
 
                     {selectedProduct && (
                       <div className="flex items-center justify-between gap-3">
-                        <span className="text-xs text-slate-500">Product</span>
-                        <span className="text-right text-xs font-bold text-slate-700">
+                        <span className="text-xs text-gray-400">Product</span>
+                        <span className="text-right text-xs font-bold text-gray-200">
                           {selectedProduct.code} — {selectedProduct.name}
                         </span>
                       </div>
@@ -2669,11 +2669,11 @@ export default function ScannerPage() {
 
                     {selectedTransactionType && (
                       <div className="flex items-center justify-between gap-3">
-                        <span className="text-xs text-slate-500">
+                        <span className="text-xs text-gray-400">
                           Process
                         </span>
 
-                        <span className="text-right text-xs font-bold text-slate-700">
+                        <span className="text-right text-xs font-bold text-gray-200">
                           {getTransactionLabel(
                             selectedTransactionType.code,
                             selectedTransactionType.name,
@@ -2686,18 +2686,18 @@ export default function ScannerPage() {
               )}
 
               {/* BUSINESS RULE */}
-              <div className="rounded-2xl border border-indigo-100 bg-indigo-50/60 p-5">
+              <div className="rounded-2xl border border-rose-500/15 bg-rose-500/[0.08]0/[0.08]/60 p-5">
                 <div className="flex items-start gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-indigo-600 shadow-sm">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#111111] text-rose-400 shadow-[0_12px_35px_rgba(0,0,0,0.22)]">
                     <ShieldCheck className="h-4 w-4" />
                   </div>
 
                   <div>
-                    <p className="text-sm font-bold text-indigo-900">
+                    <p className="text-sm font-bold text-rose-200">
                       Business Rule Protected
                     </p>
 
-                    <p className="mt-1 text-xs leading-5 text-indigo-700">
+                    <p className="mt-1 text-xs leading-5 text-rose-300">
                       Scanner tidak langsung
                       membuat transaksi.
                       Semua transaksi tetap
@@ -2709,34 +2709,34 @@ export default function ScannerPage() {
               </div>
 
               {/* QUICK LINKS */}
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+              <div className="rounded-2xl border border-white/10 bg-[#111111] p-5 shadow-[0_12px_35px_rgba(0,0,0,0.22)]">
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-gray-500">
                   Quick Access
                 </p>
 
                 <div className="mt-3 space-y-2">
                   <Link
                     href="/operations/scanner/history"
-                    className="flex items-center justify-between rounded-xl border border-slate-100 px-3 py-3 text-sm font-semibold text-slate-700 transition hover:border-indigo-100 hover:bg-indigo-50/50"
+                    className="flex items-center justify-between rounded-xl border border-white/[0.07] px-3 py-3 text-sm font-semibold text-gray-200 transition hover:border-rose-500/15 hover:bg-rose-500/[0.08]0/[0.08]/50"
                   >
                     <span className="flex items-center gap-2">
-                      <History className="h-4 w-4 text-slate-400" />
+                      <History className="h-4 w-4 text-gray-500" />
                       Scanner History
                     </span>
 
-                    <ArrowRight className="h-4 w-4 text-slate-400" />
+                    <ArrowRight className="h-4 w-4 text-gray-500" />
                   </Link>
 
                   <Link
                     href="/operations/transactions"
-                    className="flex items-center justify-between rounded-xl border border-slate-100 px-3 py-3 text-sm font-semibold text-slate-700 transition hover:border-indigo-100 hover:bg-indigo-50/50"
+                    className="flex items-center justify-between rounded-xl border border-white/[0.07] px-3 py-3 text-sm font-semibold text-gray-200 transition hover:border-rose-500/15 hover:bg-rose-500/[0.08]0/[0.08]/50"
                   >
                     <span className="flex items-center gap-2">
-                      <ClipboardList className="h-4 w-4 text-slate-400" />
+                      <ClipboardList className="h-4 w-4 text-gray-500" />
                       Transactions
                     </span>
 
-                    <ArrowRight className="h-4 w-4 text-slate-400" />
+                    <ArrowRight className="h-4 w-4 text-gray-500" />
                   </Link>
                 </div>
               </div>
@@ -2753,12 +2753,12 @@ export default function ScannerPage() {
           selectedSpk &&
           selectedProduct &&
           selectedTransactionType && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
-              <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+              <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-white/10 bg-[#111111] shadow-2xl">
                 {/* HEADER */}
-                <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-5">
+                <div className="flex items-start justify-between gap-4 border-b border-white/[0.07] px-5 py-5">
                   <div>
-                    <div className="flex items-center gap-2 text-indigo-600">
+                    <div className="flex items-center gap-2 text-rose-400">
                       <FileCheck2 className="h-5 w-5" />
 
                       <span className="text-[10px] font-bold uppercase tracking-[0.12em]">
@@ -2766,11 +2766,11 @@ export default function ScannerPage() {
                       </span>
                     </div>
 
-                    <h2 className="mt-2 text-lg font-bold text-slate-800">
+                    <h2 className="mt-2 text-lg font-bold text-white">
                       Preview Transaction
                     </h2>
 
-                    <p className="mt-1 text-xs leading-5 text-slate-500">
+                    <p className="mt-1 text-xs leading-5 text-gray-400">
                       Pastikan data berikut
                       sudah benar sebelum
                       transaksi diproses.
@@ -2785,7 +2785,7 @@ export default function ScannerPage() {
                       )
                     }
                     disabled={submitting}
-                    className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 disabled:opacity-50"
+                    className="rounded-xl p-2 text-gray-500 transition hover:bg-white/[0.06] hover:text-gray-300 disabled:opacity-50"
                   >
                     <X className="h-5 w-5" />
                   </button>
@@ -2793,14 +2793,14 @@ export default function ScannerPage() {
 
                 {/* DATA */}
                 <div className="space-y-4 p-5">
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="rounded-xl border border-white/10 bg-[#191919] p-4">
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div>
-                        <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-gray-500">
                           Document
                         </p>
 
-                        <p className="mt-1 break-all font-mono text-sm font-bold text-slate-800">
+                        <p className="mt-1 break-all font-mono text-sm font-bold text-white">
                           {
                             scannedDocument.documentNumber
                           }
@@ -2808,11 +2808,11 @@ export default function ScannerPage() {
                       </div>
 
                       <div>
-                        <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-400">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-gray-500">
                           Source
                         </p>
 
-                        <p className="mt-1 text-sm font-bold text-slate-800">
+                        <p className="mt-1 text-sm font-bold text-white">
                           {
                             scannedDocument.source
                           }
@@ -2871,11 +2871,11 @@ export default function ScannerPage() {
                     />
                   </div>
 
-                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                  <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.08] p-4">
                     <div className="flex items-start gap-3">
-                      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
 
-                      <p className="text-xs leading-5 text-amber-700">
+                      <p className="text-xs leading-5 text-amber-300">
                         Setelah dikonfirmasi,
                         sistem akan membuat
                         transaction dan
@@ -2890,7 +2890,7 @@ export default function ScannerPage() {
                 </div>
 
                 {/* ACTIONS */}
-                <div className="flex flex-col gap-3 border-t border-slate-100 px-5 py-4 sm:flex-row sm:justify-end">
+                <div className="flex flex-col gap-3 border-t border-white/[0.07] px-5 py-4 sm:flex-row sm:justify-end">
                   <button
                     type="button"
                     onClick={() =>
@@ -2899,7 +2899,7 @@ export default function ScannerPage() {
                       )
                     }
                     disabled={submitting}
-                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50"
+                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#111111] px-4 py-2.5 text-sm font-bold text-gray-300 transition hover:bg-[#191919] disabled:opacity-50"
                   >
                     Kembali
                   </button>
@@ -2913,7 +2913,7 @@ export default function ScannerPage() {
                       submitting ||
                       !canProcess
                     }
-                    className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
+                    className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-rose-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
                   >
                     {submitting ? (
                       <>
@@ -2952,16 +2952,16 @@ function PreviewRow({
   strong?: boolean;
 }) {
   return (
-    <div className="flex items-start justify-between gap-5 border-b border-slate-100 pb-3 last:border-0 last:pb-0">
-      <span className="text-xs text-slate-500">
+    <div className="flex items-start justify-between gap-5 border-b border-white/[0.07] pb-3 last:border-0 last:pb-0">
+      <span className="text-xs text-gray-400">
         {label}
       </span>
 
       <span
         className={`max-w-[65%] text-right text-sm ${
           strong
-            ? "font-bold text-indigo-600"
-            : "font-semibold text-slate-800"
+            ? "font-bold text-rose-400"
+            : "font-semibold text-white"
         }`}
       >
         {value}

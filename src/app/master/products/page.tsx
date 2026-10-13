@@ -79,7 +79,9 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
 
   const [search, setSearch] = useState("");
+
   const [currentPage, setCurrentPage] = useState(1);
+
   const [pageSize, setPageSize] = useState(10);
 
   const [loading, setLoading] = useState(true);
@@ -93,6 +95,7 @@ export default function ProductsPage() {
   const [saving, setSaving] = useState(false);
 
   const [error, setError] = useState("");
+
 const loadProducts = useCallback(async () => {
 
     try {
@@ -144,6 +147,7 @@ const loadProducts = useCallback(async () => {
     void loadProducts();
 
   }, [loadProducts]);
+
 function openCreateForm() {
 
     setEditingProduct(null);
@@ -155,6 +159,7 @@ function openCreateForm() {
     setShowForm(true);
 
   }
+
 function openEditForm(product: Product) {
 
     setEditingProduct(product);
@@ -174,6 +179,7 @@ function openEditForm(product: Product) {
     setShowForm(true);
 
   }
+
 function closeForm() {
 
     if (saving) return;
@@ -187,6 +193,7 @@ function closeForm() {
     setError("");
 
   }
+
 async function handleSubmit(event: FormEvent<HTMLFormElement>) {
 
     event.preventDefault();
@@ -268,11 +275,12 @@ async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     }
 
   }
+
 async function handleDelete(product: Product) {
 
     const confirmed = window.confirm(
 
-      `Hapus product "${product.name}"?\n\nData product akan dihapus dari master data.`
+      `Hapus product "${product.name}"?nnData product akan dihapus dari master data.`
 
     );
 
@@ -311,6 +319,7 @@ async function handleDelete(product: Product) {
     }
 
   }
+
 async function toggleStatus(product: Product) {
 
     try {
@@ -362,6 +371,7 @@ async function toggleStatus(product: Product) {
     }
 
   }
+
 const keyword = search.toLowerCase().trim();
 
   const filteredProducts = products.filter((product) => {
@@ -377,15 +387,23 @@ const keyword = search.toLowerCase().trim();
   });
 
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / pageSize));
+
   const paginatedProducts = filteredProducts.slice(
+
     (currentPage - 1) * pageSize,
+
     currentPage * pageSize
+
   );
+
   const startItem = filteredProducts.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+
   const endItem = Math.min(currentPage * pageSize, filteredProducts.length);
 
   useEffect(() => {
+
     setCurrentPage(1);
+
   }, [search, pageSize]);
 
   const activeCount = products.filter((product) => product.isActive).length;
@@ -394,9 +412,9 @@ const keyword = search.toLowerCase().trim();
 
   return (
 
-    <div className="min-h-screen bg-slate-950">
+    <div className="min-h-screen bg-gradient-to-br from-[#090909] via-[#111111] to-[#18090b]">
 
-      <header className="border-b border-slate-800 bg-slate-950">
+      <header className="border-b border-white/10 bg-[#090909]/80 backdrop-blur-xl">
 
         <div className="flex flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
 
@@ -446,7 +464,7 @@ const keyword = search.toLowerCase().trim();
 
               disabled={loading}
 
-              className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3.5 text-sm font-semibold text-slate-400 transition hover:border-rose-500/30 hover:bg-rose-500/10 hover:text-rose-400 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#111111] px-3.5 text-sm font-semibold text-slate-400 transition hover:border-rose-500/30 hover:bg-rose-500/10 hover:text-rose-400 disabled:cursor-not-allowed disabled:opacity-50"
 
             >
 
@@ -492,7 +510,7 @@ const keyword = search.toLowerCase().trim();
 
         <div className="mx-auto w-full max-w-7xl min-w-0">
 
-          <section className="mb-6 min-w-0 rounded-2xl border border-slate-700 bg-slate-900 p-4 shadow-sm sm:p-5">
+          <section className="mb-6 min-w-0 rounded-2xl border border-white/10 bg-[#111111] p-4 shadow-sm sm:p-5">
 
             <div className="mb-3">
 
@@ -574,7 +592,7 @@ const keyword = search.toLowerCase().trim();
 
           <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
 
-            <div className="rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-sm">
+            <div className="rounded-2xl border border-white/10 bg-[#111111] p-5 shadow-sm">
 
               <div className="flex items-center gap-3">
 
@@ -604,7 +622,7 @@ const keyword = search.toLowerCase().trim();
 
             </div>
 
-            <div className="rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-sm">
+            <div className="rounded-2xl border border-white/10 bg-[#111111] p-5 shadow-sm">
 
               <div className="flex items-center gap-3">
 
@@ -634,7 +652,7 @@ const keyword = search.toLowerCase().trim();
 
             </div>
 
-            <div className="rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-sm sm:col-span-2 xl:col-span-1">
+            <div className="rounded-2xl border border-white/10 bg-[#111111] p-5 shadow-sm sm:col-span-2 xl:col-span-1">
 
               <div className="flex items-center gap-3">
 
@@ -666,9 +684,9 @@ const keyword = search.toLowerCase().trim();
 
           </div>
 
-          <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-sm">
+          <section className="min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-[#111111] shadow-sm">
 
-            <div className="flex min-w-0 flex-col gap-4 border-b border-slate-800 px-4 py-5 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex min-w-0 flex-col gap-4 border-b border-white/10 px-4 py-5 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
 
               <div className="min-w-0">
 
@@ -722,7 +740,7 @@ const keyword = search.toLowerCase().trim();
 
                   aria-label="Cari product"
 
-                  className="h-10 w-full rounded-xl border border-slate-700 bg-slate-900 pl-9 pr-4 text-sm text-slate-200 outline-none transition placeholder:text-slate-400 focus:border-rose-500/60 focus:ring-2 focus:ring-rose-500/10"
+                  className="h-10 w-full rounded-xl border border-white/10 bg-[#111111] pl-9 pr-4 text-sm text-slate-200 outline-none transition placeholder:text-slate-400 focus:border-rose-500/60 focus:ring-2 focus:ring-rose-500/10"
 
                 />
 
@@ -736,7 +754,7 @@ const keyword = search.toLowerCase().trim();
 
                 <thead>
 
-                  <tr className="border-b border-slate-800 bg-slate-950">
+                  <tr className="border-b border-white/10 bg-[#090909]/80 backdrop-blur-xl">
 
                     <th className="px-5 py-3.5 text-left text-[10px] font-bold uppercase tracking-[0.08em] text-slate-400">
 
@@ -766,7 +784,7 @@ const keyword = search.toLowerCase().trim();
 
                 </thead>
 
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-white/10">
 
                   {loading ? (
 
@@ -808,7 +826,7 @@ const keyword = search.toLowerCase().trim();
 
                         <div className="flex flex-col items-center justify-center text-center">
 
-                          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-500/10 text-indigo-400">
+                          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-500/10 text-rose-400">
 
                             <Search size={22} />
 
@@ -838,7 +856,7 @@ const keyword = search.toLowerCase().trim();
 
                                 onClick={openCreateForm}
 
-                                className="mt-5 inline-flex items-center gap-2 rounded-xl bg-rose-500/10 px-4 py-2.5 text-sm font-semibold text-rose-300 transition hover:bg-rose-500/100/15"
+                                className="mt-5 inline-flex items-center gap-2 rounded-xl bg-rose-500/10 px-4 py-2.5 text-sm font-semibold text-rose-300 transition hover:bg-rose-500/15"
 
                               >
 
@@ -866,7 +884,7 @@ const keyword = search.toLowerCase().trim();
 
                         key={product.id}
 
-                        className="transition hover:bg-slate-950/80"
+                        className="transition hover:bg-[#090909]/80"
 
                       >
 
@@ -916,7 +934,7 @@ const keyword = search.toLowerCase().trim();
 
                                     ? "border-emerald-500/30 bg-emerald-400/10 text-emerald-300"
 
-                                    : "border-slate-700 bg-slate-800 text-slate-400"
+                                    : "border-white/10 bg-slate-800 text-slate-400"
 
                                 }`}
 
@@ -928,7 +946,7 @@ const keyword = search.toLowerCase().trim();
 
                                     product.isActive
 
-                                      ? "bg-emerald-400/100"
+                                      ? "bg-emerald-400"
 
                                       : "bg-slate-400"
 
@@ -956,9 +974,9 @@ const keyword = search.toLowerCase().trim();
 
                                 product.isActive
 
-                                  ? "border-emerald-500/30 bg-emerald-400/10 text-emerald-300 hover:bg-emerald-100"
+                                  ? "border-emerald-500/30 bg-emerald-400/10 text-emerald-300 hover:bg-emerald-500/15"
 
-                                  : "border-slate-700 bg-slate-800 text-slate-400 hover:bg-slate-200"
+                                  : "border-white/10 bg-slate-800 text-slate-400 hover:bg-white/10"
 
                               }`}
 
@@ -970,7 +988,7 @@ const keyword = search.toLowerCase().trim();
 
                                   product.isActive
 
-                                    ? "bg-emerald-400/100"
+                                    ? "bg-emerald-400"
 
                                     : "bg-slate-400"
 
@@ -1038,7 +1056,7 @@ const keyword = search.toLowerCase().trim();
 
                               type="button"
 
-                              className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-800 hover:text-slate-400"
+                              className="rounded-xl p-2 text-slate-400 transition hover:bg-white/[0.06] hover:text-slate-400"
 
                               title="More"
 
@@ -1063,26 +1081,47 @@ const keyword = search.toLowerCase().trim();
                 </tbody>
 
               </table>
+
             </div>
+
             {!loading && filteredProducts.length > 0 && (
-              <div className="flex flex-col gap-3 border-t border-slate-800 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+
+              <div className="flex flex-col gap-3 border-t border-white/10 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+
                 <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
+
                   <span>Menampilkan <span className="font-semibold text-slate-200">{startItem}–{endItem}</span> dari <span className="font-semibold text-slate-200">{filteredProducts.length}</span> product</span>
+
                   <label className="flex items-center gap-2">
+
                     <span>Baris:</span>
-                    <select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))} className="rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs text-slate-200 outline-none focus:border-rose-500/60" aria-label="Jumlah product per halaman">
+
+                    <select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))} className="rounded-lg border border-white/10 bg-[#111111] px-2 py-1.5 text-xs text-slate-200 outline-none focus:border-rose-500/60" aria-label="Jumlah product per halaman">
+
                       <option value={10}>10</option><option value={25}>25</option><option value={50}>50</option>
+
                     </select>
+
                   </label>
+
                 </div>
+
                 <div className="flex items-center gap-1 self-end sm:self-auto">
-                  <button type="button" onClick={() => setCurrentPage(1)} disabled={currentPage === 1} className="rounded-lg border border-slate-700 px-2.5 py-2 text-xs font-medium text-slate-300 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40" aria-label="Halaman pertama">«</button>
-                  <button type="button" onClick={() => setCurrentPage((page) => Math.max(1, page - 1))} disabled={currentPage === 1} className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-medium text-slate-300 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40">Sebelumnya</button>
+
+                  <button type="button" onClick={() => setCurrentPage(1)} disabled={currentPage === 1} className="rounded-lg border border-white/10 px-2.5 py-2 text-xs font-medium text-slate-300 transition hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-40" aria-label="Halaman pertama">«</button>
+
+                  <button type="button" onClick={() => setCurrentPage((page) => Math.max(1, page - 1))} disabled={currentPage === 1} className="rounded-lg border border-white/10 px-3 py-2 text-xs font-medium text-slate-300 transition hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-40">Sebelumnya</button>
+
                   <span className="px-2 text-xs text-slate-400">Halaman <span className="font-semibold text-slate-100">{currentPage}</span> / {totalPages}</span>
-                  <button type="button" onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))} disabled={currentPage >= totalPages} className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-medium text-slate-300 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40">Berikutnya</button>
-                  <button type="button" onClick={() => setCurrentPage(totalPages)} disabled={currentPage >= totalPages} className="rounded-lg border border-slate-700 px-2.5 py-2 text-xs font-medium text-slate-300 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40" aria-label="Halaman terakhir">»</button>
+
+                  <button type="button" onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))} disabled={currentPage >= totalPages} className="rounded-lg border border-white/10 px-3 py-2 text-xs font-medium text-slate-300 transition hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-40">Berikutnya</button>
+
+                  <button type="button" onClick={() => setCurrentPage(totalPages)} disabled={currentPage >= totalPages} className="rounded-lg border border-white/10 px-2.5 py-2 text-xs font-medium text-slate-300 transition hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-40" aria-label="Halaman terakhir">»</button>
+
                 </div>
+
               </div>
+
             )}
 
           </section>
@@ -1093,11 +1132,11 @@ const keyword = search.toLowerCase().trim();
 
       {showForm && (
 
-        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-950/80 p-4 backdrop-blur-[2px]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-[#090909]/80 p-4 backdrop-blur-[2px]">
 
-          <div className="my-auto w-full max-w-md overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl shadow-black/30">
+          <div className="my-auto w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-[#111111] shadow-2xl shadow-black/30">
 
-            <div className="flex items-start justify-between border-b border-slate-800 px-6 py-5">
+            <div className="flex items-start justify-between border-b border-white/10 px-6 py-5">
 
               <div>
 
@@ -1141,7 +1180,7 @@ const keyword = search.toLowerCase().trim();
 
                 disabled={saving}
 
-                className="shrink-0 rounded-xl p-2 text-slate-400 transition hover:bg-slate-800 hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
+                className="shrink-0 rounded-xl p-2 text-slate-400 transition hover:bg-white/[0.06] hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
 
                 aria-label="Tutup form"
 
@@ -1217,7 +1256,7 @@ const keyword = search.toLowerCase().trim();
 
                   required
 
-                  className="h-11 w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 text-sm text-slate-200 outline-none transition placeholder:text-slate-400 focus:border-rose-500/60 focus:ring-2 focus:ring-rose-500/10 disabled:bg-slate-950"
+                  className="h-11 w-full rounded-xl border border-white/10 bg-[#111111] px-3.5 text-sm text-slate-200 outline-none transition placeholder:text-slate-400 focus:border-rose-500/60 focus:ring-2 focus:ring-rose-500/10 disabled:bg-[#090909]"
 
                 />
 
@@ -1263,13 +1302,13 @@ const keyword = search.toLowerCase().trim();
 
                   required
 
-                  className="h-11 w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 text-sm text-slate-200 outline-none transition placeholder:text-slate-400 focus:border-rose-500/60 focus:ring-2 focus:ring-rose-500/10 disabled:bg-slate-950"
+                  className="h-11 w-full rounded-xl border border-white/10 bg-[#111111] px-3.5 text-sm text-slate-200 outline-none transition placeholder:text-slate-400 focus:border-rose-500/60 focus:ring-2 focus:ring-rose-500/10 disabled:bg-[#090909]"
 
                 />
 
               </div>
 
-              <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 transition hover:border-indigo-100 hover:bg-rose-500/10/40">
+              <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-white/10 bg-[#090909] px-4 py-3 transition hover:border-rose-500/40 hover:bg-rose-500/10">
 
                 <input
 
@@ -1291,7 +1330,7 @@ const keyword = search.toLowerCase().trim();
 
                   disabled={saving}
 
-                  className="h-4 w-4 shrink-0 rounded border-slate-600 text-rose-400 focus:ring-rose-500/100"
+                  className="h-4 w-4 shrink-0 rounded border-slate-600 text-rose-400 focus:ring-rose-500"
 
                 />
 
@@ -1313,7 +1352,7 @@ const keyword = search.toLowerCase().trim();
 
               </label>
 
-              <div className="flex flex-wrap justify-end gap-3 border-t border-slate-800 pt-5">
+              <div className="flex flex-wrap justify-end gap-3 border-t border-white/10 pt-5">
 
                 <button
 
@@ -1323,7 +1362,7 @@ const keyword = search.toLowerCase().trim();
 
                   disabled={saving}
 
-                  className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm font-semibold text-slate-400 transition hover:bg-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-xl border border-white/10 bg-[#111111] px-4 py-2.5 text-sm font-semibold text-slate-400 transition hover:bg-[#090909] disabled:cursor-not-allowed disabled:opacity-50"
 
                 >
 

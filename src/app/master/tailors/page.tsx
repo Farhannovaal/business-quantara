@@ -63,7 +63,9 @@ export default function TailorsPage() {
   const [tailors, setTailors] = useState<Tailor[]>([]);
 
   const [search, setSearch] = useState("");
+
   const [currentPage, setCurrentPage] = useState(1);
+
   const [pageSize, setPageSize] = useState(10);
 
   const [loading, setLoading] = useState(true);
@@ -278,7 +280,7 @@ export default function TailorsPage() {
 
     const confirmed = window.confirm(
 
-      `Hapus tailor "${tailor.name}"?\n\nData tailor akan dihapus dari master data.`
+      `Hapus tailor "${tailor.name}"?nnData tailor akan dihapus dari master data.`
 
     );
 
@@ -407,15 +409,21 @@ export default function TailorsPage() {
   );
 
   const totalPages = Math.max(1, Math.ceil(filteredTailors.length / pageSize));
-  const startIndex = (currentPage - 1) * pageSize;
+
+  const startIndex = (currentPage - 1)  * pageSize;
+
   const paginatedTailors = filteredTailors.slice(startIndex, startIndex + pageSize);
 
   useEffect(() => {
+
     setCurrentPage(1);
+
   }, [search, pageSize]);
 
   useEffect(() => {
+
     if (currentPage > totalPages) setCurrentPage(totalPages);
+
   }, [currentPage, totalPages]);
 
   const activeCount = tailors.filter(
@@ -430,10 +438,9 @@ export default function TailorsPage() {
 
   return (
 
-    <div className="min-h-screen bg-slate-950">
+    <div className="min-h-screen bg-gradient-to-br from-[#090909] via-[#111111] to-[#18090b]">
 
-
-      <header className="border-b border-slate-800 bg-slate-900">
+      <header className="border-b border-white/10 bg-[#111111]">
 
         <div className="flex min-h-20 flex-col gap-4 px-6 py-4 sm:flex-row sm:items-center sm:justify-between lg:px-8">
 
@@ -441,7 +448,7 @@ export default function TailorsPage() {
 
             <div className="flex items-center gap-2">
 
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-500/100/10 text-rose-400">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-500/10 text-rose-400">
 
                 <Scissors size={18} />
 
@@ -455,7 +462,7 @@ export default function TailorsPage() {
 
                 </p>
 
-                <h1 className="text-xl font-bold text-slate-100">
+                <h1 className="text-xl font-bold text-white">
 
                   Tailors
 
@@ -465,7 +472,7 @@ export default function TailorsPage() {
 
             </div>
 
-            <p className="mt-2 text-sm text-slate-500">
+            <p className="mt-2 text-sm text-white/50">
 
               Kelola data penjahit yang digunakan dalam
 
@@ -485,7 +492,7 @@ export default function TailorsPage() {
 
               disabled={loading}
 
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-800 bg-slate-900 px-3.5 text-sm font-semibold text-slate-500 transition hover:border-rose-500/40 hover:bg-rose-500/100/10 hover:text-rose-400 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#111111] px-3.5 text-sm font-semibold text-white/50 transition hover:border-rose-500/40 hover:bg-rose-500/10 hover:text-rose-400 disabled:cursor-not-allowed disabled:opacity-50"
 
             >
 
@@ -535,22 +542,21 @@ export default function TailorsPage() {
 
       </header>
 
-
       <main className="p-6 lg:p-8">
 
         <div className="mx-auto max-w-7xl">
 
-          <section className="mb-6 min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-4 shadow-sm sm:p-5">
+          <section className="mb-6 min-w-0 rounded-2xl border border-white/10 bg-[#111111] p-4 shadow-sm sm:p-5">
 
                       <div className="mb-3">
 
-                        <h2 className="text-sm font-bold text-slate-100">
+                        <h2 className="text-sm font-bold text-white">
 
                           Import & Export Tailors
 
                         </h2>
 
-                        <p className="mt-1 text-xs leading-5 text-slate-500">
+                        <p className="mt-1 text-xs leading-5 text-white/50">
 
                           Download template Excel, import data tailors, atau export
 
@@ -577,7 +583,6 @@ export default function TailorsPage() {
                       </div>
 
                     </section>
-
 
           {error && !showForm && (
 
@@ -617,15 +622,13 @@ export default function TailorsPage() {
 
           )}
 
-
           <div className="mb-6 grid gap-4 sm:grid-cols-3">
 
-
-            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-sm">
+            <div className="rounded-2xl border border-white/10 bg-[#111111] p-5 shadow-sm">
 
               <div className="flex items-center gap-3">
 
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-500/100/10 text-rose-400">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-500/10 text-rose-400">
 
                   <Scissors size={20} />
 
@@ -633,13 +636,13 @@ export default function TailorsPage() {
 
                 <div>
 
-                  <p className="text-xs font-medium text-slate-500">
+                  <p className="text-xs font-medium text-white/50">
 
                     Total Tailors
 
                   </p>
 
-                  <p className="mt-1 text-2xl font-bold text-slate-100">
+                  <p className="mt-1 text-2xl font-bold text-white">
 
                     {tailors.length}
 
@@ -651,12 +654,11 @@ export default function TailorsPage() {
 
             </div>
 
-
-            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-sm">
+            <div className="rounded-2xl border border-white/10 bg-[#111111] p-5 shadow-sm">
 
               <div className="flex items-center gap-3">
 
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400">
 
                   <Scissors size={20} />
 
@@ -664,13 +666,13 @@ export default function TailorsPage() {
 
                 <div>
 
-                  <p className="text-xs font-medium text-slate-500">
+                  <p className="text-xs font-medium text-white/50">
 
                     Active Tailors
 
                   </p>
 
-                  <p className="mt-1 text-2xl font-bold text-slate-100">
+                  <p className="mt-1 text-2xl font-bold text-white">
 
                     {activeCount}
 
@@ -682,12 +684,11 @@ export default function TailorsPage() {
 
             </div>
 
-
-            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-sm">
+            <div className="rounded-2xl border border-white/10 bg-[#111111] p-5 shadow-sm">
 
               <div className="flex items-center gap-3">
 
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-800 text-slate-500">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/[0.06] text-white/50">
 
                   <Scissors size={20} />
 
@@ -695,13 +696,13 @@ export default function TailorsPage() {
 
                 <div>
 
-                  <p className="text-xs font-medium text-slate-500">
+                  <p className="text-xs font-medium text-white/50">
 
                     Inactive Tailors
 
                   </p>
 
-                  <p className="mt-1 text-2xl font-bold text-slate-100">
+                  <p className="mt-1 text-2xl font-bold text-white">
 
                     {inactiveCount}
 
@@ -715,17 +716,15 @@ export default function TailorsPage() {
 
           </div>
 
+          <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#111111] shadow-sm">
 
-          <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-sm">
-
-
-            <div className="flex flex-col gap-4 border-b border-slate-800 px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-4 border-b border-white/10 px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
 
               <div>
 
                 <div className="flex items-center gap-2">
 
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-500/100/10 text-rose-400">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-500/10 text-rose-400">
 
                     <Scissors size={17} />
 
@@ -733,13 +732,13 @@ export default function TailorsPage() {
 
                   <div>
 
-                    <h2 className="text-sm font-bold text-slate-100">
+                    <h2 className="text-sm font-bold text-white">
 
                       Tailor List
 
                     </h2>
 
-                    <p className="mt-0.5 text-xs text-slate-500">
+                    <p className="mt-0.5 text-xs text-white/50">
 
                       {filteredTailors.length} tailor
 
@@ -753,14 +752,13 @@ export default function TailorsPage() {
 
               </div>
 
-
               <div className="relative w-full sm:w-72">
 
                 <Search
 
                   size={16}
 
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50"
 
                 />
 
@@ -776,7 +774,7 @@ export default function TailorsPage() {
 
                   placeholder="Search tailor..."
 
-                  className="h-10 w-full rounded-xl border border-slate-800 bg-slate-900 pl-9 pr-4 text-sm text-slate-200 outline-none transition placeholder:text-slate-500 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
+                  className="h-10 w-full rounded-xl border border-white/10 bg-[#111111] pl-9 pr-4 text-sm text-white/90 outline-none transition placeholder:text-white/50 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
 
                 />
 
@@ -784,28 +782,27 @@ export default function TailorsPage() {
 
             </div>
 
-
             <div className="overflow-x-auto">
 
               <table className="w-full min-w-[700px]">
 
                 <thead>
 
-                  <tr className="border-b border-slate-800 bg-slate-950">
+                  <tr className="border-b border-white/10 bg-[#090909]">
 
-                    <th className="px-5 py-3.5 text-left text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500">
+                    <th className="px-5 py-3.5 text-left text-[10px] font-bold uppercase tracking-[0.08em] text-white/50">
 
                       Tailor Name
 
                     </th>
 
-                    <th className="px-5 py-3.5 text-left text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500">
+                    <th className="px-5 py-3.5 text-left text-[10px] font-bold uppercase tracking-[0.08em] text-white/50">
 
                       Status
 
                     </th>
 
-                    <th className="px-5 py-3.5 text-right text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500">
+                    <th className="px-5 py-3.5 text-right text-[10px] font-bold uppercase tracking-[0.08em] text-white/50">
 
                       Actions
 
@@ -815,7 +812,7 @@ export default function TailorsPage() {
 
                 </thead>
 
-                <tbody className="divide-y divide-slate-800">
+                <tbody className="divide-y divide-white/10">
 
                   {loading ? (
 
@@ -831,7 +828,7 @@ export default function TailorsPage() {
 
                         <div className="flex flex-col items-center justify-center text-center">
 
-                          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-rose-500/100/10 text-rose-400">
+                          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-rose-500/10 text-rose-400">
 
                             <Loader2
 
@@ -843,13 +840,13 @@ export default function TailorsPage() {
 
                           </div>
 
-                          <p className="mt-3 text-sm font-semibold text-slate-200">
+                          <p className="mt-3 text-sm font-semibold text-white/90">
 
                             Loading tailors...
 
                           </p>
 
-                          <p className="mt-1 text-xs text-slate-500">
+                          <p className="mt-1 text-xs text-white/50">
 
                             Sedang mengambil data tailor.
 
@@ -875,19 +872,19 @@ export default function TailorsPage() {
 
                         <div className="flex flex-col items-center justify-center text-center">
 
-                          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-500/100/10 text-rose-400">
+                          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-500/10 text-rose-400">
 
                             <Scissors size={22} />
 
                           </div>
 
-                          <p className="mt-4 text-sm font-bold text-slate-100">
+                          <p className="mt-4 text-sm font-bold text-white">
 
                             No tailors found
 
                           </p>
 
-                          <p className="mt-1 max-w-sm text-xs text-slate-500">
+                          <p className="mt-1 max-w-sm text-xs text-white/50">
 
                             Belum ada tailor yang sesuai
 
@@ -905,7 +902,7 @@ export default function TailorsPage() {
 
                                 onClick={openCreateForm}
 
-                                className="mt-5 inline-flex items-center gap-2 rounded-xl bg-rose-500/100/10 px-4 py-2.5 text-sm font-semibold text-rose-300 transition hover:bg-indigo-100"
+                                className="mt-5 inline-flex items-center gap-2 rounded-xl bg-rose-500/10 px-4 py-2.5 text-sm font-semibold text-rose-300 transition hover:bg-rose-500/20"
 
                               >
 
@@ -933,22 +930,21 @@ export default function TailorsPage() {
 
                         key={tailor.id}
 
-                        className="transition hover:bg-slate-800/60"
+                        className="transition hover:bg-white/[0.04]"
 
                       >
-
 
                         <td className="px-5 py-4">
 
                           <div>
 
-                            <p className="text-sm font-semibold text-slate-100">
+                            <p className="text-sm font-semibold text-white">
 
                               {tailor.name}
 
                             </p>
 
-                            <p className="mt-0.5 text-[11px] text-slate-500">
+                            <p className="mt-0.5 text-[11px] text-white/50">
 
                               Tailor ID #{tailor.id}
 
@@ -957,7 +953,6 @@ export default function TailorsPage() {
                           </div>
 
                         </td>
-
 
                         <td className="px-5 py-4">
 
@@ -975,7 +970,7 @@ export default function TailorsPage() {
 
                                     ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
 
-                                    : "border-slate-800 bg-slate-800 text-slate-500"
+                                    : "border-white/10 bg-white/[0.06] text-white/50"
 
                                 }`}
 
@@ -1025,7 +1020,7 @@ export default function TailorsPage() {
 
                                   ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-100"
 
-                                  : "border-slate-800 bg-slate-800 text-slate-500 hover:bg-slate-200"
+                                  : "border-white/10 bg-white/[0.06] text-white/50 hover:bg-white/10"
 
                               }`}
 
@@ -1057,7 +1052,6 @@ export default function TailorsPage() {
 
                         </td>
 
-
                         <td className="px-5 py-4">
 
                           <div className="flex justify-end gap-1">
@@ -1074,7 +1068,7 @@ export default function TailorsPage() {
 
                                 }
 
-                                className="rounded-xl p-2 text-slate-500 transition hover:bg-rose-500/100/10 hover:text-rose-400"
+                                className="rounded-xl p-2 text-white/50 transition hover:bg-rose-500/10 hover:text-rose-400"
 
                                 title="Edit Tailor"
 
@@ -1098,7 +1092,7 @@ export default function TailorsPage() {
 
                                 }
 
-                                className="rounded-xl p-2 text-slate-500 transition hover:bg-rose-500/10 hover:text-rose-300"
+                                className="rounded-xl p-2 text-white/50 transition hover:bg-rose-500/10 hover:text-rose-300"
 
                                 title="Delete Tailor"
 
@@ -1114,7 +1108,7 @@ export default function TailorsPage() {
 
                               type="button"
 
-                              className="rounded-xl p-2 text-slate-500 transition hover:bg-slate-800 hover:text-slate-500"
+                              className="rounded-xl p-2 text-white/50 transition hover:bg-white/[0.06] hover:text-white/50"
 
                               title="More"
 
@@ -1141,55 +1135,86 @@ export default function TailorsPage() {
                 </tbody>
 
                             </table>
-            </div>
-            {!loading && filteredTailors.length > 0 && (
-              <div className="flex flex-col gap-3 border-t border-slate-800 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-                <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
-                  <span>
-                    Menampilkan {startIndex + 1}–{Math.min(startIndex + pageSize, filteredTailors.length)} dari {filteredTailors.length} tailor
-                  </span>
-                  <label className="flex items-center gap-2">
-                    Baris:
-                    <select
-                      value={pageSize}
-                      onChange={(event) => setPageSize(Number(event.target.value))}
-                      className="rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs text-slate-200 outline-none focus:border-rose-500"
-                      aria-label="Jumlah data per halaman"
-                    >
-                      <option value={10}>10</option>
-                      <option value={25}>25</option>
-                      <option value={50}>50</option>
-                    </select>
-                  </label>
-                </div>
-                <div className="flex items-center gap-1">
-                  <button type="button" onClick={() => setCurrentPage(1)} disabled={currentPage === 1} className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-medium text-slate-300 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40">Pertama</button>
-                  <button type="button" onClick={() => setCurrentPage((page) => Math.max(1, page - 1))} disabled={currentPage === 1} className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-medium text-slate-300 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40">Sebelumnya</button>
-                  <span className="px-2 text-xs text-slate-400">Halaman {currentPage} dari {totalPages}</span>
-                  <button type="button" onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))} disabled={currentPage === totalPages} className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-medium text-slate-300 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40">Berikutnya</button>
-                  <button type="button" onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages} className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-medium text-slate-300 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40">Terakhir</button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </main>
 
+            </div>
+
+            {!loading && filteredTailors.length > 0 && (
+
+              <div className="flex flex-col gap-3 border-t border-white/10 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+
+                <div className="flex flex-wrap items-center gap-3 text-xs text-white/60">
+
+                  <span>
+
+                    Menampilkan {startIndex + 1}–{Math.min(startIndex + pageSize, filteredTailors.length)} dari {filteredTailors.length} tailor
+
+                  </span>
+
+                  <label className="flex items-center gap-2">
+
+                    Baris:
+
+                    <select
+
+                      value={pageSize}
+
+                      onChange={(event) => setPageSize(Number(event.target.value))}
+
+                      className="rounded-lg border border-white/10 bg-[#111111] px-2 py-1.5 text-xs text-white/90 outline-none focus:border-rose-500"
+
+                      aria-label="Jumlah data per halaman"
+
+                    >
+
+                      <option value={10}>10</option>
+
+                      <option value={25}>25</option>
+
+                      <option value={50}>50</option>
+
+                    </select>
+
+                  </label>
+
+                </div>
+
+                <div className="flex items-center gap-1">
+
+                  <button type="button" onClick={() => setCurrentPage(1)} disabled={currentPage === 1} className="rounded-lg border border-white/10 px-3 py-2 text-xs font-medium text-white/80 transition hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-40">Pertama</button>
+
+                  <button type="button" onClick={() => setCurrentPage((page) => Math.max(1, page - 1))} disabled={currentPage === 1} className="rounded-lg border border-white/10 px-3 py-2 text-xs font-medium text-white/80 transition hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-40">Sebelumnya</button>
+
+                  <span className="px-2 text-xs text-white/60">Halaman {currentPage} dari {totalPages}</span>
+
+                  <button type="button" onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))} disabled={currentPage === totalPages} className="rounded-lg border border-white/10 px-3 py-2 text-xs font-medium text-white/80 transition hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-40">Berikutnya</button>
+
+                  <button type="button" onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages} className="rounded-lg border border-white/10 px-3 py-2 text-xs font-medium text-white/80 transition hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-40">Terakhir</button>
+
+                </div>
+
+              </div>
+
+            )}
+
+          </div>
+
+        </div>
+
+      </main>
 
       {showForm && (
 
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-[2px]">
 
-          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl shadow-slate-900/20">
+          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-[#111111] shadow-2xl shadow-black/30">
 
-
-            <div className="flex items-start justify-between border-b border-slate-800 px-6 py-5">
+            <div className="flex items-start justify-between border-b border-white/10 px-6 py-5">
 
               <div>
 
                 <div className="flex items-center gap-2.5">
 
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-500/100/10 text-rose-400">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-500/10 text-rose-400">
 
                     <Scissors size={17} />
 
@@ -1197,7 +1222,7 @@ export default function TailorsPage() {
 
                   <div>
 
-                    <h2 className="text-base font-bold text-slate-100">
+                    <h2 className="text-base font-bold text-white">
 
                       {editingTailor
 
@@ -1207,7 +1232,7 @@ export default function TailorsPage() {
 
                     </h2>
 
-                    <p className="mt-0.5 text-xs text-slate-500">
+                    <p className="mt-0.5 text-xs text-white/50">
 
                       {editingTailor
 
@@ -1231,7 +1256,7 @@ export default function TailorsPage() {
 
                 disabled={saving}
 
-                className="rounded-xl p-2 text-slate-500 transition hover:bg-slate-800 hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-xl p-2 text-white/50 transition hover:bg-white/[0.06] hover:text-white/90 disabled:cursor-not-allowed disabled:opacity-50"
 
               >
 
@@ -1240,7 +1265,6 @@ export default function TailorsPage() {
               </button>
 
             </div>
-
 
             {error && (
 
@@ -1262,7 +1286,6 @@ export default function TailorsPage() {
 
             )}
 
-
             <form
 
               onSubmit={handleSubmit}
@@ -1273,7 +1296,7 @@ export default function TailorsPage() {
 
               <div>
 
-                <label className="mb-2 block text-xs font-bold text-slate-500">
+                <label className="mb-2 block text-xs font-bold text-white/50">
 
                   Tailor Name
 
@@ -1299,13 +1322,13 @@ export default function TailorsPage() {
 
                   disabled={saving}
 
-                  className="h-11 w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 text-sm text-slate-200 outline-none transition placeholder:text-slate-500 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 disabled:bg-slate-950"
+                  className="h-11 w-full rounded-xl border border-white/10 bg-[#111111] px-3.5 text-sm text-white/90 outline-none transition placeholder:text-white/50 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 disabled:bg-[#090909]"
 
                 />
 
               </div>
 
-              <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 transition hover:border-indigo-100 hover:bg-rose-500/100/10/40">
+              <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-white/10 bg-[#090909] px-4 py-3 transition hover:border-rose-500/40 hover:bg-rose-500/10/40">
 
                 <input
 
@@ -1329,19 +1352,19 @@ export default function TailorsPage() {
 
                   disabled={saving}
 
-                  className="h-4 w-4 rounded border-slate-300 text-rose-400 focus:ring-rose-500/200"
+                  className="h-4 w-4 rounded border-white/20 text-rose-400 focus:ring-rose-500/20"
 
                 />
 
                 <div>
 
-                  <p className="text-sm font-semibold text-slate-200">
+                  <p className="text-sm font-semibold text-white/90">
 
                     Active tailor
 
                   </p>
 
-                  <p className="mt-0.5 text-xs text-slate-500">
+                  <p className="mt-0.5 text-xs text-white/50">
 
                     Tailor dapat digunakan dalam proses
 
@@ -1353,8 +1376,7 @@ export default function TailorsPage() {
 
               </label>
 
-
-              <div className="flex justify-end gap-3 border-t border-slate-800 pt-5">
+              <div className="flex justify-end gap-3 border-t border-white/10 pt-5">
 
                 <button
 
@@ -1364,7 +1386,7 @@ export default function TailorsPage() {
 
                   disabled={saving}
 
-                  className="rounded-xl border border-slate-800 bg-slate-900 px-4 py-2.5 text-sm font-semibold text-slate-500 transition hover:bg-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-xl border border-white/10 bg-[#111111] px-4 py-2.5 text-sm font-semibold text-white/50 transition hover:bg-[#090909] disabled:cursor-not-allowed disabled:opacity-50"
 
                 >
 

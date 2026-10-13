@@ -141,7 +141,9 @@ export default function TailorRatesPage() {
     "ALL" | "ACTIVE" | "INACTIVE"
 
   >("ALL");
+
   const [currentPage, setCurrentPage] = useState(1);
+
   const [pageSize, setPageSize] = useState(10);
 
   const [modalOpen, setModalOpen] = useState(false);
@@ -609,19 +611,29 @@ export default function TailorRatesPage() {
   }, [rates, search, statusFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRates.length / pageSize));
+
   const startItem = filteredRates.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+
   const endItem = Math.min(currentPage * pageSize, filteredRates.length);
+
   const paginatedRates = useMemo(
+
     () => filteredRates.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+
     [filteredRates, currentPage, pageSize],
+
   );
 
   useEffect(() => {
+
     setCurrentPage(1);
+
   }, [search, statusFilter, pageSize]);
 
   useEffect(() => {
+
     if (currentPage > totalPages) setCurrentPage(totalPages);
+
   }, [currentPage, totalPages]);
 
   const totalRates = rates.length;
@@ -688,10 +700,9 @@ export default function TailorRatesPage() {
 
     <PermissionGate permission="tailor-rate.view">
 
-      <div className="min-h-screen bg-slate-950">
+      <div className="relative min-h-full space-y-6 overflow-hidden rounded-3xl bg-gradient-to-br from-[#090909] via-[#111111] to-[#18090b] p-4 md:p-6">
 
-        <div className="mx-auto max-w-[1600px] space-y-6 p-6">
-
+        <div className="mx-auto max-w-[1600px] space-y-6">
 
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
 
@@ -699,9 +710,9 @@ export default function TailorRatesPage() {
 
               <div className="mb-1 flex items-center gap-2">
 
-                <CircleDollarSign className="h-6 w-6 text-rose-600" />
+                <CircleDollarSign className="h-6 w-6 text-rose-300" />
 
-                <h1 className="text-2xl font-bold text-slate-100">
+                <h1 className="text-2xl font-bold text-gray-100">
 
                   Tailor Rates
 
@@ -709,7 +720,7 @@ export default function TailorRatesPage() {
 
               </div>
 
-              <p className="text-sm text-slate-400">
+              <p className="text-sm text-gray-400">
 
                 Kelola tarif jasa penjahit berdasarkan produk dan periode
 
@@ -727,7 +738,7 @@ export default function TailorRatesPage() {
 
                 onClick={openCreateModal}
 
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-rose-600 to-rose-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:from-rose-700 hover:to-rose-700"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-rose-700 to-rose-800 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:from-rose-600 hover:to-rose-700"
 
               >
 
@@ -741,10 +752,9 @@ export default function TailorRatesPage() {
 
           </div>
 
-
           {error && !modalOpen && (
 
-            <div className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            <div className="flex items-start gap-3 rounded-xl border border-rose-900/50 bg-rose-950/20 px-4 py-3 text-sm text-rose-300">
 
               <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
 
@@ -756,7 +766,7 @@ export default function TailorRatesPage() {
 
                 onClick={() => setError("")}
 
-                className="rounded-lg p-1 hover:bg-rose-100"
+                className="rounded-lg p-1 hover:bg-rose-950/40"
 
               >
 
@@ -770,7 +780,7 @@ export default function TailorRatesPage() {
 
           {success && (
 
-            <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+            <div className="flex items-center gap-3 rounded-xl border border-emerald-900/50 bg-emerald-950/20 px-4 py-3 text-sm text-emerald-300">
 
               <CheckCircle2 className="h-5 w-5 shrink-0" />
 
@@ -779,7 +789,6 @@ export default function TailorRatesPage() {
             </div>
 
           )}
-
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
 
@@ -791,7 +800,7 @@ export default function TailorRatesPage() {
 
               icon={<CircleDollarSign className="h-5 w-5" />}
 
-              iconClass="bg-rose-50 text-rose-600"
+              iconClass="border border-rose-900/40 bg-rose-950/20 text-rose-300"
 
             />
 
@@ -803,7 +812,7 @@ export default function TailorRatesPage() {
 
               icon={<ToggleRight className="h-5 w-5" />}
 
-              iconClass="bg-emerald-50 text-emerald-600"
+              iconClass="bg-emerald-950/20 text-emerald-600"
 
             />
 
@@ -815,21 +824,19 @@ export default function TailorRatesPage() {
 
               icon={<ToggleLeft className="h-5 w-5" />}
 
-              iconClass="bg-slate-800 text-slate-400"
+              iconClass="border border-white/10 bg-[#191919] text-gray-400"
 
             />
 
           </div>
 
+          <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-[#111111] shadow-xl shadow-black/40">
 
-          <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-sm">
-
-
-            <div className="flex flex-col gap-3 border-b border-slate-800 p-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-col gap-3 border-b border-white/10 p-4 lg:flex-row lg:items-center lg:justify-between">
 
               <div className="relative w-full lg:max-w-md">
 
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
 
                 <input
 
@@ -841,7 +848,7 @@ export default function TailorRatesPage() {
 
                   placeholder="Cari penjahit, produk, atau kode produk..."
 
-                  className="h-10 w-full rounded-xl border border-slate-800 bg-slate-950 pl-10 pr-4 text-sm text-slate-100 outline-none transition placeholder:text-slate-400 focus:border-rose-400 focus:bg-slate-900 focus:ring-2 focus:ring-rose-100"
+                  className="h-10 w-full rounded-xl border border-white/10 bg-[#090909] pl-10 pr-4 text-sm text-gray-100 outline-none transition placeholder:text-gray-400 focus:border-rose-400 focus:bg-[#111111] focus:ring-2 focus:ring-rose-100"
 
                 />
 
@@ -871,7 +878,7 @@ export default function TailorRatesPage() {
 
                     }
 
-                    className="h-10 appearance-none rounded-xl border border-slate-800 bg-slate-900 pl-3 pr-9 text-sm font-medium text-slate-200 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100"
+                    className="h-10 appearance-none rounded-xl border border-white/10 bg-[#111111] pl-3 pr-9 text-sm font-medium text-gray-200 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100"
 
                   >
 
@@ -883,7 +890,7 @@ export default function TailorRatesPage() {
 
                   </select>
 
-                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
 
                 </div>
 
@@ -895,7 +902,7 @@ export default function TailorRatesPage() {
 
                   disabled={loading}
 
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-800 px-3 text-sm font-medium text-slate-300 transition hover:bg-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/10 px-3 text-sm font-medium text-gray-300 transition hover:bg-[#090909] disabled:cursor-not-allowed disabled:opacity-50"
 
                 >
 
@@ -917,52 +924,51 @@ export default function TailorRatesPage() {
 
             </div>
 
-
             <div className="overflow-x-auto">
 
               <table className="w-full min-w-[950px]">
 
                 <thead>
 
-                  <tr className="border-b border-slate-800 bg-slate-950">
+                  <tr className="border-b border-white/10 bg-[#171717]">
 
-                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">
 
                       Penjahit
 
                     </th>
 
-                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">
 
                       Produk
 
                     </th>
 
-                    <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-400">
 
                       Tarif / pcs
 
                     </th>
 
-                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">
 
                       Berlaku Mulai
 
                     </th>
 
-                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-400">
 
                       Berlaku Sampai
 
                     </th>
 
-                    <th className="px-5 py-3 text-center text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    <th className="px-5 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-400">
 
                       Status
 
                     </th>
 
-                    <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-400">
 
                       Action
 
@@ -972,7 +978,7 @@ export default function TailorRatesPage() {
 
                 </thead>
 
-                <tbody className="divide-y divide-slate-800">
+                <tbody className="divide-y divide-white/[0.06]">
 
                   {loading ? (
 
@@ -986,19 +992,19 @@ export default function TailorRatesPage() {
 
                         <div className="mx-auto flex max-w-sm flex-col items-center">
 
-                          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-slate-800">
+                          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#191919]">
 
-                            <CircleDollarSign className="h-6 w-6 text-slate-400" />
+                            <CircleDollarSign className="h-6 w-6 text-gray-400" />
 
                           </div>
 
-                          <p className="font-semibold text-slate-200">
+                          <p className="font-semibold text-gray-200">
 
                             Tidak ada tarif ditemukan
 
                           </p>
 
-                          <p className="mt-1 text-sm text-slate-400">
+                          <p className="mt-1 text-sm text-gray-400">
 
                             {search
 
@@ -1022,20 +1028,19 @@ export default function TailorRatesPage() {
 
                         key={rate.id}
 
-                        className="transition hover:bg-slate-950/80"
+                        className="transition hover:bg-black/75"
 
                       >
 
-
                         <td className="px-5 py-4">
 
-                          <div className="font-medium text-slate-100">
+                          <div className="font-medium text-gray-100">
 
                             {rate.tailor.name}
 
                           </div>
 
-                          <div className="mt-0.5 text-xs text-slate-400">
+                          <div className="mt-0.5 text-xs text-gray-400">
 
                             ID #{rate.tailor.id}
 
@@ -1043,16 +1048,15 @@ export default function TailorRatesPage() {
 
                         </td>
 
-
                         <td className="px-5 py-4">
 
-                          <div className="font-medium text-slate-100">
+                          <div className="font-medium text-gray-100">
 
                             {rate.product.name}
 
                           </div>
 
-                          <div className="mt-0.5 inline-flex rounded-md bg-slate-800 px-1.5 py-0.5 text-xs font-medium text-slate-400">
+                          <div className="mt-0.5 inline-flex rounded-md bg-[#191919] px-1.5 py-0.5 text-xs font-medium text-gray-400">
 
                             {rate.product.code}
 
@@ -1060,10 +1064,9 @@ export default function TailorRatesPage() {
 
                         </td>
 
-
                         <td className="px-5 py-4 text-right">
 
-                          <span className="font-semibold text-slate-100">
+                          <span className="font-semibold text-gray-100">
 
                             {formatCurrency(rate.rate)}
 
@@ -1071,15 +1074,13 @@ export default function TailorRatesPage() {
 
                         </td>
 
-
-                        <td className="px-5 py-4 text-sm text-slate-300">
+                        <td className="px-5 py-4 text-sm text-gray-300">
 
                           {formatDate(rate.effectiveFrom)}
 
                         </td>
 
-
-                        <td className="px-5 py-4 text-sm text-slate-300">
+                        <td className="px-5 py-4 text-sm text-gray-300">
 
                           {rate.effectiveTo
 
@@ -1089,14 +1090,13 @@ export default function TailorRatesPage() {
 
                         </td>
 
-
                         <td className="px-5 py-4 text-center">
 
                           {rate.isActive ? (
 
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-950/20 px-2.5 py-1 text-xs font-semibold text-emerald-300">
 
-                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-950/200" />
 
                               Aktif
 
@@ -1104,7 +1104,7 @@ export default function TailorRatesPage() {
 
                           ) : (
 
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-800 px-2.5 py-1 text-xs font-semibold text-slate-400">
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-[#191919] px-2.5 py-1 text-xs font-semibold text-gray-400">
 
                               <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
 
@@ -1115,7 +1115,6 @@ export default function TailorRatesPage() {
                           )}
 
                         </td>
-
 
                         <td className="px-5 py-4">
 
@@ -1129,7 +1128,7 @@ export default function TailorRatesPage() {
 
                                 onClick={() => openEditModal(rate)}
 
-                                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-800 px-2.5 text-xs font-semibold text-slate-300 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
+                                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-white/10 px-2.5 text-xs font-semibold text-gray-300 transition hover:border-rose-900/50 hover:bg-rose-950/20 hover:text-rose-300"
 
                               >
 
@@ -1151,7 +1150,7 @@ export default function TailorRatesPage() {
 
                                   }
 
-                                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-rose-200 px-2.5 text-xs font-semibold text-rose-600 transition hover:bg-rose-50"
+                                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-rose-900/50 px-2.5 text-xs font-semibold text-rose-300 transition hover:bg-rose-950/20"
 
                                 >
 
@@ -1181,54 +1180,79 @@ export default function TailorRatesPage() {
 
             </div>
 
-
             {!loading && filteredRates.length > 0 && (
-              <div className="flex flex-col gap-3 border-t border-slate-800 bg-slate-900 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex flex-col gap-2 text-xs text-slate-400 sm:flex-row sm:items-center sm:gap-4">
+
+              <div className="flex flex-col gap-3 border-t border-white/10 bg-[#111111] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+
+                <div className="flex flex-col gap-2 text-xs text-gray-400 sm:flex-row sm:items-center sm:gap-4">
+
                   <p>
-                    Menampilkan <span className="font-semibold text-slate-200">{startItem}-{endItem}</span> dari{" "}
-                    <span className="font-semibold text-slate-200">{filteredRates.length}</span> tarif
+
+                    Menampilkan <span className="font-semibold text-gray-200">{startItem}-{endItem}</span> dari{" "}
+
+                    <span className="font-semibold text-gray-200">{filteredRates.length}</span> tarif
+
                   </p>
+
                   <label className="flex items-center gap-2">
+
                     Baris per halaman
+
                     <select
+
                       value={pageSize}
+
                       onChange={(event) => setPageSize(Number(event.target.value))}
-                      className="rounded-lg border border-slate-700 bg-slate-800 px-2 py-1.5 text-slate-200 outline-none focus:border-rose-500"
+
+                      className="rounded-lg border border-white/10 bg-[#191919] px-2 py-1.5 text-gray-200 outline-none focus:border-rose-500"
+
                     >
+
                       {[10, 25, 50].map((size) => (
+
                         <option key={size} value={size}>{size}</option>
+
                       ))}
+
                     </select>
+
                   </label>
+
                 </div>
+
                 <div className="flex items-center gap-1">
-                  <button type="button" onClick={() => setCurrentPage(1)} disabled={currentPage === 1} className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-medium text-slate-300 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40">Awal</button>
-                  <button type="button" onClick={() => setCurrentPage((page) => Math.max(1, page - 1))} disabled={currentPage === 1} className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-medium text-slate-300 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40">Sebelumnya</button>
-                  <span className="px-2 text-xs text-slate-400">{currentPage} / {totalPages}</span>
-                  <button type="button" onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))} disabled={currentPage === totalPages} className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-medium text-slate-300 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40">Berikutnya</button>
-                  <button type="button" onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages} className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-medium text-slate-300 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40">Akhir</button>
+
+                  <button type="button" onClick={() => setCurrentPage(1)} disabled={currentPage === 1} className="rounded-lg border border-white/10 px-3 py-2 text-xs font-medium text-gray-300 transition hover:bg-[#191919] disabled:cursor-not-allowed disabled:opacity-40">Awal</button>
+
+                  <button type="button" onClick={() => setCurrentPage((page) => Math.max(1, page - 1))} disabled={currentPage === 1} className="rounded-lg border border-white/10 px-3 py-2 text-xs font-medium text-gray-300 transition hover:bg-[#191919] disabled:cursor-not-allowed disabled:opacity-40">Sebelumnya</button>
+
+                  <span className="px-2 text-xs text-gray-400">{currentPage} / {totalPages}</span>
+
+                  <button type="button" onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))} disabled={currentPage === totalPages} className="rounded-lg border border-white/10 px-3 py-2 text-xs font-medium text-gray-300 transition hover:bg-[#191919] disabled:cursor-not-allowed disabled:opacity-40">Berikutnya</button>
+
+                  <button type="button" onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages} className="rounded-lg border border-white/10 px-3 py-2 text-xs font-medium text-gray-300 transition hover:bg-[#191919] disabled:cursor-not-allowed disabled:opacity-40">Akhir</button>
+
                 </div>
+
               </div>
+
             )}
 
           </div>
 
         </div>
 
-
         {modalOpen && (
 
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
 
-            <div className="w-full max-w-xl overflow-hidden rounded-2xl bg-slate-900 shadow-2xl">
+            <div className="w-full max-w-xl overflow-hidden rounded-3xl border border-white/10 bg-[#111111] shadow-2xl shadow-black/60">
 
-
-              <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
+              <div className="flex items-start justify-between border-b border-white/10 bg-gradient-to-r from-rose-950/50 to-[#111111] p-5 md:p-6">
 
                 <div>
 
-                  <h2 className="text-lg font-bold text-slate-100">
+                  <h2 className="text-lg font-bold text-gray-100">
 
                     {editingRate
 
@@ -1238,7 +1262,7 @@ export default function TailorRatesPage() {
 
                   </h2>
 
-                  <p className="mt-0.5 text-xs text-slate-400">
+                  <p className="mt-0.5 text-xs text-gray-400">
 
                     {editingRate
 
@@ -1258,7 +1282,7 @@ export default function TailorRatesPage() {
 
                   disabled={saving}
 
-                  className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-800 hover:text-slate-300 disabled:opacity-50"
+                  className="rounded-lg p-2 text-gray-400 transition hover:bg-[#191919] hover:text-gray-300 disabled:opacity-50"
 
                 >
 
@@ -1268,14 +1292,13 @@ export default function TailorRatesPage() {
 
               </div>
 
-
               <form onSubmit={handleSubmit}>
 
-                <div className="max-h-[70vh] space-y-5 overflow-y-auto p-6">
+                <div className="max-h-[70vh] space-y-5 overflow-y-auto p-5 md:p-6">
 
                   {error && (
 
-                    <div className="flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                    <div className="flex items-start gap-3 rounded-xl border border-rose-900/50 bg-rose-950/20 px-4 py-3 text-sm text-rose-300">
 
                       <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
 
@@ -1285,10 +1308,9 @@ export default function TailorRatesPage() {
 
                   )}
 
-
                   <div>
 
-                    <label className="mb-2 block text-sm font-semibold text-slate-200">
+                    <label className="mb-2 block text-sm font-semibold text-gray-200">
 
                       Penjahit
 
@@ -1322,7 +1344,7 @@ export default function TailorRatesPage() {
 
                         }
 
-                        className="h-11 w-full appearance-none rounded-xl border border-slate-800 bg-slate-900 px-3 pr-10 text-sm text-slate-100 outline-none transition focus:border-rose-400 focus:ring-2 focus:ring-rose-100 disabled:cursor-not-allowed disabled:bg-slate-950 disabled:text-slate-400"
+                        className="h-11 w-full appearance-none rounded-xl border border-white/10 bg-[#111111] px-3 pr-10 text-sm text-gray-100 outline-none transition focus:border-rose-400 focus:ring-2 focus:ring-rose-100 disabled:cursor-not-allowed disabled:bg-[#090909] disabled:text-gray-400"
 
                       >
 
@@ -1358,13 +1380,13 @@ export default function TailorRatesPage() {
 
                       </select>
 
-                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
 
                     </div>
 
                     {editingRate && (
 
-                      <p className="mt-1.5 text-xs text-slate-400">
+                      <p className="mt-1.5 text-xs text-gray-400">
 
                         Penjahit tidak dapat diubah untuk menjaga histori
 
@@ -1376,10 +1398,9 @@ export default function TailorRatesPage() {
 
                   </div>
 
-
                   <div>
 
-                    <label className="mb-2 block text-sm font-semibold text-slate-200">
+                    <label className="mb-2 block text-sm font-semibold text-gray-200">
 
                       Produk
 
@@ -1413,7 +1434,7 @@ export default function TailorRatesPage() {
 
                         }
 
-                        className="h-11 w-full appearance-none rounded-xl border border-slate-800 bg-slate-900 px-3 pr-10 text-sm text-slate-100 outline-none transition focus:border-rose-400 focus:ring-2 focus:ring-rose-100 disabled:cursor-not-allowed disabled:bg-slate-950 disabled:text-slate-400"
+                        className="h-11 w-full appearance-none rounded-xl border border-white/10 bg-[#111111] px-3 pr-10 text-sm text-gray-100 outline-none transition focus:border-rose-400 focus:ring-2 focus:ring-rose-100 disabled:cursor-not-allowed disabled:bg-[#090909] disabled:text-gray-400"
 
                       >
 
@@ -1449,13 +1470,13 @@ export default function TailorRatesPage() {
 
                       </select>
 
-                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
 
                     </div>
 
                     {editingRate && (
 
-                      <p className="mt-1.5 text-xs text-slate-400">
+                      <p className="mt-1.5 text-xs text-gray-400">
 
                         Produk tidak dapat diubah untuk menjaga histori
 
@@ -1467,10 +1488,9 @@ export default function TailorRatesPage() {
 
                   </div>
 
-
                   <div>
 
-                    <label className="mb-2 block text-sm font-semibold text-slate-200">
+                    <label className="mb-2 block text-sm font-semibold text-gray-200">
 
                       Tarif per pcs
 
@@ -1478,7 +1498,7 @@ export default function TailorRatesPage() {
 
                     <div className="relative">
 
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-slate-400">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-400">
 
                         Rp
 
@@ -1510,7 +1530,7 @@ export default function TailorRatesPage() {
 
                         placeholder="Contoh: 5000"
 
-                        className="h-11 w-full rounded-xl border border-slate-800 bg-slate-900 pl-10 pr-3 text-sm text-slate-100 outline-none transition placeholder:text-slate-400 focus:border-rose-400 focus:ring-2 focus:ring-rose-100 disabled:bg-slate-950"
+                        className="h-11 w-full rounded-xl border border-white/10 bg-[#111111] pl-10 pr-3 text-sm text-gray-100 outline-none transition placeholder:text-gray-400 focus:border-rose-400 focus:ring-2 focus:ring-rose-100 disabled:bg-[#090909]"
 
                       />
 
@@ -1518,12 +1538,11 @@ export default function TailorRatesPage() {
 
                   </div>
 
-
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 
                     <div>
 
-                      <label className="mb-2 block text-sm font-semibold text-slate-200">
+                      <label className="mb-2 block text-sm font-semibold text-gray-200">
 
                         Berlaku Mulai
 
@@ -1537,11 +1556,11 @@ export default function TailorRatesPage() {
 
                         disabled
 
-                        className="h-11 w-full rounded-xl border border-slate-800 bg-slate-950 px-3 text-sm text-slate-400 outline-none"
+                        className="h-11 w-full rounded-xl border border-white/10 bg-[#090909] px-3 text-sm text-gray-400 outline-none"
 
                       />
 
-                      <p className="mt-1.5 text-xs text-slate-400">
+                      <p className="mt-1.5 text-xs text-gray-400">
 
                         Tanggal mulai tidak dapat diubah.
 
@@ -1551,7 +1570,7 @@ export default function TailorRatesPage() {
 
                     <div>
 
-                      <label className="mb-2 block text-sm font-semibold text-slate-200">
+                      <label className="mb-2 block text-sm font-semibold text-gray-200">
 
                         Berlaku Sampai
 
@@ -1577,11 +1596,11 @@ export default function TailorRatesPage() {
 
                         disabled={saving}
 
-                        className="h-11 w-full rounded-xl border border-slate-800 bg-slate-900 px-3 text-sm text-slate-100 outline-none transition focus:border-rose-400 focus:ring-2 focus:ring-rose-100 disabled:bg-slate-950"
+                        className="h-11 w-full rounded-xl border border-white/10 bg-[#111111] px-3 text-sm text-gray-100 outline-none transition focus:border-rose-400 focus:ring-2 focus:ring-rose-100 disabled:bg-[#090909]"
 
                       />
 
-                      <p className="mt-1.5 text-xs text-slate-400">
+                      <p className="mt-1.5 text-xs text-gray-400">
 
                         Kosongkan jika tarif tidak memiliki batas akhir.
 
@@ -1591,20 +1610,19 @@ export default function TailorRatesPage() {
 
                   </div>
 
-
                   {editingRate && (
 
-                    <label className="flex cursor-pointer items-center justify-between rounded-xl border border-slate-800 bg-slate-950 p-4">
+                    <label className="flex cursor-pointer items-center justify-between rounded-xl border border-white/10 bg-[#090909] p-4">
 
                       <div>
 
-                        <div className="text-sm font-semibold text-slate-200">
+                        <div className="text-sm font-semibold text-gray-200">
 
                           Status Tarif
 
                         </div>
 
-                        <div className="mt-0.5 text-xs text-slate-400">
+                        <div className="mt-0.5 text-xs text-gray-400">
 
                           Aktifkan atau nonaktifkan tarif ini.
 
@@ -1632,7 +1650,7 @@ export default function TailorRatesPage() {
 
                         disabled={saving}
 
-                        className="h-5 w-5 rounded border-slate-300 text-rose-600 focus:ring-rose-500"
+                        className="h-5 w-5 rounded border-slate-300 text-rose-300 focus:ring-rose-500"
 
                       />
 
@@ -1642,8 +1660,7 @@ export default function TailorRatesPage() {
 
                 </div>
 
-
-                <div className="flex items-center justify-end gap-3 border-t border-slate-800 bg-slate-950 px-6 py-4">
+                <div className="flex items-center justify-end gap-3 border-t border-white/10 bg-[#090909] px-6 py-4">
 
                   <button
 
@@ -1653,7 +1670,7 @@ export default function TailorRatesPage() {
 
                     disabled={saving}
 
-                    className="rounded-xl border border-slate-800 bg-slate-900 px-4 py-2.5 text-sm font-semibold text-slate-300 transition hover:bg-slate-800 disabled:opacity-50"
+                    className="rounded-xl border border-white/10 bg-[#111111] px-4 py-2.5 text-sm font-semibold text-gray-300 transition hover:bg-[#191919] disabled:opacity-50"
 
                   >
 
@@ -1667,7 +1684,7 @@ export default function TailorRatesPage() {
 
                     disabled={saving || loadingFormData}
 
-                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-rose-600 to-rose-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:from-rose-700 hover:to-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-rose-700 to-rose-800 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:from-rose-600 hover:to-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
 
                   >
 
@@ -1731,15 +1748,15 @@ function SummaryCard({
 
   return (
 
-    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-sm">
+    <div className="rounded-2xl border border-white/10 bg-[#111111] p-5 shadow-lg shadow-black/20">
 
       <div className="flex items-center justify-between">
 
         <div>
 
-          <p className="text-sm font-medium text-slate-400">{label}</p>
+          <p className="text-sm font-medium text-gray-400">{label}</p>
 
-          <p className="mt-2 text-2xl font-bold text-slate-100">
+          <p className="mt-2 text-2xl font-bold text-gray-100">
 
             {value.toLocaleString("id-ID")}
 
@@ -1775,11 +1792,10 @@ function TableLoading() {
 
         <tr key={index}>
 
-          {Array.from({ length: 7 }).map((__, cellIndex) => (
-
+          {Array.from({ length: 7 }).map((_, cellIndex) => (
             <td key={cellIndex} className="px-5 py-5">
 
-              <div className="h-4 animate-pulse rounded bg-slate-800" />
+              <div className="h-4 animate-pulse rounded bg-[#191919]" />
 
             </td>
 

@@ -1,7 +1,5 @@
 ﻿"use client";
 
-
-
 import { FormEvent, useEffect, useState } from "react";
 
 import {
@@ -26,13 +24,9 @@ import {
 
 } from "lucide-react";
 
-
-
 import PermissionGate from "@/components/auth/permission-gate";
 
 import MasterDataImportExport from "@/components/master-data/master-data-import-export";
-
-
 
 type Employee = {
 
@@ -48,8 +42,6 @@ type Employee = {
 
 };
 
-
-
 type EmployeeForm = {
 
   name: string;
@@ -57,8 +49,6 @@ type EmployeeForm = {
   isActive: boolean;
 
 };
-
-
 
 const emptyForm: EmployeeForm = {
 
@@ -68,19 +58,17 @@ const emptyForm: EmployeeForm = {
 
 };
 
-
-
 export default function EmployeesPage() {
 
   const [employees, setEmployees] = useState<Employee[]>([]);
 
   const [search, setSearch] = useState("");
+
   const [currentPage, setCurrentPage] = useState(1);
+
   const [pageSize, setPageSize] = useState(10);
 
   const [loading, setLoading] = useState(true);
-
-
 
   const [showForm, setShowForm] = useState(false);
 
@@ -88,19 +76,13 @@ export default function EmployeesPage() {
 
     useState<Employee | null>(null);
 
-
-
   const [form, setForm] =
 
     useState<EmployeeForm>(emptyForm);
 
-
-
   const [saving, setSaving] = useState(false);
 
   const [error, setError] = useState("");
-
-
 
   const loadEmployees = async () => {
 
@@ -110,19 +92,13 @@ export default function EmployeesPage() {
 
       setError("");
 
-
-
       const response = await fetch("/api/employees", {
 
         cache: "no-store",
 
       });
 
-
-
       const result = await response.json();
-
-
 
       if (!response.ok || !result.success) {
 
@@ -134,15 +110,11 @@ export default function EmployeesPage() {
 
       }
 
-
-
       setEmployees(result.data);
 
     } catch (error) {
 
       console.error(error);
-
-
 
       setError(
 
@@ -162,15 +134,11 @@ export default function EmployeesPage() {
 
   };
 
-
-
   useEffect(() => {
 
     loadEmployees();
 
   }, []);
-
-
 
   function openCreateForm() {
 
@@ -184,13 +152,9 @@ export default function EmployeesPage() {
 
   }
 
-
-
   function openEditForm(employee: Employee) {
 
     setEditingEmployee(employee);
-
-
 
     setForm({
 
@@ -200,21 +164,15 @@ export default function EmployeesPage() {
 
     });
 
-
-
     setError("");
 
     setShowForm(true);
 
   }
 
-
-
   function closeForm() {
 
     if (saving) return;
-
-
 
     setShowForm(false);
 
@@ -226,8 +184,6 @@ export default function EmployeesPage() {
 
   }
 
-
-
   const handleSubmit = async (
 
     event: FormEvent<HTMLFormElement>
@@ -235,8 +191,6 @@ export default function EmployeesPage() {
   ) => {
 
     event.preventDefault();
-
-
 
     if (!form.name.trim()) {
 
@@ -246,15 +200,11 @@ export default function EmployeesPage() {
 
     }
 
-
-
     try {
 
       setSaving(true);
 
       setError("");
-
-
 
       const url = editingEmployee
 
@@ -262,15 +212,11 @@ export default function EmployeesPage() {
 
         : "/api/employees";
 
-
-
       const method = editingEmployee
 
         ? "PATCH"
 
         : "POST";
-
-
 
       const response = await fetch(url, {
 
@@ -292,11 +238,7 @@ export default function EmployeesPage() {
 
       });
 
-
-
       const result = await response.json();
-
-
 
       if (!response.ok || !result.success) {
 
@@ -308,8 +250,6 @@ export default function EmployeesPage() {
 
       }
 
-
-
       closeForm();
 
       await loadEmployees();
@@ -317,8 +257,6 @@ export default function EmployeesPage() {
     } catch (error) {
 
       console.error(error);
-
-
 
       setError(
 
@@ -338,8 +276,6 @@ export default function EmployeesPage() {
 
   };
 
-
-
   const handleDelete = async (employee: Employee) => {
 
     const confirmed = window.confirm(
@@ -348,17 +284,11 @@ export default function EmployeesPage() {
 
     );
 
-
-
     if (!confirmed) return;
-
-
 
     try {
 
       setError("");
-
-
 
       const response = await fetch(
 
@@ -372,11 +302,7 @@ export default function EmployeesPage() {
 
       );
 
-
-
       const result = await response.json();
-
-
 
       if (!response.ok || !result.success) {
 
@@ -388,15 +314,11 @@ export default function EmployeesPage() {
 
       }
 
-
-
       await loadEmployees();
 
     } catch (error) {
 
       console.error(error);
-
-
 
       setError(
 
@@ -412,15 +334,11 @@ export default function EmployeesPage() {
 
   };
 
-
-
   const toggleStatus = async (employee: Employee) => {
 
     try {
 
       setError("");
-
-
 
       const response = await fetch(
 
@@ -446,11 +364,7 @@ export default function EmployeesPage() {
 
       );
 
-
-
       const result = await response.json();
-
-
 
       if (!response.ok || !result.success) {
 
@@ -462,15 +376,11 @@ export default function EmployeesPage() {
 
       }
 
-
-
       await loadEmployees();
 
     } catch (error) {
 
       console.error(error);
-
-
 
       setError(
 
@@ -486,8 +396,6 @@ export default function EmployeesPage() {
 
   };
 
-
-
   const filteredEmployees = employees.filter(
 
     (employee) =>
@@ -500,22 +408,30 @@ export default function EmployeesPage() {
 
   );
 
-
-
   const totalPages = Math.max(1, Math.ceil(filteredEmployees.length / pageSize));
+
   const paginatedEmployees = filteredEmployees.slice(
+
     (currentPage - 1) * pageSize,
+
     currentPage * pageSize
+
   );
+
   const startItem = filteredEmployees.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+
   const endItem = Math.min(currentPage * pageSize, filteredEmployees.length);
 
   useEffect(() => {
+
     setCurrentPage(1);
+
   }, [search, pageSize]);
 
   useEffect(() => {
+
     if (currentPage > totalPages) setCurrentPage(totalPages);
+
   }, [currentPage, totalPages]);
 
   const activeCount = employees.filter(
@@ -524,45 +440,37 @@ export default function EmployeesPage() {
 
   ).length;
 
-
-
   const inactiveCount =
 
     employees.length - activeCount;
 
-
-
   return (
 
-    <div className="min-h-screen bg-slate-950">
+    <div className="relative min-h-full space-y-6 overflow-hidden rounded-3xl bg-gradient-to-br from-[#090909] via-[#111111] to-[#18090b] p-4 md:p-6">
 
-      <header className="border-b border-slate-800 bg-slate-900">
+      <header className="border-b border-white/10 bg-transparent">
 
-        <div className="flex min-h-20 flex-col gap-4 px-6 py-4 sm:flex-row sm:items-center sm:justify-between lg:px-8">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
 
           <div>
 
             <div className="flex items-center gap-2">
 
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-500/100/10 text-rose-400">
+              <div className="rounded-2xl bg-gradient-to-br from-rose-700 to-rose-950 p-3 text-white shadow-lg shadow-red-950/40">
 
                 <UserRound size={18} />
 
               </div>
 
-
-
               <div>
 
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-rose-400">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-rose-300">
 
                   Master Data
 
                 </p>
 
-
-
-                <h1 className="text-xl font-bold text-slate-100">
+                <h1 className="text-xl font-bold text-gray-100">
 
                   Employees
 
@@ -572,9 +480,7 @@ export default function EmployeesPage() {
 
             </div>
 
-
-
-            <p className="mt-2 text-sm text-slate-500">
+            <p className="mt-2 text-sm text-gray-500">
 
               Kelola data employee yang terlibat dalam
 
@@ -583,8 +489,6 @@ export default function EmployeesPage() {
             </p>
 
           </div>
-
-
 
           <div className="flex items-center gap-2">
 
@@ -596,7 +500,7 @@ export default function EmployeesPage() {
 
               disabled={loading}
 
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-800 bg-slate-900 px-3.5 text-sm font-semibold text-slate-600 transition hover:border-rose-500/40 hover:bg-rose-500/100/10 hover:text-rose-300 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#111111] px-3.5 text-sm font-semibold text-gray-400 transition hover:border-rose-800 hover:bg-rose-950/30 hover:text-rose-300 disabled:cursor-not-allowed disabled:opacity-50"
 
             >
 
@@ -612,8 +516,6 @@ export default function EmployeesPage() {
 
               />
 
-
-
               <span className="hidden sm:inline">
 
                 Refresh
@@ -621,8 +523,6 @@ export default function EmployeesPage() {
               </span>
 
             </button>
-
-
 
             <PermissionGate permission="employee.manage">
 
@@ -632,7 +532,7 @@ export default function EmployeesPage() {
 
                 onClick={openCreateForm}
 
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-rose-600 to-rose-500 px-4 text-sm font-semibold text-white shadow-sm transition hover:from-rose-700 hover:to-rose-600"
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-rose-700 to-rose-800 px-4 text-sm font-semibold text-white shadow-sm transition hover:from-rose-600 hover:to-rose-700"
 
               >
 
@@ -650,25 +550,21 @@ export default function EmployeesPage() {
 
       </header>
 
-      <main className="p-6 lg:p-8">
+      <main className="p-0">
 
-        <div className="mx-auto max-w-7xl">
+        <div className="mx-auto max-w-[1600px] space-y-6">
 
-
-
-           <section className="mb-6 min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-4 shadow-sm sm:p-5">
+           <section className="relative min-w-0 rounded-2xl border border-white/10 bg-[#111111] p-5 shadow-lg shadow-black/20">
 
                                 <div className="mb-3">
 
-                                  <h2 className="text-sm font-bold text-slate-100">
+                                  <h2 className="text-sm font-bold text-gray-100">
 
                                     Import & Export Employees
 
                                   </h2>
 
-
-
-                                  <p className="mt-1 text-xs leading-5 text-slate-500">
+                                  <p className="mt-1 text-xs leading-5 text-gray-500">
 
                                     Download template Excel, import data employees, atau export
 
@@ -677,8 +573,6 @@ export default function EmployeesPage() {
                                   </p>
 
                                 </div>
-
-
 
                                 <div className="min-w-0">
 
@@ -700,7 +594,7 @@ export default function EmployeesPage() {
 
           {error && !showForm && (
 
-            <div className="mb-5 flex items-start justify-between gap-4 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3.5 text-sm text-rose-300">
+            <div className="mb-5 flex items-start justify-between gap-4 rounded-2xl border border-rose-900/50 bg-rose-950/20 px-4 py-3.5 text-sm text-rose-300">
 
               <div>
 
@@ -710,8 +604,6 @@ export default function EmployeesPage() {
 
                 </p>
 
-
-
                 <p className="mt-0.5 text-rose-300">
 
                   {error}
@@ -720,15 +612,13 @@ export default function EmployeesPage() {
 
               </div>
 
-
-
               <button
 
                 type="button"
 
                 onClick={() => setError("")}
 
-                className="rounded-lg p-1 text-rose-400 transition hover:bg-rose-500/100/20 hover:text-rose-300"
+                className="rounded-lg p-1 text-rose-300 transition hover:bg-rose-950/40 hover:text-rose-300"
 
               >
 
@@ -740,31 +630,27 @@ export default function EmployeesPage() {
 
           )}
 
-          <div className="mb-6 grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
 
-            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-sm">
+            <div className="rounded-2xl border border-white/10 bg-[#111111] p-5 shadow-lg shadow-black/20">
 
               <div className="flex items-center gap-3">
 
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-500/100/10 text-rose-400">
+                <div className="rounded-xl border border-rose-900/40 bg-rose-950/20 p-3 text-rose-300">
 
                   <UserRound size={20} />
 
                 </div>
 
-
-
                 <div>
 
-                  <p className="text-xs font-medium text-slate-500">
+                  <p className="text-xs font-medium text-gray-500">
 
                     Total Employees
 
                   </p>
 
-
-
-                  <p className="mt-1 text-2xl font-bold text-slate-100">
+                  <p className="mt-1 text-2xl font-bold text-gray-100">
 
                     {employees.length}
 
@@ -776,29 +662,25 @@ export default function EmployeesPage() {
 
             </div>
 
-            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-sm">
+            <div className="rounded-2xl border border-white/10 bg-[#111111] p-5 shadow-lg shadow-black/20">
 
               <div className="flex items-center gap-3">
 
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-950/30 text-emerald-300">
 
                   <UserRound size={20} />
 
                 </div>
 
-
-
                 <div>
 
-                  <p className="text-xs font-medium text-slate-500">
+                  <p className="text-xs font-medium text-gray-500">
 
                     Active Employees
 
                   </p>
 
-
-
-                  <p className="mt-1 text-2xl font-bold text-slate-100">
+                  <p className="mt-1 text-2xl font-bold text-gray-100">
 
                     {activeCount}
 
@@ -810,29 +692,25 @@ export default function EmployeesPage() {
 
             </div>
 
-            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-sm">
+            <div className="rounded-2xl border border-white/10 bg-[#111111] p-5 shadow-lg shadow-black/20">
 
               <div className="flex items-center gap-3">
 
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-800 text-slate-500">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#191919] text-gray-500">
 
                   <UserRound size={20} />
 
                 </div>
 
-
-
                 <div>
 
-                  <p className="text-xs font-medium text-slate-500">
+                  <p className="text-xs font-medium text-gray-500">
 
                     Inactive Employees
 
                   </p>
 
-
-
-                  <p className="mt-1 text-2xl font-bold text-slate-100">
+                  <p className="mt-1 text-2xl font-bold text-gray-100">
 
                     {inactiveCount}
 
@@ -846,33 +724,29 @@ export default function EmployeesPage() {
 
           </div>
 
-          <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-sm">
+          <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-[#111111] shadow-xl shadow-black/40">
 
-            <div className="flex flex-col gap-4 border-b border-slate-800 px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-4 border-b border-white/10 px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
 
               <div>
 
                 <div className="flex items-center gap-2">
 
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-500/100/10 text-rose-400">
+                  <div className="rounded-2xl bg-gradient-to-br from-rose-700 to-rose-950 p-3 text-white shadow-lg shadow-red-950/40">
 
                     <UserRound size={17} />
 
                   </div>
 
-
-
                   <div>
 
-                    <h2 className="text-sm font-bold text-slate-100">
+                    <h2 className="text-sm font-bold text-gray-100">
 
                       Employee List
 
                     </h2>
 
-
-
-                    <p className="mt-0.5 text-xs text-slate-500">
+                    <p className="mt-0.5 text-xs text-gray-500">
 
                       {filteredEmployees.length} employee
 
@@ -892,11 +766,9 @@ export default function EmployeesPage() {
 
                   size={16}
 
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
 
                 />
-
-
 
                 <input
 
@@ -910,7 +782,7 @@ export default function EmployeesPage() {
 
                   placeholder="Search employee..."
 
-                  className="h-10 w-full rounded-xl border border-slate-800 bg-slate-900 pl-9 pr-4 text-sm text-slate-200 outline-none transition placeholder:text-slate-500 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/10"
+                  className="h-10 w-full rounded-xl border border-white/10 bg-[#111111] pl-9 pr-4 text-sm text-gray-200 outline-none transition placeholder:text-gray-500 focus:border-rose-700 focus:ring-2 focus:ring-rose-950/40"
 
                 />
 
@@ -924,25 +796,21 @@ export default function EmployeesPage() {
 
                 <thead>
 
-                  <tr className="border-b border-slate-800 bg-slate-950">
+                  <tr className="border-b border-white/10 bg-[#171717]">
 
-                    <th className="px-5 py-3.5 text-left text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500">
+                    <th className="px-5 py-3.5 text-left text-[10px] font-bold uppercase tracking-[0.08em] text-gray-500">
 
                       Employee Name
 
                     </th>
 
-
-
-                    <th className="px-5 py-3.5 text-left text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500">
+                    <th className="px-5 py-3.5 text-left text-[10px] font-bold uppercase tracking-[0.08em] text-gray-500">
 
                       Status
 
                     </th>
 
-
-
-                    <th className="px-5 py-3.5 text-right text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500">
+                    <th className="px-5 py-3.5 text-right text-[10px] font-bold uppercase tracking-[0.08em] text-gray-500">
 
                       Actions
 
@@ -952,9 +820,7 @@ export default function EmployeesPage() {
 
                 </thead>
 
-
-
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-white/[0.06]">
 
                   {loading ? (
 
@@ -970,7 +836,7 @@ export default function EmployeesPage() {
 
                         <div className="flex flex-col items-center justify-center text-center">
 
-                          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-rose-500/100/10 text-rose-400">
+                          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-rose-950/30 text-rose-300">
 
                             <Loader2
 
@@ -982,17 +848,13 @@ export default function EmployeesPage() {
 
                           </div>
 
-
-
-                          <p className="mt-3 text-sm font-semibold text-slate-200">
+                          <p className="mt-3 text-sm font-semibold text-gray-200">
 
                             Loading employees...
 
                           </p>
 
-
-
-                          <p className="mt-1 text-xs text-slate-500">
+                          <p className="mt-1 text-xs text-gray-500">
 
                             Sedang mengambil data employee.
 
@@ -1018,31 +880,25 @@ export default function EmployeesPage() {
 
                         <div className="flex flex-col items-center justify-center text-center">
 
-                          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-500/100/10 text-rose-400">
+                          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-950/30 text-rose-300">
 
                             <UserRound size={22} />
 
                           </div>
 
-
-
-                          <p className="mt-4 text-sm font-bold text-slate-100">
+                          <p className="mt-4 text-sm font-bold text-gray-100">
 
                             No employees found
 
                           </p>
 
-
-
-                          <p className="mt-1 max-w-sm text-xs text-slate-500">
+                          <p className="mt-1 max-w-sm text-xs text-gray-500">
 
                             Belum ada employee yang sesuai
 
                             dengan pencarian kamu.
 
                           </p>
-
-
 
                           {!search && (
 
@@ -1054,7 +910,7 @@ export default function EmployeesPage() {
 
                                 onClick={openCreateForm}
 
-                                className="mt-5 inline-flex items-center gap-2 rounded-xl bg-rose-500/100/10 px-4 py-2.5 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100"
+                                className="mt-5 inline-flex items-center gap-2 rounded-xl bg-rose-950/30 px-4 py-2.5 text-sm font-semibold text-rose-300 transition hover:bg-rose-950/40"
 
                               >
 
@@ -1082,7 +938,7 @@ export default function EmployeesPage() {
 
                         key={employee.id}
 
-                        className="transition hover:bg-slate-800/60"
+                        className="transition hover:bg-[#191919]/60"
 
                       >
 
@@ -1090,15 +946,13 @@ export default function EmployeesPage() {
 
                           <div>
 
-                            <p className="text-sm font-semibold text-slate-100">
+                            <p className="text-sm font-semibold text-gray-100">
 
                               {employee.name}
 
                             </p>
 
-
-
-                            <p className="mt-0.5 text-[11px] text-slate-500">
+                            <p className="mt-0.5 text-[11px] text-gray-500">
 
                               Employee ID #{employee.id}
 
@@ -1122,9 +976,9 @@ export default function EmployeesPage() {
 
                                   employee.isActive
 
-                                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                                    ? "border-emerald-900/50 bg-emerald-950/30 text-emerald-300"
 
-                                    : "border-slate-800 bg-slate-800 text-slate-500"
+                                    : "border-white/10 bg-[#191919] text-gray-500"
 
                                 }`}
 
@@ -1143,8 +997,6 @@ export default function EmployeesPage() {
                                   }`}
 
                                 />
-
-
 
                                 {employee.isActive
 
@@ -1174,9 +1026,9 @@ export default function EmployeesPage() {
 
                                 employee.isActive
 
-                                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-400/20"
+                                  ? "border-emerald-900/50 bg-emerald-950/30 text-emerald-300 hover:bg-emerald-400/20"
 
-                                  : "border-slate-800 bg-slate-800 text-slate-500 hover:bg-slate-200"
+                                  : "border-white/10 bg-[#191919] text-gray-500 hover:bg-slate-200"
 
                               }`}
 
@@ -1195,8 +1047,6 @@ export default function EmployeesPage() {
                                 }`}
 
                               />
-
-
 
                               {employee.isActive
 
@@ -1226,7 +1076,7 @@ export default function EmployeesPage() {
 
                                 }
 
-                                className="rounded-xl p-2 text-slate-500 transition hover:bg-rose-500/100/10 hover:text-rose-300"
+                                className="rounded-xl p-2 text-gray-500 transition hover:bg-rose-950/30 hover:text-rose-300"
 
                                 title="Edit Employee"
 
@@ -1237,8 +1087,6 @@ export default function EmployeesPage() {
                               </button>
 
                             </PermissionGate>
-
-
 
                             <PermissionGate permission="employee.manage">
 
@@ -1252,7 +1100,7 @@ export default function EmployeesPage() {
 
                                 }
 
-                                className="rounded-xl p-2 text-slate-500 transition hover:bg-rose-500/10 hover:text-rose-300"
+                                className="rounded-xl p-2 text-gray-500 transition hover:bg-rose-950/20 hover:text-rose-300"
 
                                 title="Delete Employee"
 
@@ -1264,13 +1112,11 @@ export default function EmployeesPage() {
 
                             </PermissionGate>
 
-
-
                             <button
 
                               type="button"
 
-                              className="rounded-xl p-2 text-slate-600 transition hover:bg-slate-800 hover:text-slate-500"
+                              className="rounded-xl p-2 text-gray-400 transition hover:bg-[#191919] hover:text-gray-500"
 
                               title="More"
 
@@ -1299,31 +1145,57 @@ export default function EmployeesPage() {
               </table>
 
             </div>
+
             {!loading && filteredEmployees.length > 0 && (
-              <div className="flex flex-col gap-3 border-t border-slate-800 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
-                <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
+
+              <div className="flex flex-col gap-3 border-t border-white/10 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+
+                <div className="flex flex-wrap items-center gap-3 text-xs text-gray-400">
+
                   <span>
-                    Menampilkan <span className="font-semibold text-slate-200">{startItem}–{endItem}</span> dari{" "}
-                    <span className="font-semibold text-slate-200">{filteredEmployees.length}</span> employee
+
+                    Menampilkan <span className="font-semibold text-gray-200">{startItem}–{endItem}</span> dari{" "}
+
+                    <span className="font-semibold text-gray-200">{filteredEmployees.length}</span> employee
+
                   </span>
+
                   <label className="flex items-center gap-2">
+
                     <span>Baris</span>
-                    <select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))} className="rounded-lg border border-slate-700 bg-slate-800 px-2 py-1.5 text-xs text-slate-200 outline-none focus:border-rose-500">
+
+                    <select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))} className="rounded-lg border border-white/10 bg-[#191919] px-2 py-1.5 text-xs text-gray-200 outline-none focus:border-rose-700">
+
                       <option value={10}>10</option>
+
                       <option value={25}>25</option>
+
                       <option value={50}>50</option>
+
                     </select>
+
                     <span>per halaman</span>
+
                   </label>
+
                 </div>
+
                 <div className="flex flex-wrap items-center justify-between gap-1 sm:justify-end">
-                  <button type="button" onClick={() => setCurrentPage(1)} disabled={currentPage === 1} className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-medium text-slate-300 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40">Pertama</button>
-                  <button type="button" onClick={() => setCurrentPage((page) => Math.max(1, page - 1))} disabled={currentPage === 1} className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-medium text-slate-300 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40">Sebelumnya</button>
-                  <span className="min-w-[88px] text-center text-xs text-slate-400">Halaman <span className="font-semibold text-slate-200">{currentPage}</span> / {totalPages}</span>
-                  <button type="button" onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))} disabled={currentPage === totalPages} className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-medium text-slate-300 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40">Berikutnya</button>
-                  <button type="button" onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages} className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-medium text-slate-300 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40">Terakhir</button>
+
+                  <button type="button" onClick={() => setCurrentPage(1)} disabled={currentPage === 1} className="rounded-lg border border-white/10 px-3 py-2 text-xs font-medium text-gray-300 transition hover:bg-[#191919] disabled:cursor-not-allowed disabled:opacity-40">Pertama</button>
+
+                  <button type="button" onClick={() => setCurrentPage((page) => Math.max(1, page - 1))} disabled={currentPage === 1} className="rounded-lg border border-white/10 px-3 py-2 text-xs font-medium text-gray-300 transition hover:bg-[#191919] disabled:cursor-not-allowed disabled:opacity-40">Sebelumnya</button>
+
+                  <span className="min-w-[88px] text-center text-xs text-gray-400">Halaman <span className="font-semibold text-gray-200">{currentPage}</span> / {totalPages}</span>
+
+                  <button type="button" onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))} disabled={currentPage === totalPages} className="rounded-lg border border-white/10 px-3 py-2 text-xs font-medium text-gray-300 transition hover:bg-[#191919] disabled:cursor-not-allowed disabled:opacity-40">Berikutnya</button>
+
+                  <button type="button" onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages} className="rounded-lg border border-white/10 px-3 py-2 text-xs font-medium text-gray-300 transition hover:bg-[#191919] disabled:cursor-not-allowed disabled:opacity-40">Terakhir</button>
+
                 </div>
+
               </div>
+
             )}
 
           </div>
@@ -1334,27 +1206,25 @@ export default function EmployeesPage() {
 
       {showForm && (
 
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-[2px]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-[2px]">
 
-          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl shadow-slate-900/20">
+          <div className="w-full max-w-md overflow-hidden rounded-3xl border border-white/10 bg-[#111111] shadow-2xl shadow-black/60">
 
-            <div className="flex items-start justify-between border-b border-slate-800 px-6 py-5">
+            <div className="flex items-start justify-between border-b border-white/10 bg-gradient-to-r from-rose-950/50 to-[#111111] p-5 md:p-6">
 
               <div>
 
                 <div className="flex items-center gap-2.5">
 
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-500/100/10 text-rose-400">
+                  <div className="rounded-2xl bg-gradient-to-br from-rose-700 to-rose-950 p-3 text-white shadow-lg shadow-red-950/40">
 
                     <UserRound size={17} />
 
                   </div>
 
-
-
                   <div>
 
-                    <h2 className="text-base font-bold text-slate-100">
+                    <h2 className="text-base font-bold text-gray-100">
 
                       {editingEmployee
 
@@ -1364,9 +1234,7 @@ export default function EmployeesPage() {
 
                     </h2>
 
-
-
-                    <p className="mt-0.5 text-xs text-slate-500">
+                    <p className="mt-0.5 text-xs text-gray-500">
 
                       {editingEmployee
 
@@ -1382,8 +1250,6 @@ export default function EmployeesPage() {
 
               </div>
 
-
-
               <button
 
                 type="button"
@@ -1392,7 +1258,7 @@ export default function EmployeesPage() {
 
                 disabled={saving}
 
-                className="rounded-xl p-2 text-slate-500 transition hover:bg-slate-800 hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-xl p-2 text-gray-500 transition hover:bg-[#191919] hover:text-gray-200 disabled:cursor-not-allowed disabled:opacity-50"
 
               >
 
@@ -1404,15 +1270,13 @@ export default function EmployeesPage() {
 
             {error && (
 
-              <div className="mx-6 mt-5 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
+              <div className="mx-6 mt-5 rounded-xl border border-rose-900/50 bg-rose-950/20 px-4 py-3 text-sm text-rose-300">
 
                 <p className="font-semibold">
 
                   Unable to save employee
 
                 </p>
-
-
 
                 <p className="mt-0.5 text-xs text-rose-300">
 
@@ -1434,13 +1298,11 @@ export default function EmployeesPage() {
 
               <div>
 
-                <label className="mb-2 block text-xs font-bold text-slate-600">
+                <label className="mb-2 block text-xs font-bold text-gray-400">
 
                   Employee Name
 
                 </label>
-
-
 
                 <input
 
@@ -1462,15 +1324,13 @@ export default function EmployeesPage() {
 
                   disabled={saving}
 
-                  className="h-11 w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 text-sm text-slate-200 outline-none transition placeholder:text-slate-500 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/10 disabled:bg-slate-800"
+                  className="h-11 w-full rounded-xl border border-white/10 bg-[#111111] px-3.5 text-sm text-gray-200 outline-none transition placeholder:text-gray-500 focus:border-rose-700 focus:ring-2 focus:ring-rose-950/40 disabled:bg-[#191919]"
 
                 />
 
               </div>
 
-
-
-              <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 transition hover:border-indigo-100 hover:bg-rose-500/100/10/40">
+              <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-white/10 bg-[#090909] px-4 py-3 transition hover:border-rose-800 hover:bg-rose-950/40">
 
                 <input
 
@@ -1494,23 +1354,19 @@ export default function EmployeesPage() {
 
                   disabled={saving}
 
-                  className="h-4 w-4 rounded border-slate-300 text-rose-400 focus:ring-rose-500/100"
+                  className="h-4 w-4 rounded border-slate-300 text-rose-300 focus:ring-rose-950/400"
 
                 />
 
-
-
                 <div>
 
-                  <p className="text-sm font-semibold text-slate-200">
+                  <p className="text-sm font-semibold text-gray-200">
 
                     Active employee
 
                   </p>
 
-
-
-                  <p className="mt-0.5 text-xs text-slate-500">
+                  <p className="mt-0.5 text-xs text-gray-500">
 
                     Employee dapat digunakan dalam proses
 
@@ -1522,7 +1378,7 @@ export default function EmployeesPage() {
 
               </label>
 
-              <div className="flex justify-end gap-3 border-t border-slate-800 pt-5">
+              <div className="flex flex-col-reverse gap-2 border-t border-white/10 pt-4 sm:flex-row sm:justify-end">
 
                 <button
 
@@ -1532,7 +1388,7 @@ export default function EmployeesPage() {
 
                   disabled={saving}
 
-                  className="rounded-xl border border-slate-800 bg-slate-900 px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-xl border border-white/10 bg-[#111111] px-4 py-2.5 text-sm font-semibold text-gray-300 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
 
                 >
 
@@ -1540,15 +1396,13 @@ export default function EmployeesPage() {
 
                 </button>
 
-
-
                 <button
 
                   type="submit"
 
                   disabled={saving}
 
-                  className="inline-flex min-w-[120px] items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-rose-600 to-rose-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:from-rose-700 hover:to-rose-600 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-w-[120px] items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-rose-700 to-rose-800 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:from-rose-600 hover:to-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
 
                 >
 
@@ -1563,8 +1417,6 @@ export default function EmployeesPage() {
                     />
 
                   )}
-
-
 
                   {saving
 
