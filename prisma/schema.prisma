@@ -25,9 +25,10 @@ model User {
   activityLogs          ActivityLog[]
   scannedDocuments      ScannedDocument[]
   sessions              Session[]
-  transactions          Transaction[]     @relation("TransactionCreatedBy")
-  cancelledTransactions Transaction[]     @relation("TransactionCancelledBy")
+  transactions          Transaction[] @relation("TransactionCreatedBy")
+  cancelledTransactions Transaction[] @relation("TransactionCancelledBy")
   tailorBills           TailorBill[]
+  deletedSPKs           SPK[]         @relation("SPKDeletedBy")
 
   role Role? @relation(fields: [roleId], references: [id])
 
@@ -139,15 +140,17 @@ model Employee {
  */
 
 model SPK {
-  id        Int       @id @default(autoincrement())
-  spkNumber String    @unique @db.VarChar(100)
-  tailorId  Int
-  status    SPKStatus @default(ACTIVE)
+  id          Int       @id @default(autoincrement())
+  spkNumber   String    @unique @db.VarChar(100)
+  tailorId    Int
+  status      SPKStatus @default(ACTIVE)
+  deletedAt   DateTime?
+  deletedById Int?
 
-  tailor Tailor @relation(fields: [tailorId], references: [id])
+  tailor    Tailor @relation(fields: [tailorId], references: [id])
+  deletedBy User? @relation("SPKDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
 
-  items SPKItem[]
-
+  items           SPKItem[]
   transactions    Transaction[]
   tailorBillItems TailorBillItem[]
 
@@ -156,6 +159,8 @@ model SPK {
 
   @@index([tailorId])
   @@index([status])
+  @@index([deletedAt])
+  @@index([deletedById])
 }
 
 model SPKItem {

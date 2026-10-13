@@ -101,7 +101,14 @@ export async function GET(request: NextRequest) {
     }
 
     const transactions = await prisma.transaction.findMany({
-      where,
+      where: {
+        ...where,
+        spk: {
+          is: {
+            deletedAt: null,
+          },
+        },
+      },
       orderBy: {
         createdAt: "desc",
       },
@@ -389,6 +396,7 @@ export async function POST(request: NextRequest) {
         const spk = await tx.sPK.findUnique({
           where: {
             id: spkId,
+            deletedAt: null,
           },
           select: {
             tailorId: true,

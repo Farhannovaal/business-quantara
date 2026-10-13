@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
 
     const spks = await prisma.sPK.findMany({
       where: {
+        deletedAt: null,
         ...(search
           ? {
               OR: [
