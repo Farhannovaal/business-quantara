@@ -505,14 +505,16 @@ export default function TailorBillingPage() {
             </div>
 
             <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={refresh}
-                className="inline-flex h-10 items-center gap-2 rounded-lg border border-white/10 bg-[#151313] px-4 text-sm font-medium text-neutral-200 transition hover:bg-white/5"
-              >
-                <RefreshCw className="h-4 w-4" />
-                Refresh
-              </button>
+              {activeTab === "billing" && (
+                <button
+                  type="button"
+                  onClick={refresh}
+                  className="inline-flex h-10 items-center gap-2 rounded-lg border border-white/10 bg-[#151313] px-4 text-sm font-medium text-neutral-200 transition hover:bg-white/5"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Refresh
+                </button>
+)}
 
               {activeTab === "billing" && (
                 <PermissionGate permission="tailor-billing.create">
