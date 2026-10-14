@@ -209,7 +209,7 @@ export default function TailorBillingPage() {
     setSelectedItems([]);
     setNotes("");
     setError("");
-    setSuccess();
+    setSuccess("");
 
     void fetchEligible();
   }
