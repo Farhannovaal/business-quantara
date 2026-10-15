@@ -2,202 +2,83 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { hasPermission } from "@/lib/auth/authorization";
-import { calculateSPKStatus } from "@/lib/spk-status";
+import { calculateTailorBilling } from "@/lib/tailor-billing/calculator";
+
 
 export async function GET() {
   const auth = await requireAuth();
 
-  if (auth.response) {
-    return auth.response;
-  }
+  if (auth.response) return auth.response;
 
   const user = auth.user;
 
   if (!user) {
     return NextResponse.json(
-      {
-        success: false,
-        error: "Unauthorized",
-      },
+      { success: false, error: "Unauthorized" },
       { status: 401 },
     );
   }
 
   if (!hasPermission(user, "tailor-billing.view")) {
     return NextResponse.json(
-      {
-        success: false,
-        error: "Forbidden",
-      },
+      { success: false, error: "Forbidden" },
       { status: 403 },
     );
   }
 
   try {
-    const now = new Date();
-
     const spks = await prisma.sPK.findMany({
       where: {
-        status: {
-          not: "CANCELLED",
-        },
+        status: { not: "CANCELLED" },
       },
-      include: {
-        items: {
-          include: {
-            product: true,
-          },
-          orderBy: {
-            id: "asc",
-          },
-        },
-        tailor: true,
-        transactions: {
-          include: {
-            transactionType: true,
-          },
-          orderBy: [
-            {
-              createdAt: "asc",
-            },
-            {
-              id: "asc",
-            },
-          ],
-        },
-        tailorBillItems: {
-          where: {
-            bill: {
-              status: {
-                not: "CANCELLED",
-              },
-            },
-          },
-        },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
+      select: { id: true },
+      orderBy: { createdAt: "desc" },
     });
 
-    const readyItems: {
-      spkId: number;
-      spkNumber: string;
-      tailorId: number;
-      tailorName: string;
-      productId: number;
-      productName: string;
-      billableQuantity: number;
-      rate: number;
-      amount: number;
-    }[] = [];
+    const summaries = await Promise.all(
+      spks.map((spk) => calculateTailorBilling(spk.id)),
+    );
 
-    const missingRateItems: {
-      spkId: number;
-      spkNumber: string;
-      tailorId: number;
-      tailorName: string;
-      productId: number;
-      productName: string;
-      billableQuantity: number;
-    }[] = [];
+    const allItems = summaries.flat();
 
-    const tailorIds = new Set<number>();
+    const readyItems = allItems
+      .filter(
+        (item) =>
+          item.billableQuantity > 0 && item.rateAvailable,
+      )
+      .map((item) => ({
+        spkId: item.spkId,
+        spkNumber: item.spkNumber,
+        tailorId: item.tailorId,
+        tailorName: item.tailorName,
+        productId: item.productId,
+        productName: item.productName,
+        billableQuantity: item.billableQuantity,
+        rate: item.rate,
+        amount: item.billableAmount,
+      }));
 
-    for (const spk of spks) {
-      for (const spkItem of spk.items) {
-        const productId = spkItem.productId;
-
-        const productTransactions = spk.transactions.filter(
-          (transaction) =>
-            transaction.productId === productId &&
-            transaction.status === "ACTIVE",
-        );
-
-        const status = calculateSPKStatus(
-          productTransactions.map((transaction) => ({
-            quantity: transaction.quantity,
-            transactionType: {
-              code: transaction.transactionType.code,
-            },
-          })),
-        );
-
-        const totalAlreadyBilled = spk.tailorBillItems
-          .filter((item) => item.productId === productId)
-          .reduce(
-            (total, item) => total + Number(item.quantity),
-            0,
-          );
-
-        const billableQuantity = Math.max(
-          status.totalQcAcc - totalAlreadyBilled,
-          0,
-        );
-
-        if (billableQuantity <= 0) {
-          continue;
-        }
-
-        const tailorRate = await prisma.tailorRate.findFirst({
-          where: {
-            tailorId: spk.tailorId,
-            productId,
-            isActive: true,
-            effectiveFrom: {
-              lte: now,
-            },
-            OR: [
-              {
-                effectiveTo: null,
-              },
-              {
-                effectiveTo: {
-                  gte: now,
-                },
-              },
-            ],
-          },
-          orderBy: {
-            effectiveFrom: "desc",
-          },
-        });
-
-        if (!tailorRate) {
-          missingRateItems.push({
-            spkId: spk.id,
-            spkNumber: spk.spkNumber,
-            tailorId: spk.tailorId,
-            tailorName: spk.tailor.name,
-            productId,
-            productName: spkItem.product.name,
-            billableQuantity,
-          });
-
-          continue;
-        }
-
-        const rate = Number(tailorRate.rate);
-        const amount = billableQuantity * rate;
-
-        tailorIds.add(spk.tailorId);
-
-        readyItems.push({
-          spkId: spk.id,
-          spkNumber: spk.spkNumber,
-          tailorId: spk.tailorId,
-          tailorName: spk.tailor.name,
-          productId,
-          productName: spkItem.product.name,
-          billableQuantity,
-          rate,
-          amount,
-        });
-      }
-    }
+    const missingRateItems = allItems
+      .filter(
+        (item) =>
+          item.billableQuantity > 0 && !item.rateAvailable,
+      )
+      .map((item) => ({
+        spkId: item.spkId,
+        spkNumber: item.spkNumber,
+        tailorId: item.tailorId,
+        tailorName: item.tailorName,
+        productId: item.productId,
+        productName: item.productName,
+        billableQuantity: item.billableQuantity,
+      }));
 
     const readySpkIds = new Set(
       readyItems.map((item) => item.spkId),
+    );
+
+    const readyTailorIds = new Set(
+      readyItems.map((item) => item.tailorId),
     );
 
     const missingRateSpkIds = new Set(
@@ -219,11 +100,32 @@ export async function GET() {
       0,
     );
 
+    const unpaidBills = await prisma.tailorBill.findMany({
+      where: {
+        status: { in: ["DRAFT", "SUBMITTED"] },
+      },
+      select: {
+        id: true,
+        billNumber: true,
+        status: true,
+        totalAmount: true,
+        tailor: {
+          select: { name: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const unpaidAmount = unpaidBills.reduce(
+      (total, bill) => total + Number(bill.totalAmount),
+      0,
+    );
+
     return NextResponse.json({
       success: true,
       data: {
         readySpkCount: readySpkIds.size,
-        readyTailorCount: tailorIds.size,
+        readyTailorCount: readyTailorIds.size,
         readyQuantity,
         readyAmount,
         missingRateSpkCount: missingRateSpkIds.size,
@@ -231,6 +133,15 @@ export async function GET() {
         totalSpkChecked: spks.length,
         readyItems,
         missingRateItems,
+        unpaidBillCount: unpaidBills.length,
+        unpaidAmount,
+        unpaidBills: unpaidBills.map((bill) => ({
+          id: bill.id,
+          billNumber: bill.billNumber,
+          status: bill.status,
+          totalAmount: Number(bill.totalAmount),
+          tailorName: bill.tailor.name,
+        })),
       },
     });
   } catch (error) {

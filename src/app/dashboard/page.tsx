@@ -105,7 +105,17 @@ type BillingSummary = {
     productName: string;
     billableQuantity: number;
   }>;
-};
+  unpaidBillCount: number;
+  unpaidAmount: number;
+  unpaidBills: Array<{
+    id: number;
+    billNumber: string;
+    status: string;
+    totalAmount: number;
+    tailorName: string;
+  }>;
+}
+
 function formatNumber(value: number) {
   return new Intl.NumberFormat("id-ID").format(Number(value) || 0);
 }
@@ -803,14 +813,48 @@ export default function Home() {
                       <p className="mt-1 text-xs leading-5 text-neutral-400 sm:text-sm">Quantity QC ACC yang sudah siap dibuatkan billing.</p>
                     </div>
                   </div>
-                  {billingLoading ? <div className="flex items-center gap-2 text-xs font-medium text-neutral-500 sm:text-sm"><Loader2 className="h-4 w-4 animate-spin" />Menghitung billing...</div> : billingSummary ? (
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
-                      <BillingMetric label="SPK Siap" value={formatNumber(billingSummary.readySpkCount)} />
-                      <BillingMetric label="Penjahit" value={formatNumber(billingSummary.readyTailorCount)} />
-                      <BillingMetric label="Quantity" value={`${formatNumber(billingSummary.readyQuantity)} pcs`} />
-                      <BillingMetric label="Estimasi" value={formatCurrency(billingSummary.readyAmount)} />
+                  {billingLoading ? (
+                    <div className="flex items-center gap-2 text-xs font-medium text-neutral-500 sm:text-sm">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Menghitung billing...
                     </div>
-                  ) : <div className="text-xs text-neutral-500 sm:text-sm">Data billing tidak tersedia.</div>}
+                  ) : billingSummary ? (
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6 sm:gap-3">
+                      <BillingMetric
+                        label="SPK Siap"
+                        value={formatNumber(billingSummary.readySpkCount)}
+                      />
+
+                      <BillingMetric
+                        label="Penjahit"
+                        value={formatNumber(billingSummary.readyTailorCount)}
+                      />
+
+                      <BillingMetric
+                        label="Quantity"
+                        value={`${formatNumber(billingSummary.readyQuantity)} pcs`}
+                      />
+
+                      <BillingMetric
+                        label="Estimasi"
+                        value={formatCurrency(billingSummary.readyAmount)}
+                      />
+
+                      <BillingMetric
+                        label="Billing Belum Lunas"
+                        value={formatNumber(billingSummary.unpaidBillCount)}
+                      />
+
+                      <BillingMetric
+                        label="Nominal Belum Lunas"
+                        value={formatCurrency(billingSummary.unpaidAmount)}
+                      />
+                    </div>
+                  ) : (
+                    <div className="text-xs text-neutral-500 sm:text-sm">
+                      Data billing tidak tersedia.
+                    </div>
+                  )}
                 </div>
                 {billingSummary && billingSummary.readySpkCount > 0 && (
                   <div className="mt-5 flex flex-col gap-4 border-t border-white/10 pt-5 lg:flex-row lg:items-center lg:justify-between">
