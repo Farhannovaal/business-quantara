@@ -1,3 +1,4 @@
+
 import { prisma } from "@/lib/prisma";
 import { calculateSPKStatus } from "@/lib/spk-status";
 
@@ -29,17 +30,29 @@ export type TailorBillingSummary = {
 export async function calculateTailorBilling(
   spkId: number,
 ): Promise<TailorBillingSummary[]> {
-  const spk = await prisma.sPK.findUnique({
-    where: { id: spkId },
+  const spk = await prisma.sPK.findFirst({
+    where: {
+      id: spkId,
+      deletedAt: null,
+      status: { not: "CANCELLED" },
+    },
     include: {
       tailor: true,
       items: {
-        include: { product: true },
-        orderBy: { id: "asc" },
+        include: {
+          product: true,
+        },
+        orderBy: {
+          id: "asc",
+        },
       },
       transactions: {
-        where: { status: "ACTIVE" },
-        include: { transactionType: true },
+        where: {
+          status: "ACTIVE",
+        },
+        include: {
+          transactionType: true,
+        },
         orderBy: [
           { createdAt: "asc" },
           { id: "asc" },
@@ -48,15 +61,19 @@ export async function calculateTailorBilling(
       tailorBillItems: {
         where: {
           bill: {
-            status: { not: "CANCELLED" },
+            status: {
+              not: "CANCELLED",
+            },
           },
         },
       },
     },
   });
 
+  // SPK tidak ditemukan, sudah dihapus, atau dibatalkan.
+  // Jangan menghasilkan data billing untuk SPK tersebut.
   if (!spk) {
-    throw new Error("SPK tidak ditemukan.");
+    return [];
   }
 
   const now = new Date();
@@ -95,17 +112,23 @@ export async function calculateTailorBilling(
         tailorId: spk.tailorId,
         productId: spkItem.productId,
         isActive: true,
-        effectiveFrom: { lte: now },
+        effectiveFrom: {
+          lte: now,
+        },
         OR: [
           { effectiveTo: null },
           { effectiveTo: { gte: now } },
         ],
       },
-      orderBy: { effectiveFrom: "desc" },
+      orderBy: {
+        effectiveFrom: "desc",
+      },
     });
 
     const rateAvailable = tailorRate !== null;
-    const rate = tailorRate ? Number(tailorRate.rate) : 0;
+    const rate = tailorRate
+      ? Number(tailorRate.rate)
+      : 0;
 
     results.push({
       spkId: spk.id,
@@ -115,21 +138,29 @@ export async function calculateTailorBilling(
       productId: spkItem.productId,
       productCode: spkItem.product.code,
       productName: spkItem.product.name,
+
       totalPengiriman: Number(status.totalPengiriman),
       totalPenerimaan: Number(status.totalPenerimaan),
       totalQcRijek: Number(status.totalQcRijek),
       totalQcAcc: Number(status.totalQcAcc),
-      totalPengirimanRijek: Number(status.totalPengirimanRijek),
-      totalPenerimaanRijek: Number(status.totalPenerimaanRijek),
+      totalPengirimanRijek: Number(
+        status.totalPengirimanRijek,
+      ),
+      totalPenerimaanRijek: Number(
+        status.totalPenerimaanRijek,
+      ),
       sisaJahit: Number(status.sisaJahit),
       barangDiQc: Number(status.barangDiQc),
       jumlahRijek: Number(status.jumlahRijek),
       jumlahBarang: Number(status.jumlahBarang),
+
       totalAlreadyBilled,
       billableQuantity,
       rate,
       rateAvailable,
-      billableAmount: rateAvailable ? billableQuantity * rate : 0,
+      billableAmount: rateAvailable
+        ? billableQuantity * rate
+        : 0,
     });
   }
 

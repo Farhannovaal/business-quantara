@@ -29,7 +29,7 @@ export async function GET() {
   try {
     const spks = await prisma.sPK.findMany({
       where: {
-        status: { not: "CANCELLED" },
+        status: { not: "CANCELLED" },deletedAt: null,
       },
       select: { id: true },
       orderBy: { createdAt: "desc" },
