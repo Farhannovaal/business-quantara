@@ -62,6 +62,7 @@ export async function GET(
       await prisma.sPK.findUnique({
         where: {
           id,
+          deletedAt: null,
         },
 
         include: {
