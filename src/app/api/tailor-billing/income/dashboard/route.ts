@@ -1,5 +1,6 @@
 
 import { NextRequest, NextResponse } from "next/server";
+
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { hasPermission } from "@/lib/auth/authorization";
@@ -79,40 +80,78 @@ export async function GET(request: NextRequest) {
         ? Number(tailorIdParam)
         : undefined;
 
+    if (
+      tailorIdParam &&
+      (!tailorId || !Number.isSafeInteger(tailorId))
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "ID penjahit tidak valid.",
+        },
+        { status: 400 },
+      );
+    }
+
     const bills = await prisma.tailorBill.findMany({
       where: {
         status: "PAID",
+
         paidAt: {
           gte: startDate,
           lt: endExclusive(endDate),
         },
+
         ...(tailorId ? { tailorId } : {}),
+
+        // Hanya ambil tagihan yang masih memiliki
+        // minimal satu item dari SPK yang belum dihapus.
+        items: {
+          some: {
+            spk: {
+              deletedAt: null,
+            },
+          },
+        },
       },
+
       select: {
         id: true,
         billNumber: true,
         tailorId: true,
         paidAt: true,
         totalAmount: true,
+
         tailor: {
           select: {
             id: true,
             name: true,
           },
         },
+
         items: {
+          // Jangan masukkan item dari SPK yang dihapus
+          // ke perhitungan pendapatan operasional.
+          where: {
+            spk: {
+              deletedAt: null,
+            },
+          },
+
           select: {
             id: true,
             spkId: true,
             quantity: true,
             rate: true,
             amount: true,
+
             spk: {
               select: {
                 id: true,
                 spkNumber: true,
               },
             },
+
             product: {
               select: {
                 id: true,
@@ -123,6 +162,7 @@ export async function GET(request: NextRequest) {
           },
         },
       },
+
       orderBy: [
         { paidAt: "desc" },
         { id: "desc" },
@@ -164,10 +204,7 @@ export async function GET(request: NextRequest) {
     let totalQuantity = 0;
 
     for (const bill of bills) {
-      const billTotal = Number(bill.totalAmount);
       const paidAt = bill.paidAt;
-
-      totalIncome += billTotal;
 
       const tailor = tailorMap.get(bill.tailorId) ?? {
         tailorId: bill.tailorId,
@@ -178,24 +215,17 @@ export async function GET(request: NextRequest) {
         spkIds: new Set<number>(),
       };
 
-      tailor.totalIncome += billTotal;
-      tailor.totalPaidBills += 1;
-
-      if (paidAt) {
-        const monthKey = [
-          paidAt.getFullYear(),
-          String(paidAt.getMonth() + 1).padStart(2, "0"),
-        ].join("-");
-
-        monthlyMap.set(
-          monthKey,
-          (monthlyMap.get(monthKey) ?? 0) + billTotal,
-        );
-      }
+      // Hitung pendapatan hanya berdasarkan item SPK aktif.
+      let activeBillAmount = 0;
+      let activeBillHasItems = false;
 
       for (const item of bill.items) {
         const quantity = Number(item.quantity);
+        const rate = Number(item.rate);
         const amount = Number(item.amount);
+
+        activeBillAmount += amount;
+        activeBillHasItems = true;
 
         totalQuantity += quantity;
         tailor.totalQuantity += quantity;
@@ -214,9 +244,30 @@ export async function GET(request: NextRequest) {
           productCode: item.product.code,
           productName: item.product.name,
           quantity,
-          rate: Number(item.rate),
+          rate,
           amount,
         });
+      }
+
+      // Abaikan tagihan tanpa item SPK aktif.
+      if (!activeBillHasItems) {
+        continue;
+      }
+
+      totalIncome += activeBillAmount;
+      tailor.totalIncome += activeBillAmount;
+      tailor.totalPaidBills += 1;
+
+      if (paidAt) {
+        const monthKey = [
+          paidAt.getFullYear(),
+          String(paidAt.getMonth() + 1).padStart(2, "0"),
+        ].join("-");
+
+        monthlyMap.set(
+          monthKey,
+          (monthlyMap.get(monthKey) ?? 0) + activeBillAmount,
+        );
       }
 
       tailorMap.set(bill.tailorId, tailor);
@@ -240,21 +291,27 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
+
       filters: {
         startDate: startDate.toISOString().slice(0, 10),
         endDate: endDate.toISOString().slice(0, 10),
         tailorId: tailorId ?? null,
         status: "PAID",
       },
+
       summary: {
         totalIncome,
-        totalPaidBills: bills.length,
+        totalPaidBills: tailors.reduce(
+          (total, tailor) => total + tailor.totalPaidBills,
+          0,
+        ),
         totalTailors: tailors.length,
         totalQuantity,
         totalSpk: new Set(
           details.map((item) => item.spkId),
         ).size,
       },
+
       monthly,
       tailors,
       details,

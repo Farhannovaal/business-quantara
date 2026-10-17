@@ -6,14 +6,69 @@ datasource db {
   provider = "mysql"
 }
 
-/**
- * =========================================================
- * AUTH
- * =========================================================
- */
+// ============================================================
+// COMPANY / TENANT
+// ============================================================
+
+enum CompanyStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+model Company {
+  id        Int           @id @default(autoincrement())
+  name      String        @db.VarChar(200)
+  code      String        @unique @db.VarChar(50)
+  slug      String        @unique @db.VarChar(100)
+  status    CompanyStatus @default(ACTIVE)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  settings         CompanySetting[]
+  users            User[]
+  roles            Role[]
+  products         Product[]
+  tailors          Tailor[]
+  employees        Employee[]
+  spks             SPK[]
+  transactionTypes TransactionType[]
+  transactions     Transaction[]
+  workflows        Workflow[]
+  activityLogs     ActivityLog[]
+  scannedDocuments ScannedDocument[]
+  tailorRates      TailorRate[]
+  tailorBills      TailorBill[]
+
+  @@index([status])
+}
+
+model CompanySetting {
+  id        Int      @id @default(autoincrement())
+  companyId Int
+  key       String   @db.VarChar(100)
+  value     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  @@unique([companyId, key])
+  @@index([companyId])
+}
+
+// ============================================================
+// AUTHENTICATION & AUTHORIZATION
+// ============================================================
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
 
 model User {
   id           Int        @id @default(autoincrement())
+  companyId    Int?
   name         String     @db.VarChar(150)
   email        String     @unique @db.VarChar(255)
   passwordHash String     @db.VarChar(255)
@@ -22,29 +77,37 @@ model User {
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
+  company Company? @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  role    Role?    @relation(fields: [roleId], references: [id], onDelete: SetNull)
+
   activityLogs          ActivityLog[]
   scannedDocuments      ScannedDocument[]
   sessions              Session[]
-  transactions          Transaction[] @relation("TransactionCreatedBy")
-  cancelledTransactions Transaction[] @relation("TransactionCancelledBy")
-  tailorBills           TailorBill[]
-  deletedSPKs           SPK[]         @relation("SPKDeletedBy")
+  transactions          Transaction[]     @relation("TransactionCreatedBy")
+  cancelledTransactions Transaction[]     @relation("TransactionCancelledBy")
+  tailorBills           TailorBill[]      @relation("TailorBillCreatedBy")
+  deletedSPKs           SPK[]             @relation("SPKDeletedBy")
 
-  role Role? @relation(fields: [roleId], references: [id])
-
+  @@index([companyId])
+  @@index([companyId, status])
   @@index([roleId])
-  @@index([status])
 }
 
 model Role {
   id          Int      @id @default(autoincrement())
-  name        String   @unique @db.VarChar(100)
+  companyId   Int?
+  name        String   @db.VarChar(100)
   description String?  @db.VarChar(255)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  company     Company?         @relation(fields: [companyId], references: [id], onDelete: Restrict)
   permissions RolePermission[]
   users       User[]
+
+  @@unique([companyId, name])
+  @@unique([companyId, id])
+  @@index([companyId])
 }
 
 model Permission {
@@ -82,84 +145,100 @@ model Session {
   @@index([expiresAt])
 }
 
-/**
- * =========================================================
- * MASTER DATA
- * =========================================================
- */
+// ============================================================
+// MASTER DATA
+// ============================================================
 
 model Product {
   id        Int      @id @default(autoincrement())
-  code      String   @unique @db.VarChar(100)
+  companyId Int?
+  code      String   @db.VarChar(100)
   name      String   @db.VarChar(255)
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  company         Company?         @relation(fields: [companyId], references: [id], onDelete: Restrict)
   spkItems        SPKItem[]
   transactions    Transaction[]
   tailorRates     TailorRate[]
   tailorBillItems TailorBillItem[]
 
-  @@index([name])
-  @@index([isActive])
+  @@unique([companyId, code])
+  @@unique([companyId, id])
+  @@index([companyId, name])
+  @@index([companyId, isActive])
 }
 
 model Tailor {
   id        Int      @id @default(autoincrement())
-  name      String   @unique @db.VarChar(150)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  spks         SPK[]
-  transactions Transaction[]
-  rates        TailorRate[]
-  bills        TailorBill[]
-
-  @@index([isActive])
-}
-
-model Employee {
-  id        Int      @id @default(autoincrement())
+  companyId Int?
   name      String   @db.VarChar(150)
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  company      Company?      @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  spks         SPK[]
   transactions Transaction[]
+  rates        TailorRate[]
+  bills        TailorBill[]
 
-  @@index([name])
-  @@index([isActive])
+  @@unique([companyId, name])
+  @@unique([companyId, id])
+  @@index([companyId, isActive])
 }
 
-/**
- * =========================================================
- * SPK
- * =========================================================
- */
+model Employee {
+  id        Int      @id @default(autoincrement())
+  companyId Int?
+  name      String   @db.VarChar(150)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company      Company?      @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  transactions Transaction[]
+
+  @@unique([companyId, id])
+  @@index([companyId, name])
+  @@index([companyId, isActive])
+}
+
+// ============================================================
+// SPK
+// ============================================================
+
+enum SPKStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
 
 model SPK {
   id          Int       @id @default(autoincrement())
-  spkNumber   String    @unique @db.VarChar(100)
+  companyId   Int?
+  spkNumber   String    @db.VarChar(100)
   tailorId    Int
   status      SPKStatus @default(ACTIVE)
   deletedAt   DateTime?
   deletedById Int?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  tailor    Tailor @relation(fields: [tailorId], references: [id])
-  deletedBy User? @relation("SPKDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  tailor    Tailor   @relation(fields: [tailorId], references: [id], onDelete: Restrict)
+  deletedBy User?    @relation("SPKDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
 
   items           SPKItem[]
   transactions    Transaction[]
   tailorBillItems TailorBillItem[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([tailorId])
-  @@index([status])
-  @@index([deletedAt])
+  @@unique([companyId, spkNumber])
+  @@unique([companyId, id])
+  @@index([companyId, tailorId])
+  @@index([companyId, status])
+  @@index([companyId, deletedAt])
   @@index([deletedById])
 }
 
@@ -170,7 +249,7 @@ model SPKItem {
   quantity  Int
 
   spk     SPK     @relation(fields: [spkId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id])
+  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -180,32 +259,41 @@ model SPKItem {
   @@index([productId])
 }
 
-/**
- * =========================================================
- * TRANSACTION
- * =========================================================
- */
+// ============================================================
+// TRANSACTION
+// ============================================================
+
+enum TransactionStatus {
+  ACTIVE
+  CANCELLED
+}
 
 model TransactionType {
   id          Int      @id @default(autoincrement())
-  code        String   @unique @db.VarChar(100)
-  name        String   @unique @db.VarChar(150)
+  companyId   Int?
+  code        String   @db.VarChar(100)
+  name        String   @db.VarChar(150)
   description String?  @db.Text
   sequence    Int      @default(0)
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  company       Company?       @relation(fields: [companyId], references: [id], onDelete: Restrict)
   transactions  Transaction[]
   workflowSteps WorkflowStep[]
 
-  @@index([sequence])
-  @@index([isActive])
+  @@unique([companyId, code])
+  @@unique([companyId, name])
+  @@unique([companyId, id])
+  @@index([companyId, sequence])
+  @@index([companyId, isActive])
 }
 
 model Transaction {
   id                 Int               @id @default(autoincrement())
-  transactionNumber  String            @unique @db.VarChar(100)
+  companyId          Int?
+  transactionNumber  String            @db.VarChar(100)
   spkId              Int
   transactionTypeId  Int
   productId          Int
@@ -220,46 +308,52 @@ model Transaction {
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
 
+  company          Company?          @relation(fields: [companyId], references: [id], onDelete: Restrict)
   scannedDocuments ScannedDocument[]
 
-  createdBy       User?           @relation("TransactionCreatedBy", fields: [createdById], references: [id])
-  cancelledBy     User?           @relation("TransactionCancelledBy", fields: [cancelledById], references: [id])
-  employee        Employee        @relation(fields: [employeeId], references: [id])
-  product         Product         @relation(fields: [productId], references: [id])
-  spk             SPK             @relation(fields: [spkId], references: [id])
-  tailor          Tailor          @relation(fields: [tailorId], references: [id])
-  transactionType TransactionType @relation(fields: [transactionTypeId], references: [id])
+  createdBy       User?           @relation("TransactionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  cancelledBy     User?           @relation("TransactionCancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)
+  employee        Employee        @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  product         Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
+  spk             SPK             @relation(fields: [spkId], references: [id], onDelete: Restrict)
+  tailor          Tailor          @relation(fields: [tailorId], references: [id], onDelete: Restrict)
+  transactionType TransactionType @relation(fields: [transactionTypeId], references: [id], onDelete: Restrict)
 
-  @@index([spkId])
-  @@index([transactionTypeId])
-  @@index([productId])
-  @@index([tailorId])
-  @@index([employeeId])
+  @@unique([companyId, transactionNumber])
+  @@unique([companyId, id])
+  @@index([companyId, spkId])
+  @@index([companyId, transactionTypeId])
+  @@index([companyId, productId])
+  @@index([companyId, tailorId])
+  @@index([companyId, employeeId])
+  @@index([companyId, status])
+  @@index([companyId, createdAt])
   @@index([createdById])
-  @@index([status])
   @@index([cancelledById])
-  @@index([createdAt])
 }
 
-/**
- * =========================================================
- * WORKFLOW
- * =========================================================
- */
+// ============================================================
+// WORKFLOW
+// ============================================================
 
 model Workflow {
   id          Int      @id @default(autoincrement())
-  name        String   @unique @db.VarChar(150)
-  code        String   @unique @db.VarChar(100)
+  companyId   Int?
+  name        String   @db.VarChar(150)
+  code        String   @db.VarChar(100)
   description String?  @db.Text
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  rules WorkflowRule[]
-  steps WorkflowStep[]
+  company Company?       @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  rules   WorkflowRule[]
+  steps   WorkflowStep[]
 
-  @@index([isActive])
+  @@unique([companyId, name])
+  @@unique([companyId, code])
+  @@unique([companyId, id])
+  @@index([companyId, isActive])
 }
 
 model WorkflowStep {
@@ -272,7 +366,7 @@ model WorkflowStep {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  transactionType TransactionType @relation(fields: [transactionTypeId], references: [id])
+  transactionType TransactionType @relation(fields: [transactionTypeId], references: [id], onDelete: Restrict)
   workflow        Workflow        @relation(fields: [workflowId], references: [id], onDelete: Cascade)
 
   @@unique([workflowId, sequence])
@@ -300,14 +394,13 @@ model WorkflowRule {
   @@index([isActive])
 }
 
-/**
- * =========================================================
- * ACTIVITY LOG
- * =========================================================
- */
+// ============================================================
+// ACTIVITY LOG
+// ============================================================
 
 model ActivityLog {
   id          Int      @id @default(autoincrement())
+  companyId   Int?
   userId      Int?
   action      String   @db.VarChar(100)
   entityType  String   @db.VarChar(100)
@@ -315,171 +408,17 @@ model ActivityLog {
   description String?  @db.Text
   createdAt   DateTime @default(now())
 
-  user User? @relation(fields: [userId], references: [id])
+  company Company? @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  user    User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
-  @@index([userId])
-  @@index([entityType, entityId])
-  @@index([createdAt])
+  @@index([companyId, userId])
+  @@index([companyId, entityType, entityId])
+  @@index([companyId, createdAt])
 }
 
-/**
- * =========================================================
- * SCANNER
- * =========================================================
- */
-
-model ScannedDocument {
-  id                Int        @id @default(autoincrement())
-  documentNumber    String     @unique @db.VarChar(100)
-  documentType      String?    @db.VarChar(100)
-  source            ScanSource
-  status            ScanStatus @default(PENDING)
-  imageUrl          String?    @db.VarChar(500)
-  rawText           String?    @db.Text
-  extractedData     String?    @db.LongText
-  normalizedData    String?    @db.LongText
-  validationMessage String?    @db.Text
-  transactionId     Int?
-  scannedByUserId   Int?
-  scannedAt         DateTime   @default(now())
-  processedAt       DateTime?
-  createdAt         DateTime   @default(now())
-  updatedAt         DateTime   @updatedAt
-
-  scannedBy   User?        @relation(fields: [scannedByUserId], references: [id])
-  transaction Transaction? @relation(fields: [transactionId], references: [id])
-
-  @@index([status])
-  @@index([source])
-  @@index([transactionId])
-  @@index([scannedByUserId])
-  @@index([scannedAt])
-}
-
-/**
- * =========================================================
- * SEQUENCE
- * =========================================================
- */
-
-model TransactionSequence {
-  id        Int      @id @default(autoincrement())
-  date      String   @unique @db.VarChar(8)
-  lastValue Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([date])
-}
-
-/**
- * =========================================================
- * TAILOR RATE
- * =========================================================
- */
-
-model TailorRate {
-  id            Int       @id @default(autoincrement())
-  tailorId      Int
-  productId     Int
-  rate          Decimal   @db.Decimal(15, 2)
-  isActive      Boolean   @default(true)
-  effectiveFrom DateTime  @default(now())
-  effectiveTo   DateTime?
-
-  tailor  Tailor  @relation(fields: [tailorId], references: [id])
-  product Product @relation(fields: [productId], references: [id])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([tailorId])
-  @@index([productId])
-  @@index([tailorId, productId])
-  @@index([isActive])
-  @@index([effectiveFrom])
-}
-
-/**
- * =========================================================
- * TAILOR BILLING
- * =========================================================
- */
-
-enum TailorBillStatus {
-  DRAFT
-  SUBMITTED
-  PAID
-  CANCELLED
-}
-
-model TailorBill {
-  id          Int              @id @default(autoincrement())
-  billNumber  String           @unique @db.VarChar(100)
-  tailorId    Int
-  status      TailorBillStatus @default(DRAFT)
-  subtotal    Decimal          @db.Decimal(15, 2)
-  totalAmount Decimal          @db.Decimal(15, 2)
-  notes       String?          @db.Text
-
-  tailor Tailor           @relation(fields: [tailorId], references: [id])
-  items  TailorBillItem[]
-
-  createdById Int?
-  createdBy   User? @relation(fields: [createdById], references: [id])
-
-  paidAt    DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-
-  @@index([tailorId])
-  @@index([status])
-  @@index([createdById])
-  @@index([createdAt])
-}
-
-model TailorBillItem {
-  id        Int     @id @default(autoincrement())
-  billId    Int
-  spkId     Int
-  productId Int
-  quantity  Decimal @db.Decimal(15, 2)
-  rate      Decimal @db.Decimal(15, 2)
-  amount    Decimal @db.Decimal(15, 2)
-
-  bill    TailorBill @relation(fields: [billId], references: [id], onDelete: Cascade)
-  spk     SPK        @relation(fields: [spkId], references: [id])
-  product Product    @relation(fields: [productId], references: [id])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([billId])
-  @@index([spkId])
-  @@index([productId])
-}
-
-/**
- * =========================================================
- * ENUMS
- * =========================================================
- */
-
-enum TransactionStatus {
-  ACTIVE
-  CANCELLED
-}
-
-enum UserStatus {
-  ACTIVE
-  INACTIVE
-}
-
-enum SPKStatus {
-  ACTIVE
-  COMPLETED
-  CANCELLED
-}
+// ============================================================
+// SCANNER
+// ============================================================
 
 enum ScanStatus {
   PENDING
@@ -497,9 +436,139 @@ enum ScanSource {
   MANUAL
 }
 
+model ScannedDocument {
+  id                Int        @id @default(autoincrement())
+  companyId         Int?
+  documentNumber    String     @db.VarChar(100)
+  documentType      String?    @db.VarChar(100)
+  source            ScanSource
+  status            ScanStatus @default(PENDING)
+  imageUrl          String?    @db.VarChar(500)
+  rawText           String?    @db.Text
+  extractedData     String?    @db.LongText
+  normalizedData    String?    @db.LongText
+  validationMessage String?    @db.Text
+  transactionId     Int?
+  scannedByUserId   Int?
+  scannedAt         DateTime   @default(now())
+  processedAt       DateTime?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  company     Company?     @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  scannedBy   User?        @relation(fields: [scannedByUserId], references: [id], onDelete: SetNull)
+  transaction Transaction? @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+
+  @@unique([companyId, documentNumber])
+  @@index([companyId, status])
+  @@index([companyId, source])
+  @@index([companyId, transactionId])
+  @@index([companyId, scannedByUserId])
+  @@index([companyId, scannedAt])
+}
+
+// ============================================================
+// SEQUENCES
+// ============================================================
+
+model TransactionSequence {
+  id        Int      @id @default(autoincrement())
+  date      String   @unique @db.VarChar(8)
+  lastValue Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([date])
+}
+
 model TailorBillSequence {
   date      String   @id @db.VarChar(8)
   lastValue Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// TAILOR RATE
+// ============================================================
+
+model TailorRate {
+  id            Int       @id @default(autoincrement())
+  companyId     Int?
+  tailorId      Int
+  productId     Int
+  rate          Decimal   @db.Decimal(15, 2)
+  isActive      Boolean   @default(true)
+  effectiveFrom DateTime  @default(now())
+  effectiveTo   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  company Company? @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  tailor  Tailor   @relation(fields: [tailorId], references: [id], onDelete: Restrict)
+  product Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([companyId, tailorId, productId])
+  @@index([companyId, isActive])
+  @@index([companyId, effectiveFrom])
+}
+
+// ============================================================
+// TAILOR BILLING
+// ============================================================
+
+enum TailorBillStatus {
+  DRAFT
+  SUBMITTED
+  PAID
+  CANCELLED
+}
+
+model TailorBill {
+  id          Int              @id @default(autoincrement())
+  companyId   Int?
+  billNumber  String           @db.VarChar(100)
+  tailorId    Int
+  status      TailorBillStatus @default(DRAFT)
+  subtotal    Decimal          @db.Decimal(15, 2)
+  totalAmount Decimal          @db.Decimal(15, 2)
+  notes       String?          @db.Text
+  createdById Int?
+  paidAt      DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  company Company?         @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  tailor  Tailor           @relation(fields: [tailorId], references: [id], onDelete: Restrict)
+  items   TailorBillItem[]
+
+  createdBy User? @relation("TailorBillCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([companyId, billNumber])
+  @@unique([companyId, id])
+  @@index([companyId, tailorId])
+  @@index([companyId, status])
+  @@index([companyId, createdById])
+  @@index([companyId, createdAt])
+}
+
+model TailorBillItem {
+  id        Int     @id @default(autoincrement())
+  billId    Int
+  spkId     Int
+  productId Int
+  quantity  Decimal @db.Decimal(15, 2)
+  rate      Decimal @db.Decimal(15, 2)
+  amount    Decimal @db.Decimal(15, 2)
+
+  bill    TailorBill @relation(fields: [billId], references: [id], onDelete: Cascade)
+  spk     SPK        @relation(fields: [spkId], references: [id], onDelete: Restrict)
+  product Product    @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([billId])
+  @@index([spkId])
+  @@index([productId])
 }

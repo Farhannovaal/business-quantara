@@ -1,8 +1,22 @@
+
 import { NextRequest, NextResponse } from "next/server";
+
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { hasPermission } from "@/lib/auth/authorization";
 import { createTailorBill } from "@/lib/tailor-billing/service";
+
+type TailorBillInputItem = {
+  spkId: number;
+  productId: number;
+  quantity: number;
+};
+
+type TailorBillRawItem = {
+  spkId: number | string;
+  productId: number | string;
+  quantity: number | string;
+};
 
 export async function GET(request: NextRequest) {
   const auth = await requireAuth();
@@ -34,7 +48,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const { searchParams } = new URL(request.url);
+    const { searchParams } = request.nextUrl;
 
     const status = searchParams.get("status");
     const tailorIdParam = searchParams.get("tailorId");
@@ -46,7 +60,7 @@ export async function GET(request: NextRequest) {
 
     if (
       tailorIdParam &&
-      (!Number.isInteger(tailorId) || tailorId! <= 0)
+      (!Number.isSafeInteger(tailorId) || tailorId! <= 0)
     ) {
       return NextResponse.json(
         {
@@ -57,8 +71,40 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const allowedStatuses = [
+      "DRAFT",
+      "SUBMITTED",
+      "PAID",
+      "CANCELLED",
+    ] as const;
+
+    if (
+      status &&
+      !allowedStatuses.includes(
+        status as (typeof allowedStatuses)[number],
+      )
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Status tagihan tidak valid.",
+        },
+        { status: 400 },
+      );
+    }
+
     const bills = await prisma.tailorBill.findMany({
       where: {
+        // Tagihan operasional harus memiliki minimal satu
+        // item dari SPK yang belum di-soft-delete.
+        items: {
+          some: {
+            spk: {
+              deletedAt: null,
+            },
+          },
+        },
+
         ...(status
           ? {
               status: status as
@@ -69,7 +115,7 @@ export async function GET(request: NextRequest) {
             }
           : {}),
 
-        ...(tailorId
+        ...(tailorId !== null
           ? {
               tailorId,
             }
@@ -111,7 +157,14 @@ export async function GET(request: NextRequest) {
           },
         },
 
+        // Jangan tampilkan item dari SPK yang sudah dihapus.
         items: {
+          where: {
+            spk: {
+              deletedAt: null,
+            },
+          },
+
           select: {
             id: true,
             spkId: true,
@@ -190,11 +243,35 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body = await request.json();
+    const body: unknown = await request.json();
 
-    const tailorId = Number(body.tailorId);
+    if (
+      typeof body !== "object" ||
+      body === null ||
+      !("tailorId" in body) ||
+      !("items" in body)
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Data tagihan tidak valid.",
+        },
+        { status: 400 },
+      );
+    }
 
-    if (!Number.isInteger(tailorId) || tailorId <= 0) {
+    const payload = body as {
+      tailorId: number | string;
+      items: unknown;
+      notes?: unknown;
+    };
+
+    const tailorId = Number(payload.tailorId);
+
+    if (
+      !Number.isSafeInteger(tailorId) ||
+      tailorId <= 0
+    ) {
       return NextResponse.json(
         {
           success: false,
@@ -204,7 +281,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!Array.isArray(body.items)) {
+    if (!Array.isArray(payload.items)) {
       return NextResponse.json(
         {
           success: false,
@@ -214,21 +291,39 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const items = body.items.map(
-      (item: {
-        spkId: number | string;
-        productId: number | string;
-        quantity: number | string;
-      }) => ({
+    const rawItems = payload.items as TailorBillRawItem[];
+
+    const items: TailorBillInputItem[] = rawItems.map(
+      (item: TailorBillRawItem) => ({
         spkId: Number(item.spkId),
         productId: Number(item.productId),
         quantity: Number(item.quantity),
       }),
     );
 
+    const invalidItem = items.some(
+      (item: TailorBillInputItem) =>
+        !Number.isSafeInteger(item.spkId) ||
+        item.spkId <= 0 ||
+        !Number.isSafeInteger(item.productId) ||
+        item.productId <= 0 ||
+        !Number.isFinite(item.quantity) ||
+        item.quantity <= 0,
+    );
+
+    if (invalidItem || items.length === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Data item tagihan tidak valid.",
+        },
+        { status: 400 },
+      );
+    }
+
     const notes =
-      typeof body.notes === "string"
-        ? body.notes.trim() || null
+      typeof payload.notes === "string"
+        ? payload.notes.trim() || null
         : null;
 
     const bill = await createTailorBill(
@@ -245,9 +340,7 @@ export async function POST(request: NextRequest) {
         success: true,
         data: bill,
       },
-      {
-        status: 201,
-      },
+      { status: 201 },
     );
   } catch (error) {
     console.error("Create tailor bill error:", error);
@@ -260,9 +353,7 @@ export async function POST(request: NextRequest) {
             ? error.message
             : "Gagal membuat tagihan penjahit.",
       },
-      {
-        status: 400,
-      },
+      { status: 400 },
     );
   }
 }
