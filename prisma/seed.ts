@@ -1,17 +1,12 @@
 import "dotenv/config";
-
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
-
 const databaseUrl = process.env.DATABASE_URL;
-
 if (!databaseUrl) {
   throw new Error("DATABASE_URL is not configured");
 }
-
 const url = new URL(databaseUrl);
-
 const adapter = new PrismaMariaDb({
   host: url.hostname,
   port: Number(url.port || 3306),
@@ -20,9 +15,7 @@ const adapter = new PrismaMariaDb({
   database: url.pathname.replace("/", ""),
   connectionLimit: 5,
 });
-
 const prisma = new PrismaClient({ adapter });
-
 async function main() {
   const permissions = [
     {
@@ -312,7 +305,6 @@ async function main() {
       description: "Membuat dan mengelola pengguna serta role",
     },
   ];
-
   for (const permission of permissions) {
     await prisma.permission.upsert({
       where: {
@@ -325,7 +317,6 @@ async function main() {
       create: permission,
     });
   }
-
   const transactionTypes = [
     {
       code: "PENGIRIMAN_SIAP_JAHIT",
@@ -382,67 +373,89 @@ async function main() {
       isActive: true,
     },
   ];
-
-  for (const transactionType of transactionTypes) {
-    await prisma.transactionType.upsert({
+    for (const transactionType of transactionTypes) {
+    const existingTransactionType = await prisma.transactionType.findFirst({
       where: {
+        companyId: null,
         code: transactionType.code,
       },
-      update: {
-        name: transactionType.name,
-        description: transactionType.description,
-        sequence: transactionType.sequence,
-        isActive: transactionType.isActive,
+    });
+    if (existingTransactionType) {
+      await prisma.transactionType.update({
+        where: {
+          id: existingTransactionType.id,
+        },
+        data: {
+          name: transactionType.name,
+          description: transactionType.description,
+          sequence: transactionType.sequence,
+          isActive: transactionType.isActive,
+        },
+      });
+    } else {
+      await prisma.transactionType.create({
+        data: {
+          ...transactionType,
+          companyId: null,
+        },
+      });
+    }
+  }
+  async function getOrCreateGlobalRole(
+    name: string,
+    description: string,
+  ) {
+    const existingRole = await prisma.role.findFirst({
+      where: {
+        companyId: null,
+        name,
       },
-      create: transactionType,
+    });
+
+    if (existingRole) {
+      return prisma.role.update({
+        where: { id: existingRole.id },
+        data: { description },
+      });
+    }
+
+    return prisma.role.create({
+      data: {
+        companyId: null,
+        name,
+        description,
+      },
     });
   }
 
-  const administratorRole = await prisma.role.upsert({
-    where: {
-      name: "Administrator",
-    },
-    update: {},
-    create: {
-      name: "Administrator",
-      description: "Full access to Overpassion Operation",
-    },
-  });
-
+  const administratorRole = await getOrCreateGlobalRole(
+    "Administrator",
+    "Full access to Overpassion Operation",
+  );
   const allPermissions = await prisma.permission.findMany({
     select: {
       id: true,
       code: true,
     },
   });
-
   await prisma.rolePermission.deleteMany({
     where: {
       roleId: administratorRole.id,
     },
   });
-
   if (allPermissions.length > 0) {
     await prisma.rolePermission.createMany({
-      data: allPermissions.map((permission) => ({
+      data: allPermissions.map(permission => ({
         roleId: administratorRole.id,
         permissionId: permission.id,
       })),
       skipDuplicates: true,
     });
   }
-
-  const operatorRole = await prisma.role.upsert({
-    where: {
-      name: "Operator",
-    },
-    update: {},
-    create: {
-      name: "Operator",
-      description: "Operational user",
-    },
-  });
-
+  const operatorRole = await getOrCreateGlobalRole(
+    "Operator",
+    "Operational user",
+  );
   const operatorPermissionCodes = [
     "dashboard.view",
     "report.view",
@@ -460,7 +473,6 @@ async function main() {
     "tailor-billing.view",
     "tailor-billing.create",
   ];
-
   const operatorPermissions = await prisma.permission.findMany({
     where: {
       code: {
@@ -472,36 +484,25 @@ async function main() {
       code: true,
     },
   });
-
   await prisma.rolePermission.deleteMany({
     where: {
       roleId: operatorRole.id,
     },
   });
-
   if (operatorPermissions.length > 0) {
     await prisma.rolePermission.createMany({
-      data: operatorPermissions.map((permission) => ({
+      data: operatorPermissions.map(permission => ({
         roleId: operatorRole.id,
         permissionId: permission.id,
       })),
       skipDuplicates: true,
     });
   }
-
-  const qcRole = await prisma.role.upsert({
-    where: {
-      name: "QC",
-    },
-    update: {},
-    create: {
-      name: "QC",
-      description: "Quality Control user",
-    },
-  });
-
+  const qcRole = await getOrCreateGlobalRole(
+    "QC",
+    "Quality Control user",
+  );
   const qcPermissionCodes = ["qc.view", "qc.manage"];
-
   const qcPermissions = await prisma.permission.findMany({
     where: {
       code: {
@@ -513,27 +514,23 @@ async function main() {
       code: true,
     },
   });
-
   await prisma.rolePermission.deleteMany({
     where: {
       roleId: qcRole.id,
     },
   });
-
   if (qcPermissions.length > 0) {
     await prisma.rolePermission.createMany({
-      data: qcPermissions.map((permission) => ({
+      data: qcPermissions.map(permission => ({
         roleId: qcRole.id,
         permissionId: permission.id,
       })),
       skipDuplicates: true,
     });
   }
-
   const adminPassword = await bcrypt.hash("Admin123!", 10);
   const operatorPassword = await bcrypt.hash("Operator123!", 10);
   const qcPassword = await bcrypt.hash("Qc123456!", 10);
-
   await prisma.user.upsert({
     where: {
       email: "admin@business.local",
@@ -552,7 +549,6 @@ async function main() {
       status: "ACTIVE",
     },
   });
-
   await prisma.user.upsert({
     where: {
       email: "operator@business.local",
@@ -571,7 +567,6 @@ async function main() {
       status: "ACTIVE",
     },
   });
-
   await prisma.user.upsert({
     where: {
       email: "qc@business.local",
@@ -591,9 +586,8 @@ async function main() {
     },
   });
 }
-
 main()
-  .catch((error) => {
+  .catch(error => {
     throw error;
   })
   .finally(async () => {

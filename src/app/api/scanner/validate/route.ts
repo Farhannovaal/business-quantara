@@ -4,9 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { hasPermission } from "@/lib/auth/authorization";
 
-export async function POST(
-  request: NextRequest,
-) {
+export async function POST(request: NextRequest) {
   try {
     const auth = await requireAuth();
 
@@ -22,22 +20,9 @@ export async function POST(
           success: false,
           error: "Unauthorized",
         },
-        {
-          status: 401,
-        },
+        { status: 401 },
       );
     }
-
-    console.log("AUTH USER:", {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role?.name,
-      permissions:
-        user.role?.permissions?.map(
-          (item) => item.permission.code,
-        ),
-    });
 
     if (!hasPermission(user, "scanner.view")) {
       return NextResponse.json(
@@ -45,9 +30,18 @@ export async function POST(
           success: false,
           error: "Forbidden",
         },
+        { status: 403 },
+      );
+    }
+
+    // Scanner documents must belong to the authenticated tenant.
+    if (user.companyId == null) {
+      return NextResponse.json(
         {
-          status: 403,
+          success: false,
+          error: "Company is not assigned to this user.",
         },
+        { status: 403 },
       );
     }
 
@@ -69,375 +63,211 @@ export async function POST(
           success: false,
           error: "Document number is required",
         },
-        {
-          status: 400,
-        },
+        { status: 400 },
       );
     }
 
-    const allowedSources = [
-      "QR",
-      "BARCODE",
-      "OCR",
-      "MANUAL",
-    ];
+    const allowedSources = ["QR", "BARCODE", "OCR", "MANUAL"] as const;
 
-    if (!allowedSources.includes(source)) {
+    if (!allowedSources.includes(source as (typeof allowedSources)[number])) {
       return NextResponse.json(
         {
           success: false,
           error: "Invalid scanner source",
         },
-        {
-          status: 400,
-        },
+        { status: 400 },
       );
     }
 
-    const normalizedDocumentNumber =
-      documentNumber.toUpperCase();
+    const normalizedDocumentNumber = documentNumber.toUpperCase();
+    const normalizedSource = source as (typeof allowedSources)[number];
 
     /*
-     * Cari dokumen yang pernah discan.
-     *
-     * Transaction memiliki product secara langsung.
-     *
-     * SPK sekarang tidak lagi memiliki product langsung,
-     * sehingga cukup ambil:
-     * - tailor
-     * - transaction
-     *   - transactionType
-     *   - product
-     *   - tailor
-     *   - employee
+     * Cari dokumen berdasarkan compound unique key tenant + document number.
+     * Include transaction agar data relasi tersedia saat membentuk response.
      */
-    const existingScan =
-      await prisma.scannedDocument.findUnique({
-        where: {
-          documentNumber:
-            normalizedDocumentNumber,
+    const existingScan = await prisma.scannedDocument.findUnique({
+      where: {
+        companyId_documentNumber: {
+          companyId: user.companyId,
+          documentNumber: normalizedDocumentNumber,
         },
-
-        include: {
-          transaction: {
-            include: {
-              spk: {
-                include: {
-                  tailor: true,
-                },
+      },
+      include: {
+        transaction: {
+          include: {
+            spk: {
+              include: {
+                tailor: true,
               },
-
-              transactionType: true,
-
-              product: true,
-
-              tailor: true,
-
-              employee: true,
             },
-          },
-
-          scannedBy: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
+            transactionType: true,
+            product: true,
+            tailor: true,
+            employee: true,
           },
         },
-      });
+        scannedBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
 
-    /*
-     * ==================================================
-     * DOCUMENT SUDAH DIPROSES
-     * ==================================================
-     */
+    // Dokumen sudah diproses.
+    if (existingScan && existingScan.status === "PROCESSED") {
+      const transaction = existingScan.transaction;
 
-    if (
-      existingScan &&
-      existingScan.status === "PROCESSED"
-    ) {
       return NextResponse.json(
         {
           success: true,
           valid: false,
           duplicate: true,
           status: "PROCESSED",
-
-          message:
-            "This document has already been processed.",
-
+          message: "This document has already been processed.",
           document: {
             id: existingScan.id,
-
-            documentNumber:
-              existingScan.documentNumber,
-
-            documentType:
-              existingScan.documentType,
-
+            documentNumber: existingScan.documentNumber,
+            documentType: existingScan.documentType,
             source: existingScan.source,
-
             status: existingScan.status,
-
-            scannedAt:
-              existingScan.scannedAt,
-
-            processedAt:
-              existingScan.processedAt,
+            scannedAt: existingScan.scannedAt,
+            processedAt: existingScan.processedAt,
           },
-
-          transaction:
-            existingScan.transaction
-              ? {
-                  id:
-                    existingScan.transaction.id,
-
-                  transactionNumber:
-                    existingScan.transaction
-                      .transactionNumber,
-
-                  quantity:
-                    existingScan.transaction
-                      .quantity,
-
-                  createdAt:
-                    existingScan.transaction
-                      .createdAt,
-
-                  transactionType: {
-                    id:
-                      existingScan.transaction
-                        .transactionType.id,
-
-                    code:
-                      existingScan.transaction
-                        .transactionType.code,
-
-                    name:
-                      existingScan.transaction
-                        .transactionType.name,
-                  },
-
-                  spk: {
-                    id:
-                      existingScan.transaction
-                        .spk.id,
-
-                    spkNumber:
-                      existingScan.transaction
-                        .spk.spkNumber,
-
-                    status:
-                      existingScan.transaction
-                        .spk.status,
-                  },
-
-                  product: {
-                    id:
-                      existingScan.transaction
-                        .product.id,
-
-                    code:
-                      existingScan.transaction
-                        .product.code,
-
-                    name:
-                      existingScan.transaction
-                        .product.name,
-                  },
-
-                  tailor: {
-                    id:
-                      existingScan.transaction
-                        .tailor.id,
-
-                    name:
-                      existingScan.transaction
-                        .tailor.name,
-                  },
-
-                  employee: {
-                    id:
-                      existingScan.transaction
-                        .employee.id,
-
-                    name:
-                      existingScan.transaction
-                        .employee.name,
-                  },
-                }
-              : null,
+          transaction: transaction
+            ? {
+                id: transaction.id,
+                transactionNumber: transaction.transactionNumber,
+                quantity: transaction.quantity,
+                createdAt: transaction.createdAt,
+                transactionType: transaction.transactionType
+                  ? {
+                      id: transaction.transactionType.id,
+                      code: transaction.transactionType.code,
+                      name: transaction.transactionType.name,
+                    }
+                  : null,
+                spk: transaction.spk
+                  ? {
+                      id: transaction.spk.id,
+                      spkNumber: transaction.spk.spkNumber,
+                      status: transaction.spk.status,
+                    }
+                  : null,
+                product: transaction.product
+                  ? {
+                      id: transaction.product.id,
+                      code: transaction.product.code,
+                      name: transaction.product.name,
+                    }
+                  : null,
+                tailor: transaction.tailor
+                  ? {
+                      id: transaction.tailor.id,
+                      name: transaction.tailor.name,
+                    }
+                  : null,
+                employee: transaction.employee
+                  ? {
+                      id: transaction.employee.id,
+                      name: transaction.employee.name,
+                    }
+                  : null,
+              }
+            : null,
         },
-        {
-          status: 200,
-        },
+        { status: 200 },
       );
     }
 
-    /*
-     * ==================================================
-     * DOCUMENT SUDAH ADA TAPI BELUM PROCESSED
-     * ==================================================
-     */
-
+    // Dokumen sudah ada, tetapi belum diproses.
     if (existingScan) {
+      const transaction = existingScan.transaction;
+
       return NextResponse.json(
         {
           success: true,
-
           valid:
             existingScan.status === "VALID" ||
             existingScan.status === "PENDING",
-
           duplicate: false,
-
           status: existingScan.status,
-
           message:
             existingScan.status === "INVALID"
-              ? existingScan.validationMessage ||
-                "This document is invalid."
-              : existingScan.status ===
-                  "REVIEW_REQUIRED"
+              ? existingScan.validationMessage || "This document is invalid."
+              : existingScan.status === "REVIEW_REQUIRED"
                 ? existingScan.validationMessage ||
                   "This document requires manual review."
                 : "Document found.",
-
           document: {
             id: existingScan.id,
-
-            documentNumber:
-              existingScan.documentNumber,
-
-            documentType:
-              existingScan.documentType,
-
+            documentNumber: existingScan.documentNumber,
+            documentType: existingScan.documentType,
             source: existingScan.source,
-
             status: existingScan.status,
-
-            scannedAt:
-              existingScan.scannedAt,
-
-            processedAt:
-              existingScan.processedAt,
+            scannedAt: existingScan.scannedAt,
+            processedAt: existingScan.processedAt,
           },
-
-          transaction:
-            existingScan.transaction
-              ? {
-                  id:
-                    existingScan.transaction.id,
-
-                  transactionNumber:
-                    existingScan.transaction
-                      .transactionNumber,
-
-                  quantity:
-                    existingScan.transaction
-                      .quantity,
-
-                  createdAt:
-                    existingScan.transaction
-                      .createdAt,
-
-                  transactionType:
-                    existingScan.transaction
-                      .transactionType,
-
-                  spk:
-                    existingScan.transaction.spk,
-
-                  product:
-                    existingScan.transaction.product,
-
-                  tailor:
-                    existingScan.transaction.tailor,
-
-                  employee:
-                    existingScan.transaction.employee,
-                }
-              : null,
+          transaction: transaction
+            ? {
+                id: transaction.id,
+                transactionNumber: transaction.transactionNumber,
+                quantity: transaction.quantity,
+                createdAt: transaction.createdAt,
+                transactionType: transaction.transactionType,
+                spk: transaction.spk,
+                product: transaction.product,
+                tailor: transaction.tailor,
+                employee: transaction.employee,
+              }
+            : null,
         },
-        {
-          status: 200,
-        },
+        { status: 200 },
       );
     }
 
-    /*
-     * ==================================================
-     * CREATE NEW SCANNED DOCUMENT
-     * ==================================================
-     */
-
-    const scannedDocument =
-      await prisma.scannedDocument.create({
-        data: {
-          documentNumber:
-            normalizedDocumentNumber,
-
-          source:
-            source as
-              | "QR"
-              | "BARCODE"
-              | "OCR"
-              | "MANUAL",
-
-          status: "PENDING",
-
-          scannedByUserId: user.id,
-        },
-      });
+    // Belum ada dokumen untuk tenant ini, buat sebagai PENDING.
+    const scannedDocument = await prisma.scannedDocument.create({
+      data: {
+        companyId: user.companyId,
+        documentNumber: normalizedDocumentNumber,
+        source: normalizedSource,
+        status: "PENDING",
+        scannedByUserId: user.id,
+      },
+    });
 
     return NextResponse.json(
       {
         success: true,
-
         valid: false,
-
         duplicate: false,
-
         status: "PENDING",
-
         message:
           "Document scanned successfully. Waiting for validation.",
-
         document: {
           id: scannedDocument.id,
-
-          documentNumber:
-            scannedDocument.documentNumber,
-
+          documentNumber: scannedDocument.documentNumber,
           source: scannedDocument.source,
-
           status: scannedDocument.status,
-
-          scannedAt:
-            scannedDocument.scannedAt,
+          scannedAt: scannedDocument.scannedAt,
         },
-
         transaction: null,
       },
-      {
-        status: 201,
-      },
+      { status: 201 },
     );
   } catch (error) {
-    console.error(
-      "POST /api/scanner/validate error:",
-      error,
-    );
+    console.error("POST /api/scanner/validate error:", error);
 
     return NextResponse.json(
       {
         success: false,
         error: "Internal server error",
       },
-      {
-        status: 500,
-      },
+      { status: 500 },
     );
   }
 }

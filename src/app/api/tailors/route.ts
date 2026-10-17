@@ -1,28 +1,31 @@
-import { requirePermission } from "@/lib/auth/authorization";
-
-import { requireAuth } from "@/lib/auth/require-auth";
-
-import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { requirePermission } from "@/lib/auth/authorization";
+import { requireAuth } from "@/lib/auth/require-auth";
+import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   const { user, response } = await requireAuth();
 
-  if (response) {
-    return response;
-  }
-  const permission = requirePermission(
-    user,
-    "tailor.view"
-  );
+  if (response) return response;
 
-  if (permission.response) {
-    return permission.response;
-  }
+  const permission = requirePermission(user, "tailor.view");
+  if (permission.response) return permission.response;
 
+  if (user.companyId == null) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "User belum terhubung dengan perusahaan.",
+      },
+      { status: 403 },
+    );
+  }
 
   try {
     const tailors = await prisma.tailor.findMany({
+      where: {
+        companyId: user.companyId,
+      },
       orderBy: {
         createdAt: "desc",
       },
@@ -40,7 +43,7 @@ export async function GET() {
         success: false,
         error: "Failed to load tailors",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -48,18 +51,20 @@ export async function GET() {
 export async function POST(request: Request) {
   const { user, response } = await requireAuth();
 
-  if (response) {
-    return response;
-  }
-  const permission = requirePermission(
-    user,
-    "tailor.manage"
-  );
+  if (response) return response;
 
-  if (permission.response) {
-    return permission.response;
-  }
+  const permission = requirePermission(user, "tailor.manage");
+  if (permission.response) return permission.response;
 
+  if (user.companyId == null) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "User belum terhubung dengan perusahaan.",
+      },
+      { status: 403 },
+    );
+  }
 
   try {
     const body = await request.json();
@@ -73,13 +78,16 @@ export async function POST(request: Request) {
           success: false,
           error: "Tailor name is required",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     const existingTailor = await prisma.tailor.findUnique({
       where: {
-        name,
+        companyId_name: {
+          companyId: user.companyId,
+          name,
+        },
       },
     });
 
@@ -89,12 +97,13 @@ export async function POST(request: Request) {
           success: false,
           error: "Tailor name already exists",
         },
-        { status: 409 }
+        { status: 409 },
       );
     }
 
     const tailor = await prisma.tailor.create({
       data: {
+        companyId: user.companyId,
         name,
         isActive,
       },
@@ -105,7 +114,7 @@ export async function POST(request: Request) {
         success: true,
         data: tailor,
       },
-      { status: 201 }
+      { status: 201 },
     );
   } catch (error) {
     console.error("POST /api/tailors error:", error);
@@ -115,7 +124,7 @@ export async function POST(request: Request) {
         success: false,
         error: "Failed to create tailor",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
