@@ -3,55 +3,80 @@ import { prisma } from "@/lib/prisma";
 import { calculateSPKStatus } from "@/lib/spk-status";
 
 const JAKARTA_OFFSET = "+07:00";
+const TIMEZONE = "Asia/Jakarta";
 
 export type DateRange = {
   startDate: string;
   endDate: string;
 };
 
+type ProductionSummary = {
+  totalPengiriman: number;
+  totalPenerimaan: number;
+  totalQcRijek: number;
+  totalQcAcc: number;
+  totalPengirimanRijek: number;
+  totalPenerimaanRijek: number;
+  sisaJahit: number;
+  barangDiQc: number;
+  jumlahRijek: number;
+  jumlahBarang: number;
+};
+
+function isValidCalendarDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+
+  return (
+    !Number.isNaN(parsed.getTime()) &&
+    parsed.toISOString().slice(0, 10) === value
+  );
+}
+
 /**
- * Convert date-picker YYYY-MM-DD values
- * to Jakarta-local boundaries.
+ * Membuat batas tanggal berdasarkan waktu lokal Jakarta.
+ *
+ * endExclusive adalah awal hari setelah endDate.
+ * Dengan demikian, seluruh transaksi pada endDate tercakup.
  */
 export function parseDateRange(range: DateRange) {
-  const datePattern = /^\d{4}-\d{2}-\d{2}$/;
-
   if (
-    !datePattern.test(range.startDate) ||
-    !datePattern.test(range.endDate)
+    !isValidCalendarDate(range.startDate) ||
+    !isValidCalendarDate(range.endDate)
   ) {
-    throw new Error("Format tanggal harus YYYY-MM-DD.");
-  }
-
-  const start = new Date(
-    `${range.startDate}T00:00:00${JAKARTA_OFFSET}`,
-  );
-
-  const endExclusive = new Date(
-    `${range.endDate}T00:00:00${JAKARTA_OFFSET}`,
-  );
-
-  endExclusive.setUTCDate(
-    endExclusive.getUTCDate() + 1,
-  );
-
-  if (
-    Number.isNaN(start.getTime()) ||
-    Number.isNaN(endExclusive.getTime())
-  ) {
-    throw new Error("Tanggal tidak valid.");
-  }
-
-  if (start >= endExclusive) {
     throw new Error(
-      "Tanggal awal harus sebelum tanggal akhir.",
+      "Format tanggal tidak valid. Gunakan YYYY-MM-DD."
     );
   }
 
-  return { start, endExclusive };
+  // Format YYYY-MM-DD dapat dibandingkan secara leksikografis.
+  // Tanggal dengan format tersebut tersusun dari tahun, bulan, hari.
+  if (range.startDate > range.endDate) {
+    throw new Error(
+      "Tanggal awal tidak boleh melebihi tanggal akhir."
+    );
+  }
+
+  const start = new Date(
+    `${range.startDate}T00:00:00${JAKARTA_OFFSET}`
+  );
+
+  const endExclusive = new Date(
+    `${range.endDate}T00:00:00${JAKARTA_OFFSET}`
+  );
+
+  endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
+
+  return {
+    start,
+    endExclusive,
+  };
 }
 
-function emptyTotals() {
+function emptyTotals(): ProductionSummary {
   return {
     totalPengiriman: 0,
     totalPenerimaan: 0,
@@ -66,29 +91,81 @@ function emptyTotals() {
   };
 }
 
-/**
- * Historical view has two separate concepts:
- * - activity: transactions created inside the selected interval
- * - position: all transactions up to the end of the selected interval
- *
- * Deleted SPKs are excluded from the current production position.
- * Their transaction history remains available in the activity report.
- *
- * Historical cancellation status cannot be reconstructed reliably
- * because the current schema does not store status-change history.
- */
+function addSummary(
+  target: ProductionSummary,
+  source: ProductionSummary
+): ProductionSummary {
+  target.totalPengiriman += source.totalPengiriman;
+  target.totalPenerimaan += source.totalPenerimaan;
+  target.totalQcRijek += source.totalQcRijek;
+  target.totalQcAcc += source.totalQcAcc;
+  target.totalPengirimanRijek +=
+    source.totalPengirimanRijek;
+  target.totalPenerimaanRijek +=
+    source.totalPenerimaanRijek;
+  target.sisaJahit += source.sisaJahit;
+  target.barangDiQc += source.barangDiQc;
+  target.jumlahRijek += source.jumlahRijek;
+  target.jumlahBarang += source.jumlahBarang;
+
+  return target;
+}
+
+function toProductionSummary(
+  value: Record<string, unknown>
+): ProductionSummary {
+  const numberValue = (key: keyof ProductionSummary) => {
+    const raw = value[key];
+
+    return typeof raw === "number" && Number.isFinite(raw)
+      ? raw
+      : 0;
+  };
+
+  return {
+    totalPengiriman: numberValue("totalPengiriman"),
+    totalPenerimaan: numberValue("totalPenerimaan"),
+    totalQcRijek: numberValue("totalQcRijek"),
+    totalQcAcc: numberValue("totalQcAcc"),
+    totalPengirimanRijek: numberValue(
+      "totalPengirimanRijek"
+    ),
+    totalPenerimaanRijek: numberValue(
+      "totalPenerimaanRijek"
+    ),
+    sisaJahit: numberValue("sisaJahit"),
+    barangDiQc: numberValue("barangDiQc"),
+    jumlahRijek: numberValue("jumlahRijek"),
+    jumlahBarang: numberValue("jumlahBarang"),
+  };
+}
+
+function calculateProgress(
+  completedQuantity: number,
+  targetQuantity: number
+): number {
+  if (targetQuantity <= 0) {
+    return 0;
+  }
+
+  return Math.min(
+    (completedQuantity / targetQuantity) * 100,
+    100
+  );
+}
+
 export async function getHistoricalProduction(
-  range: DateRange,
+  range: DateRange
 ) {
   const { start, endExclusive } = parseDateRange(range);
 
-  const endInclusive = new Date(
-    endExclusive.getTime() - 1,
-  );
-
-  const [spks, periodTransactions] = await Promise.all([
+  const [
+    spks,
+    periodTransactions,
+  ] = await Promise.all([
     prisma.sPK.findMany({
       where: {
+        // SPK yang di-soft-delete tidak masuk laporan.
         deletedAt: null,
         createdAt: {
           lt: endExclusive,
@@ -132,8 +209,12 @@ export async function getHistoricalProduction(
             },
           },
           orderBy: [
-            { createdAt: "asc" },
-            { id: "asc" },
+            {
+              createdAt: "asc",
+            },
+            {
+              id: "asc",
+            },
           ],
           select: {
             id: true,
@@ -154,19 +235,28 @@ export async function getHistoricalProduction(
       },
     }),
 
-    // Aktivitas tetap mencatat transaksi historis pada periode.
-    // Filter ini tidak mengecualikan transaksi hanya karena SPK-nya
-    // sudah di-soft-delete.
     prisma.transaction.findMany({
       where: {
         createdAt: {
           gte: start,
           lt: endExclusive,
         },
+
+        // Filter relasi SPK dilakukan di WHERE,
+        // bukan di dalam SELECT.
+        spk: {
+          is: {
+            deletedAt: null,
+          },
+        },
       },
       orderBy: [
-        { createdAt: "desc" },
-        { id: "desc" },
+        {
+          createdAt: "desc",
+        },
+        {
+          id: "desc",
+        },
       ],
       select: {
         id: true,
@@ -207,78 +297,92 @@ export async function getHistoricalProduction(
     }),
   ]);
 
-  const positionBySpk = spks.map((spk) => {
-    const items = spk.items.map((item) => {
+  /*
+   * Hitung aktivitas dalam periode laporan.
+   * Transaksi dari SPK yang sudah di-soft-delete
+   * sudah dikecualikan oleh query Prisma di atas.
+   */
+  const activityByType: Record<string, number> = {};
+
+  let activityQuantity = 0;
+
+  for (const transaction of periodTransactions) {
+    const typeCode =
+      transaction.transactionType.code || "UNKNOWN";
+
+    activityByType[typeCode] =
+      (activityByType[typeCode] ?? 0) + 1;
+
+    activityQuantity += transaction.quantity;
+  }
+
+  /*
+   * Hitung posisi produksi sampai akhir tanggal laporan.
+   * Hanya SPK yang tidak di-soft-delete yang diproses.
+   */
+  const positionTotals = emptyTotals();
+
+  let targetQuantity = 0;
+  let completedQuantity = 0;
+
+  const historicalSPKs = spks.map((spk) => {
+    const historicalItems = spk.items.map((item) => {
       const itemTransactions = spk.transactions.filter(
-        (tx) =>
-          tx.productId === item.productId &&
-          tx.status === "ACTIVE",
+        (transaction) =>
+          transaction.productId === item.productId
       );
 
-      const status = calculateSPKStatus(
-        itemTransactions.map((tx) => ({
-          quantity: tx.quantity,
-          transactionType: {
-            code: tx.transactionType.code,
-          },
-        })),
-        item.quantity,
+      const calculated = calculateSPKStatus(
+        itemTransactions,
+        item.quantity
       );
 
-      const completedQuantity = Math.min(
-        status.totalQcAcc,
-        item.quantity,
+      const summary = toProductionSummary(
+        calculated as unknown as Record<string, unknown>
       );
 
-      const progressPercent =
-        item.quantity > 0
-          ? Math.min(
-              100,
-              (completedQuantity / item.quantity) * 100,
-            )
-          : 0;
+      const itemTarget = item.quantity;
+      const itemCompleted = summary.totalQcAcc;
+
+      targetQuantity += itemTarget;
+      completedQuantity += itemCompleted;
+
+      addSummary(positionTotals, summary);
 
       return {
         id: item.id,
         productId: item.productId,
         product: item.product,
-        targetQuantity: item.quantity,
-        completedQuantity,
-        progressPercent,
-        summary: status,
+        targetQuantity: itemTarget,
+        completedQuantity: itemCompleted,
+        progressPercent: calculateProgress(
+          itemCompleted,
+          itemTarget
+        ),
+        summary: {
+          ...summary,
+          nextTransactionTypes:
+            calculated.nextTransactionTypes ?? [],
+        },
         currentStatus: spk.status,
       };
     });
 
-    const totals = items.reduce((acc, item) => {
-      for (
-        const key of Object.keys(acc) as Array<
-          keyof typeof acc
-        >
-      ) {
-        acc[key] += Number(item.summary[key] ?? 0);
-      }
-
-      return acc;
-    }, emptyTotals());
-
-    const targetQuantity = items.reduce(
-      (sum, item) => sum + item.targetQuantity,
-      0,
+    const spkSummary = historicalItems.reduce(
+      (totals, item) =>
+        addSummary(totals, item.summary),
+      emptyTotals()
     );
 
-    const completedQuantity = items.reduce(
-      (sum, item) => sum + item.completedQuantity,
-      0,
+    const spkTarget = historicalItems.reduce(
+      (total, item) => total + item.targetQuantity,
+      0
     );
 
-    const progressPercent =
-      targetQuantity > 0
-        ? Math.min(
-            100,
-            (completedQuantity / targetQuantity) * 100,
-          )
-        : 0;
+    const spkCompleted = historicalItems.reduce(
+      (total, item) => total + item.completedQuantity,
+      0
+    );
 
     return {
       id: spk.id,
@@ -286,97 +390,54 @@ export async function getHistoricalProduction(
       createdAt: spk.createdAt,
       tailor: spk.tailor,
       currentStatus: spk.status,
+
+      // Belum menyimpulkan status historis tanpa
+      // tabel/audit perubahan status yang valid.
       historicalCancellationStatus:
-        "UNKNOWN_WITHOUT_STATUS_HISTORY" as const,
-      items,
-      summary: totals,
-      targetQuantity,
-      completedQuantity,
-      progressPercent,
+        "UNKNOWN_WITHOUT_STATUS_HISTORY",
+
+      items: historicalItems,
+      summary: spkSummary,
+      targetQuantity: spkTarget,
+      completedQuantity: spkCompleted,
+      progressPercent: calculateProgress(
+        spkCompleted,
+        spkTarget
+      ),
     };
   });
-
-  const positionTotals = positionBySpk.reduce(
-    (acc, spk) => {
-      for (
-        const key of Object.keys(acc) as Array<
-          keyof typeof acc
-        >
-      ) {
-        acc[key] += Number(spk.summary[key] ?? 0);
-      }
-
-      return acc;
-    },
-    emptyTotals(),
-  );
-
-  const overallTargetQuantity = positionBySpk.reduce(
-    (sum, spk) => sum + spk.targetQuantity,
-    0,
-  );
-
-  const overallCompletedQuantity = positionBySpk.reduce(
-    (sum, spk) => sum + spk.completedQuantity,
-    0,
-  );
-
-  const overallProgressPercent =
-    overallTargetQuantity > 0
-      ? Math.min(
-          100,
-          (overallCompletedQuantity /
-            overallTargetQuantity) *
-            100,
-        )
-      : 0;
-
-  const activityTotals = periodTransactions.reduce(
-    (acc, tx) => {
-      acc.transactionCount += 1;
-      acc.quantity += tx.quantity;
-
-      acc.byType[tx.transactionType.code] =
-        (acc.byType[tx.transactionType.code] ?? 0) +
-        tx.quantity;
-
-      return acc;
-    },
-    {
-      transactionCount: 0,
-      quantity: 0,
-      byType: {} as Record<string, number>,
-    },
-  );
 
   return {
     period: {
       startDate: range.startDate,
       endDate: range.endDate,
-      startAt: start,
-      endAt: endInclusive,
-      timezone: "Asia/Jakarta",
+      timezone: TIMEZONE,
     },
 
     activity: {
-      ...activityTotals,
+      transactionCount: periodTransactions.length,
+      quantity: activityQuantity,
+      byType: activityByType,
       transactions: periodTransactions,
     },
 
     position: {
-      spkCount: positionBySpk.length,
+      spkCount: historicalSPKs.length,
       totals: positionTotals,
-      targetQuantity: overallTargetQuantity,
-      completedQuantity: overallCompletedQuantity,
-      progressPercent: overallProgressPercent,
-      spks: positionBySpk,
+      targetQuantity,
+      completedQuantity,
+      progressPercent: calculateProgress(
+        completedQuantity,
+        targetQuantity
+      ),
+      spks: historicalSPKs,
     },
 
     notes: [
-      "Aktivitas hanya menghitung transaksi yang dibuat dalam periode terpilih.",
-      "Posisi akhir menghitung transaksi SPK yang belum dihapus sampai akhir periode, termasuk transaksi sebelum tanggal awal.",
-      "SPK yang sudah di-soft-delete tidak ditampilkan dalam posisi produksi.",
-      "Status CANCELLED historis tidak dapat dipastikan karena schema belum menyimpan riwayat perubahan status SPK.",
+      "Aktivitas hanya menghitung transaksi dalam rentang tanggal yang dipilih.",
+      "Posisi produksi dihitung dari transaksi sampai akhir tanggal laporan.",
+      "SPK dengan deletedAt terisi tidak disertakan dalam aktivitas maupun posisi produksi.",
+      "Data transaksi historis tetap tersimpan di database.",
     ],
   };
 }
