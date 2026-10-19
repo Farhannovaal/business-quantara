@@ -1,13 +1,89 @@
+
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ============================================================
+   THEME TOKENS
+   ============================================================ */
+
 :root {
+  color-scheme: light;
+
   --background: #f8fafc;
   --foreground: #0f172a;
+
+  --card: #ffffff;
+  --card-foreground: #1e293b;
+
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+
+  --border: #e2e8f0;
+  --input: #cbd5e1;
+
+  --primary: #4f46e5;
+  --primary-foreground: #ffffff;
+
+  --ring: #818cf8;
+
+  --success: #15803d;
+  --warning: #b45309;
+  --danger: #dc2626;
+
+  --page-glow-primary: rgba(99, 102, 241, 0.08);
+  --page-glow-secondary: rgba(139, 92, 246, 0.05);
 }
+
+.dark {
+  color-scheme: dark;
+
+  --background: #18181b;
+  --foreground: #f4f4f5;
+
+  --card: #27272a;
+  --card-foreground: #f4f4f5;
+
+  --muted: #303036;
+  --muted-foreground: #a1a1aa;
+
+  --border: #3f3f46;
+  --input: #52525b;
+
+  --primary: #818cf8;
+  --primary-foreground: #18181b;
+
+  --ring: #a5b4fc;
+
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --danger: #f87171;
+
+  --page-glow-primary: rgba(99, 102, 241, 0.10);
+  --page-glow-secondary: rgba(139, 92, 246, 0.06);
+}
+
+/* ============================================================
+   TAILWIND CSS 4 THEME MAPPING
+   ============================================================ */
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-border: var(--border);
+  --color-input: var(--input);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-ring: var(--ring);
 
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
@@ -31,14 +107,13 @@ html {
   width: 100%;
   min-height: 100%;
   max-width: 100%;
-  background: #f8fafc;
-
-  /*
-   * Prevent horizontal viewport scrolling.
-   * Individual tables/components may still scroll
-   * horizontally inside their own overflow-x-auto wrapper.
-   */
   overflow-x: clip;
+  background-color: var(--background);
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
 }
 
 body {
@@ -46,28 +121,22 @@ body {
   min-height: 100vh;
   max-width: 100%;
   margin: 0;
-
-  /*
-   * Important:
-   * Do NOT use overflow-x-auto here.
-   * The application itself should never become horizontally scrollable.
-   */
   overflow-x: clip;
 
   background:
     radial-gradient(
       circle at 85% 0%,
-      rgba(99, 102, 241, 0.08),
+      var(--page-glow-primary),
       transparent 28%
     ),
     radial-gradient(
       circle at 15% 20%,
-      rgba(139, 92, 246, 0.05),
+      var(--page-glow-secondary),
       transparent 25%
     ),
-    #f8fafc;
+    var(--background);
 
-  color: #0f172a;
+  color: var(--foreground);
 
   font-family:
     var(--font-geist-sans),
@@ -99,6 +168,17 @@ button:disabled {
   cursor: not-allowed;
 }
 
+input,
+select,
+textarea {
+  color: var(--foreground);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted-foreground);
+}
+
 /* ============================================================
    MEDIA
    ============================================================ */
@@ -114,22 +194,14 @@ canvas {
    TABLE
    ============================================================ */
 
-/*
- * Jangan memaksa table mengecil.
- *
- * Table yang terlalu lebar harus dibungkus:
- *
- * <div className="overflow-x-auto">
- *   <table>...</table>
- * </div>
- *
- * Jadi yang scroll hanya tabelnya,
- * bukan seluruh halaman.
- */
-
 table {
   max-width: 100%;
 }
+
+/*
+  Tabel yang lebar harus menggunakan overflow-x-auto
+  pada wrapper tabel, bukan pada body atau html.
+*/
 
 /* ============================================================
    MOBILE / TABLET

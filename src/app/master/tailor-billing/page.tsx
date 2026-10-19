@@ -1,6 +1,5 @@
 
 "use client";
-
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
@@ -16,13 +15,11 @@ import {
   Send,
   X,
 } from "lucide-react";
-
 import PermissionGate from "@/components/auth/permission-gate";
 import BillingFilters from "@/components/tailor-billing/BillingFilters";
 import BillingStatusBadge from "@/components/tailor-billing/BillingStatusBadge";
 import BillingSummaryCards from "@/components/tailor-billing/BillingSummaryCards";
 import TailorIncomeDashboard from "@/components/tailor-billing/TailorIncomeDashboard";
-
 import type {
   BillStatus,
   BillingSummary,
@@ -30,82 +27,61 @@ import type {
   Tailor,
   TailorBill,
 } from "@/lib/tailor-billing/types";
-
 import {
   formatCurrency,
   formatDate,
   formatNumber,
   getErrorMessage,
 } from "@/lib/tailor-billing/utils";
-
 type ActiveTab = "billing" | "income";
-
 export default function TailorBillingPage() {
   const [bills, setBills] = useState<TailorBill[]>([]);
   const [eligible, setEligible] = useState<BillingSummary[]>([]);
   const [tailors, setTailors] = useState<Tailor[]>([]);
-
   const [loading, setLoading] = useState(true);
   const [loadingEligible, setLoadingEligible] = useState(false);
-
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] =
     useState<BillStatus | "ALL">("ALL");
   const [tailorFilter, setTailorFilter] =
     useState<number | "ALL">("ALL");
-
   const [activeTab, setActiveTab] = useState<ActiveTab>("billing");
-
   const [showCreate, setShowCreate] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
-
   const [selectedBill, setSelectedBill] =
     useState<TailorBill | null>(null);
-
   const [selectedTailorId, setSelectedTailorId] =
     useState<number | "">("");
-
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
   const [notes, setNotes] = useState("");
-
   const [saving, setSaving] = useState(false);
   const [processingId, setProcessingId] = useState<number | null>(null);
-
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-
   async function fetchBills() {
     try {
       setLoading(true);
       setError("");
-
       const params = new URLSearchParams();
-
       if (statusFilter !== "ALL") {
         params.set("status", statusFilter);
       }
-
       if (tailorFilter !== "ALL") {
         params.set("tailorId", String(tailorFilter));
       }
-
       if (search.trim()) {
         params.set("search", search.trim());
       }
-
       const response = await fetch(
         `/api/tailor-billing?${params.toString()}`,
         { cache: "no-store" },
       );
-
       const result = await response.json();
-
       if (!response.ok || !result.success) {
         throw new Error(
           result.error || "Gagal mengambil data tagihan.",
         );
       }
-
       setBills(result.data || []);
     } catch (err) {
       setError(getErrorMessage(err));
@@ -113,46 +89,37 @@ export default function TailorBillingPage() {
       setLoading(false);
     }
   }
-
   async function fetchTailors() {
     try {
       const response = await fetch("/api/tailors", {
         cache: "no-store",
       });
-
       const result = await response.json();
-
       if (!response.ok || !result.success) {
         throw new Error(
           result.error || "Gagal mengambil data penjahit.",
         );
       }
-
       setTailors(result.data || []);
     } catch (err) {
       console.error("Fetch tailors error:", err);
     }
   }
-
   async function fetchEligible() {
     try {
       setLoadingEligible(true);
       setError("");
-
       const response = await fetch(
         "/api/tailor-billing/eligible",
         { cache: "no-store" },
       );
-
       const result = await response.json();
-
       if (!response.ok || !result.success) {
         throw new Error(
           result.error ||
             "Gagal mengambil SPK yang dapat ditagihkan.",
         );
       }
-
       setEligible(result.data || []);
     } catch (err) {
       setError(getErrorMessage(err));
@@ -160,15 +127,12 @@ export default function TailorBillingPage() {
       setLoadingEligible(false);
     }
   }
-
   useEffect(() => {
     void fetchTailors();
   }, []);
-
   useEffect(() => {
     void fetchBills();
   }, [statusFilter, tailorFilter]);
-
   const summary = useMemo(() => {
     return {
       total: bills.length,
@@ -178,31 +142,25 @@ export default function TailorBillingPage() {
       cancelled: bills.filter((bill) => bill.status === "CANCELLED").length,
     };
   }, [bills]);
-
   const eligibleForSelectedTailor = useMemo(() => {
     if (!selectedTailorId) {
       return [];
     }
-
     return eligible.filter(
       (item) => item.tailorId === selectedTailorId,
     );
   }, [eligible, selectedTailorId]);
-
   const selectedTotal = useMemo(() => {
     return selectedItems.reduce((total, selected) => {
       const item = eligible.find(
         (entry) => entry.spkId === selected.spkId,
       );
-
       if (!item) {
         return total;
       }
-
       return total + selected.quantity * Number(item.rate);
     }, 0);
   }, [selectedItems, eligible]);
-
   function openCreateModal() {
     setShowCreate(true);
     setSelectedTailorId("");
@@ -210,49 +168,38 @@ export default function TailorBillingPage() {
     setNotes("");
     setError("");
     setSuccess("");
-
     void fetchEligible();
   }
-
   function closeCreateModal() {
     if (saving) {
       return;
     }
-
     setShowCreate(false);
     setSelectedTailorId("");
     setSelectedItems([]);
     setNotes("");
   }
-
   function handleTailorChange(value: string) {
     const tailorId = value ? Number(value) : "";
-
     setSelectedTailorId(tailorId);
     setSelectedItems([]);
   }
-
   function isSelected(spkId: number) {
     return selectedItems.some((item) => item.spkId === spkId);
   }
-
   function getSelectedQuantity(spkId: number) {
     return (
       selectedItems.find((item) => item.spkId === spkId)?.quantity || 0
     );
   }
-
   function toggleItem(item: BillingSummary) {
     const exists = isSelected(item.spkId);
-
     if (exists) {
       setSelectedItems((current) =>
         current.filter((selected) => selected.spkId !== item.spkId),
       );
-
       return;
     }
-
     setSelectedItems((current) => [
       ...current,
       {
@@ -262,23 +209,18 @@ export default function TailorBillingPage() {
       },
     ]);
   }
-
   function changeQuantity(item: BillingSummary, value: string) {
     let quantity = Number(value);
-
     if (!Number.isFinite(quantity)) {
       quantity = 0;
     }
-
     quantity = Math.floor(quantity);
     quantity = Math.max(0, quantity);
     quantity = Math.min(quantity, item.billableQuantity);
-
     setSelectedItems((current) => {
       const exists = current.some(
         (selected) => selected.spkId === item.spkId,
       );
-
       if (!exists) {
         return [
           ...current,
@@ -289,7 +231,6 @@ export default function TailorBillingPage() {
           },
         ];
       }
-
       return current.map((selected) =>
         selected.spkId === item.spkId
           ? { ...selected, quantity }
@@ -297,27 +238,22 @@ export default function TailorBillingPage() {
       );
     });
   }
-
   async function createBill() {
     try {
       setSaving(true);
       setError("");
       setSuccess("");
-
       if (!selectedTailorId) {
         throw new Error("Silakan pilih penjahit.");
       }
-
       const validItems = selectedItems.filter(
         (item) => item.quantity > 0,
       );
-
       if (validItems.length === 0) {
         throw new Error(
           "Pilih minimal satu SPK dengan quantity lebih dari 0.",
         );
       }
-
       const response = await fetch("/api/tailor-billing", {
         method: "POST",
         headers: {
@@ -329,19 +265,15 @@ export default function TailorBillingPage() {
           notes: notes.trim() || null,
         }),
       });
-
       const result = await response.json();
-
       if (!response.ok || !result.success) {
         throw new Error(
           result.error || "Gagal membuat tagihan.",
         );
       }
-
       setSuccess(
         `Tagihan ${result.data?.billNumber || ""} berhasil dibuat.`,
       );
-
       setShowCreate(false);
       await fetchBills();
     } catch (err) {
@@ -350,65 +282,51 @@ export default function TailorBillingPage() {
       setSaving(false);
     }
   }
-
   async function openDetail(bill: TailorBill) {
     try {
       setError("");
-
       const response = await fetch(
         `/api/tailor-billing/${bill.id}`,
         { cache: "no-store" },
       );
-
       const result = await response.json();
-
       if (!response.ok || !result.success) {
         throw new Error(
           result.error || "Gagal mengambil detail tagihan.",
         );
       }
-
       setSelectedBill(result.data);
       setShowDetail(true);
     } catch (err) {
       setError(getErrorMessage(err));
     }
   }
-
   async function downloadInvoice(bill: TailorBill) {
     try {
       setError("");
-
       const response = await fetch(
         `/api/tailor-billing/${bill.id}/invoice`,
         { method: "GET", cache: "no-store" },
       );
-
       if (!response.ok) {
         const result = await response.json().catch(() => null);
-
         throw new Error(
           result?.error || "Gagal membuat invoice PDF.",
         );
       }
-
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
-
       link.href = url;
       link.download = `Invoice-${bill.billNumber}.pdf`;
-
       document.body.appendChild(link);
       link.click();
       link.remove();
-
       URL.revokeObjectURL(url);
     } catch (err) {
       setError(getErrorMessage(err));
     }
   }
-
   async function processBillAction(
     billId: number,
     action: "submit" | "pay" | "cancel",
@@ -419,33 +337,26 @@ export default function TailorBillingPage() {
         : action === "pay"
           ? "bayar"
           : "batalkan";
-
     const confirmed = window.confirm(
       `Yakin ingin ${actionLabel} tagihan ini?`,
     );
-
     if (!confirmed) {
       return;
     }
-
     try {
       setProcessingId(billId);
       setError("");
       setSuccess("");
-
       const response = await fetch(
         `/api/tailor-billing/${billId}/${action}`,
         { method: "POST" },
       );
-
       const result = await response.json();
-
       if (!response.ok || !result.success) {
         throw new Error(
           result.error || `Gagal ${actionLabel} tagihan.`,
         );
       }
-
       setSuccess(
         `Tagihan berhasil ${
           action === "submit"
@@ -455,11 +366,9 @@ export default function TailorBillingPage() {
               : "dibatalkan"
         }.`,
       );
-
       if (selectedBill && selectedBill.id === billId) {
         setSelectedBill(result.data);
       }
-
       await fetchBills();
     } catch (err) {
       setError(getErrorMessage(err));
@@ -467,55 +376,46 @@ export default function TailorBillingPage() {
       setProcessingId(null);
     }
   }
-
   async function refresh() {
     if (activeTab === "billing") {
       await fetchBills();
-
       if (showCreate) {
         await fetchEligible();
       }
-
       return;
     }
-
     window.dispatchEvent(new Event("tailor-income-refresh"));
   }
-
   return (
     <PermissionGate permission="tailor-billing.view">
-      <div className="min-h-screen bg-[#111010]">
+      <div className="min-h-screen bg-background text-foreground">
         <div className="mx-auto max-w-[1600px] px-6 py-6">
           <header className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <div className="mb-1 flex items-center gap-2 text-sm text-neutral-400">
+              <div className="mb-1 flex items-center gap-2 text-sm text-muted-foreground">
                 <FileText className="h-4 w-4" />
                 Master Data
                 <span>/</span>
                 Tailor Billing
               </div>
-
-              <h1 className="text-2xl font-bold text-neutral-100">
+              <h1 className="text-2xl font-bold text-foreground">
                 Tailor Billing
               </h1>
-
-              <p className="mt-1 text-sm text-neutral-400">
+              <p className="mt-1 text-sm text-muted-foreground">
                 Kelola tagihan dan pendapatan penjahit berdasarkan hasil QC ACC.
               </p>
             </div>
-
             <div className="flex items-center gap-3">
               {activeTab === "billing" && (
                 <button
                   type="button"
                   onClick={refresh}
-                  className="inline-flex h-10 items-center gap-2 rounded-lg border border-white/10 bg-[#151313] px-4 text-sm font-medium text-neutral-200 transition hover:bg-white/5"
+                  className="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-card px-4 text-sm font-medium text-foreground transition hover:bg-muted"
                 >
                   <RefreshCw className="h-4 w-4" />
                   Refresh
                 </button>
 )}
-
               {activeTab === "billing" && (
                 <PermissionGate permission="tailor-billing.create">
                   <button
@@ -530,71 +430,61 @@ export default function TailorBillingPage() {
               )}
             </div>
           </header>
-
-          <div className="mb-6 flex w-fit gap-1 rounded-xl border border-white/10 bg-[#151313] p-1">
+          <div className="mb-6 flex w-fit gap-1 rounded-xl border border-border bg-card p-1">
             <button
               type="button"
               onClick={() => setActiveTab("billing")}
               className={`inline-flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-medium transition ${
                 activeTab === "billing"
                   ? "bg-rose-700 text-white"
-                  : "text-neutral-400 hover:text-neutral-100"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               <FileText className="h-4 w-4" />
               Daftar Tagihan
             </button>
-
             <button
               type="button"
               onClick={() => setActiveTab("income")}
               className={`inline-flex h-10 items-center gap-2 rounded-lg px-4 text-sm font-medium transition ${
                 activeTab === "income"
                   ? "bg-rose-700 text-white"
-                  : "text-neutral-400 hover:text-neutral-100"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               <BarChart3 className="h-4 w-4" />
               Pendapatan
             </button>
           </div>
-
           {error && (
-            <div className="mb-5 flex items-start gap-3 rounded-xl border border-rose-800/50 bg-rose-950/30 px-4 py-3 text-sm text-rose-300">
+            <div className="mb-5 flex items-start gap-3 rounded-xl border border-rose-200 dark:border-rose-800/50 bg-rose-50 dark:bg-rose-950/30 px-4 py-3 text-sm text-rose-700 dark:text-rose-300">
               <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
-
               <div className="flex-1">{error}</div>
-
               <button
                 type="button"
                 onClick={() => setError("")}
-                className="text-rose-400 hover:text-rose-300"
+                className="text-rose-700 dark:text-rose-300 hover:text-rose-800 dark:hover:text-rose-200"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
           )}
-
           {success && (
-            <div className="mb-5 flex items-start gap-3 rounded-xl border border-emerald-800/50 bg-emerald-950/30 px-4 py-3 text-sm text-emerald-300">
+            <div className="mb-5 flex items-start gap-3 rounded-xl border border-emerald-200 dark:border-emerald-800/50 bg-emerald-50 dark:bg-emerald-950/30 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300">
               <Check className="mt-0.5 h-5 w-5 shrink-0" />
-
               <div className="flex-1">{success}</div>
-
               <button
                 type="button"
                 onClick={() => setSuccess("")}
-                className="text-emerald-400 hover:text-emerald-300"
+                className="text-emerald-400 hover:text-emerald-700 dark:text-emerald-300"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
           )}
-
           {activeTab === "billing" ? (
             <>
               <BillingSummaryCards summary={summary} />
-
               <BillingFilters
                 search={search}
                 statusFilter={statusFilter}
@@ -605,36 +495,31 @@ export default function TailorBillingPage() {
                 onTailorChange={setTailorFilter}
                 onSearch={fetchBills}
               />
-
-              <div className="overflow-hidden rounded-xl border border-white/10 bg-[#151313] shadow-lg shadow-black/20">
-                <div className="border-b border-white/10 px-5 py-4">
-                  <h2 className="font-semibold text-neutral-100">
+              <div className="overflow-hidden rounded-xl border border-border bg-card shadow-lg shadow-black/20">
+                <div className="border-b border-border px-5 py-4">
+                  <h2 className="font-semibold text-foreground">
                     Daftar Tagihan
                   </h2>
-
-                  <p className="mt-1 text-xs text-neutral-400">
+                  <p className="mt-1 text-xs text-muted-foreground">
                     Menampilkan {bills.length} tagihan.
                   </p>
                 </div>
-
                 {loading ? (
                   <div className="flex min-h-[300px] items-center justify-center">
-                    <div className="flex items-center gap-3 text-sm text-neutral-400">
+                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
                       <Loader2 className="h-5 w-5 animate-spin" />
                       Memuat data...
                     </div>
                   </div>
                 ) : bills.length === 0 ? (
                   <div className="flex min-h-[300px] flex-col items-center justify-center px-6 text-center">
-                    <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#201c1c]">
-                      <FileText className="h-6 w-6 text-neutral-500" />
+                    <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                      <FileText className="h-6 w-6 text-muted-foreground" />
                     </div>
-
-                    <h3 className="font-semibold text-neutral-200">
+                    <h3 className="font-semibold text-foreground">
                       Belum ada tagihan
                     </h3>
-
-                    <p className="mt-1 max-w-md text-sm text-neutral-400">
+                    <p className="mt-1 max-w-md text-sm text-muted-foreground">
                       Belum ada data tagihan yang sesuai dengan filter saat ini.
                     </p>
                   </div>
@@ -642,67 +527,61 @@ export default function TailorBillingPage() {
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[1000px]">
                       <thead>
-                        <tr className="border-b border-white/10 bg-[#111010]">
-                          <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                        <tr className="border-b border-border bg-background">
+                          <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                             No. Tagihan
                           </th>
-                          <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                          <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                             Penjahit
                           </th>
-                          <th className="px-5 py-3 text-center text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                          <th className="px-5 py-3 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                             Item
                           </th>
-                          <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                          <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                             Total
                           </th>
-                          <th className="px-5 py-3 text-center text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                          <th className="px-5 py-3 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                             Status
                           </th>
-                          <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                          <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                             Dibuat
                           </th>
-                          <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                          <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                             Action
                           </th>
                         </tr>
                       </thead>
-
-                      <tbody className="divide-y divide-white/10">
+                      <tbody className="divide-y divide-border">
                         {bills.map((bill) => (
                           <tr
                             key={bill.id}
-                            className="transition hover:bg-white/[0.02]"
+                            className="transition hover:bg-muted/60"
                           >
                             <td className="px-5 py-4">
                               <button
                                 type="button"
                                 onClick={() => openDetail(bill)}
-                                className="font-semibold text-rose-400 hover:text-rose-300"
+                                className="font-semibold text-rose-700 dark:text-rose-300 hover:text-rose-800 dark:hover:text-rose-200"
                               >
                                 {bill.billNumber}
                               </button>
                             </td>
-
                             <td className="px-5 py-4">
-                              <div className="font-medium text-neutral-100">
+                              <div className="font-medium text-foreground">
                                 {bill.tailor.name}
                               </div>
-
-                              <div className="mt-0.5 text-xs text-neutral-400">
+                              <div className="mt-0.5 text-xs text-muted-foreground">
                                 {bill.createdBy?.name || "-"}
                               </div>
                             </td>
-
-                            <td className="px-5 py-4 text-center text-sm text-neutral-300">
+                            <td className="px-5 py-4 text-center text-sm text-foreground/80">
                               {bill.items.length}
                             </td>
-
                             <td className="px-5 py-4 text-right">
-                              <div className="font-semibold text-neutral-100">
+                              <div className="font-semibold text-foreground">
                                 {formatCurrency(bill.totalAmount)}
                               </div>
-
-                              <div className="text-xs text-neutral-500">
+                              <div className="text-xs text-muted-foreground">
                                 {formatNumber(
                                   bill.items.reduce(
                                     (total, item) =>
@@ -713,20 +592,17 @@ export default function TailorBillingPage() {
                                 pcs
                               </div>
                             </td>
-
                             <td className="px-5 py-4 text-center">
                               <BillingStatusBadge status={bill.status} />
                             </td>
-
-                            <td className="px-5 py-4 text-sm text-neutral-400">
+                            <td className="px-5 py-4 text-sm text-muted-foreground">
                               {formatDate(bill.createdAt)}
                             </td>
-
                             <td className="px-5 py-4 text-right">
                               <button
                                 type="button"
                                 onClick={() => openDetail(bill)}
-                                className="rounded-lg border border-white/10 bg-[#151313] px-3 py-2 text-xs font-medium text-neutral-200 transition hover:border-rose-700/60 hover:bg-rose-950/30 hover:text-rose-300"
+                                className="rounded-lg border border-border bg-card px-3 py-2 text-xs font-medium text-foreground transition hover:border-rose-300 dark:hover:border-rose-700/60 hover:bg-rose-50 dark:hover:bg-rose-950/30 hover:text-rose-800 dark:hover:text-rose-200"
                               >
                                 Detail
                               </button>
@@ -743,45 +619,39 @@ export default function TailorBillingPage() {
             <TailorIncomeDashboard />
           )}
         </div>
-
         {showCreate && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
-            <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-[#151313] shadow-2xl shadow-black/50">
-              <div className="flex items-center justify-between border-b border-white/10 px-6 py-5">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+            <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-card shadow-2xl shadow-black/50">
+              <div className="flex items-center justify-between border-b border-border px-6 py-5">
                 <div>
-                  <h2 className="text-lg font-bold text-neutral-100">
+                  <h2 className="text-lg font-bold text-foreground">
                     Buat Tagihan Penjahit
                   </h2>
-
-                  <p className="mt-1 text-sm text-neutral-400">
+                  <p className="mt-1 text-sm text-muted-foreground">
                     Pilih hasil QC ACC yang ingin dimasukkan ke tagihan.
                   </p>
                 </div>
-
                 <button
                   type="button"
                   onClick={closeCreateModal}
-                  className="rounded-lg p-2 text-neutral-500 transition hover:bg-white/5 hover:text-neutral-300"
+                  className="rounded-lg p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground/80"
                 >
                   <X className="h-5 w-5" />
                 </button>
               </div>
-
               <div className="flex-1 overflow-y-auto px-6 py-5">
                 <div className="mb-5">
-                  <label className="mb-2 block text-sm font-semibold text-neutral-200">
+                  <label className="mb-2 block text-sm font-semibold text-foreground">
                     Penjahit
                   </label>
-
                   <select
                     value={selectedTailorId}
                     onChange={(event) =>
                       handleTailorChange(event.target.value)
                     }
-                    className="h-11 w-full rounded-lg border border-white/10 bg-[#151313] px-3 text-sm text-neutral-200 outline-none focus:border-rose-600 focus:ring-2 focus:ring-rose-900/30"
+                    className="h-11 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground outline-none focus:border-rose-600 focus:ring-2 focus:ring-rose-900/30"
                   >
                     <option value="">Pilih penjahit...</option>
-
                     {tailors.map((tailor) => (
                       <option key={tailor.id} value={tailor.id}>
                         {tailor.name}
@@ -789,62 +659,52 @@ export default function TailorBillingPage() {
                     ))}
                   </select>
                 </div>
-
                 {loadingEligible && selectedTailorId && (
-                  <div className="flex items-center justify-center rounded-xl border border-white/10 bg-[#111010] py-10">
-                    <div className="flex items-center gap-3 text-sm text-neutral-400">
+                  <div className="flex items-center justify-center rounded-xl border border-border bg-background py-10">
+                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
                       <Loader2 className="h-5 w-5 animate-spin" />
                       Menghitung barang yang dapat ditagihkan...
                     </div>
                   </div>
                 )}
-
                 {!selectedTailorId && !loadingEligible && (
-                  <div className="rounded-xl border border-dashed border-white/15 bg-[#111010] px-6 py-12 text-center">
-                    <CircleDollarSign className="mx-auto mb-3 h-8 w-8 text-neutral-500" />
-
-                    <h3 className="font-semibold text-neutral-200">
+                  <div className="rounded-xl border border-dashed border-border bg-background px-6 py-12 text-center">
+                    <CircleDollarSign className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
+                    <h3 className="font-semibold text-foreground">
                       Pilih penjahit terlebih dahulu
                     </h3>
-
-                    <p className="mt-1 text-sm text-neutral-400">
+                    <p className="mt-1 text-sm text-muted-foreground">
                       Setelah penjahit dipilih, SPK yang dapat ditagihkan akan ditampilkan.
                     </p>
                   </div>
                 )}
-
                 {selectedTailorId &&
                   !loadingEligible &&
                   eligibleForSelectedTailor.length === 0 && (
-                    <div className="rounded-xl border border-dashed border-white/15 bg-[#111010] px-6 py-12 text-center">
-                      <AlertCircle className="mx-auto mb-3 h-8 w-8 text-neutral-500" />
-
-                      <h3 className="font-semibold text-neutral-200">
+                    <div className="rounded-xl border border-dashed border-border bg-background px-6 py-12 text-center">
+                      <AlertCircle className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
+                      <h3 className="font-semibold text-foreground">
                         Tidak ada SPK yang dapat ditagihkan
                       </h3>
-
-                      <p className="mt-1 text-sm text-neutral-400">
+                      <p className="mt-1 text-sm text-muted-foreground">
                         Belum ada hasil QC ACC yang tersedia atau seluruhnya sudah ditagihkan.
                       </p>
                     </div>
                   )}
-
                 {selectedTailorId &&
                   !loadingEligible &&
                   eligibleForSelectedTailor.length > 0 && (
                     <div>
                       <div className="mb-3 flex items-center justify-between">
                         <div>
-                          <h3 className="font-semibold text-neutral-100">
+                          <h3 className="font-semibold text-foreground">
                             SPK yang Dapat Ditagihkan
                           </h3>
-
-                          <p className="text-xs text-neutral-400">
+                          <p className="text-xs text-muted-foreground">
                             Pilih SPK dan tentukan quantity yang akan dibayar.
                           </p>
                         </div>
-
-                        <div className="rounded-lg bg-rose-950/30 px-3 py-2 text-xs font-semibold text-rose-300">
+                        <div className="rounded-lg bg-rose-50 dark:bg-rose-950/30 px-3 py-2 text-xs font-semibold text-rose-700 dark:text-rose-300">
                           {
                             selectedItems.filter(
                               (item) => item.quantity > 0,
@@ -853,20 +713,18 @@ export default function TailorBillingPage() {
                           item dipilih
                         </div>
                       </div>
-
                       <div className="space-y-3">
                         {eligibleForSelectedTailor.map((item) => {
                           const selected = isSelected(item.spkId);
                           const quantity = getSelectedQuantity(item.spkId);
                           const amount = quantity * Number(item.rate);
-
                           return (
                             <div
                               key={item.spkId}
                               className={`rounded-xl border p-4 transition ${
                                 selected
-                                  ? "border-rose-700/70 bg-rose-950/30"
-                                  : "border-white/10 bg-[#151313]"
+                                  ? "border-rose-300 dark:border-rose-700/70 bg-rose-50 dark:bg-rose-950/30"
+                                  : "border-border bg-card"
                               }`}
                             >
                               <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
@@ -876,68 +734,58 @@ export default function TailorBillingPage() {
                                   className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border transition ${
                                     selected
                                       ? "border-rose-700 bg-rose-700 text-white"
-                                      : "border-white/15 bg-[#151313]"
+                                      : "border-border bg-card"
                                   }`}
                                 >
                                   {selected && (
                                     <Check className="h-3.5 w-3.5" />
                                   )}
                                 </button>
-
                                 <div className="min-w-0 flex-1">
                                   <div className="flex flex-wrap items-center gap-2">
-                                    <span className="font-bold text-neutral-100">
+                                    <span className="font-bold text-foreground">
                                       {item.spkNumber}
                                     </span>
-
-                                    <span className="rounded bg-[#201c1c] px-2 py-0.5 text-xs text-neutral-400">
+                                    <span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">
                                       {item.productCode}
                                     </span>
                                   </div>
-
-                                  <div className="mt-1 text-sm text-neutral-200">
+                                  <div className="mt-1 text-sm text-foreground">
                                     {item.productName}
                                   </div>
-
-                                  <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-neutral-400">
+                                  <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground">
                                     <span>
                                       QC ACC:{" "}
-                                      <strong className="text-neutral-200">
+                                      <strong className="text-foreground">
                                         {formatNumber(item.totalQcAcc)} pcs
                                       </strong>
                                     </span>
-
                                     <span>
                                       Sudah ditagihkan:{" "}
-                                      <strong className="text-neutral-200">
+                                      <strong className="text-foreground">
                                         {formatNumber(item.totalAlreadyBilled)} pcs
                                       </strong>
                                     </span>
-
                                     <span>
                                       Bisa ditagihkan:{" "}
-                                      <strong className="text-rose-300">
+                                      <strong className="text-rose-700 dark:text-rose-300">
                                         {formatNumber(item.billableQuantity)} pcs
                                       </strong>
                                     </span>
                                   </div>
                                 </div>
-
                                 <div className="min-w-[130px]">
-                                  <div className="text-xs text-neutral-500">
+                                  <div className="text-xs text-muted-foreground">
                                     Tarif / pcs
                                   </div>
-
-                                  <div className="mt-1 font-semibold text-neutral-100">
+                                  <div className="mt-1 font-semibold text-foreground">
                                     {formatCurrency(item.rate)}
                                   </div>
                                 </div>
-
                                 <div className="w-full lg:w-[150px]">
-                                  <label className="mb-1 block text-xs font-medium text-neutral-400">
+                                  <label className="mb-1 block text-xs font-medium text-muted-foreground">
                                     Qty dibayar
                                   </label>
-
                                   <input
                                     type="number"
                                     min={0}
@@ -951,16 +799,14 @@ export default function TailorBillingPage() {
                                         toggleItem(item);
                                       }
                                     }}
-                                    className="h-10 w-full rounded-lg border border-white/10 bg-[#151313] px-3 text-right text-sm font-semibold text-neutral-200 outline-none focus:border-rose-600 focus:ring-2 focus:ring-rose-900/30"
+                                    className="h-10 w-full rounded-lg border border-border bg-card px-3 text-right text-sm font-semibold text-foreground outline-none focus:border-rose-600 focus:ring-2 focus:ring-rose-900/30"
                                   />
                                 </div>
-
                                 <div className="min-w-[150px] text-right">
-                                  <div className="text-xs text-neutral-500">
+                                  <div className="text-xs text-muted-foreground">
                                     Jumlah
                                   </div>
-
-                                  <div className="mt-1 font-bold text-rose-300">
+                                  <div className="mt-1 font-bold text-rose-700 dark:text-rose-300">
                                     {formatCurrency(amount)}
                                   </div>
                                 </div>
@@ -971,47 +817,41 @@ export default function TailorBillingPage() {
                       </div>
                     </div>
                   )}
-
                 {selectedTailorId &&
                   eligibleForSelectedTailor.length > 0 && (
                     <div className="mt-5">
-                      <label className="mb-2 block text-sm font-semibold text-neutral-200">
+                      <label className="mb-2 block text-sm font-semibold text-foreground">
                         Catatan
                       </label>
-
                       <textarea
                         value={notes}
                         onChange={(event) => setNotes(event.target.value)}
                         rows={3}
                         placeholder="Tambahkan catatan jika diperlukan..."
-                        className="w-full resize-none rounded-lg border border-white/10 bg-[#151313] px-3 py-3 text-sm text-neutral-200 outline-none placeholder:text-neutral-500 focus:border-rose-600 focus:ring-2 focus:ring-rose-900/30"
+                        className="w-full resize-none rounded-lg border border-border bg-card px-3 py-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-rose-600 focus:ring-2 focus:ring-rose-900/30"
                       />
                     </div>
                   )}
               </div>
-
-              <div className="border-t border-white/10 bg-[#111010] px-6 py-4">
+              <div className="border-t border-border bg-background px-6 py-4">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                   <div>
-                    <div className="text-xs text-neutral-400">
+                    <div className="text-xs text-muted-foreground">
                       Total Tagihan
                     </div>
-
-                    <div className="text-xl font-bold text-neutral-100">
+                    <div className="text-xl font-bold text-foreground">
                       {formatCurrency(selectedTotal)}
                     </div>
                   </div>
-
                   <div className="flex items-center gap-3">
                     <button
                       type="button"
                       onClick={closeCreateModal}
                       disabled={saving}
-                      className="h-10 rounded-lg border border-white/10 bg-[#151313] px-5 text-sm font-medium text-neutral-200 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="h-10 rounded-lg border border-border bg-card px-5 text-sm font-medium text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Batal
                     </button>
-
                     <button
                       type="button"
                       onClick={createBill}
@@ -1036,107 +876,92 @@ export default function TailorBillingPage() {
             </div>
           </div>
         )}
-
         {showDetail && selectedBill && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
-            <div className="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-[#151313] shadow-2xl shadow-black/50">
-              <div className="flex items-start justify-between border-b border-white/10 px-6 py-5">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+            <div className="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-card shadow-2xl shadow-black/50">
+              <div className="flex items-start justify-between border-b border-border px-6 py-5">
                 <div>
                   <div className="mb-2 flex items-center gap-3">
-                    <h2 className="text-lg font-bold text-neutral-100">
+                    <h2 className="text-lg font-bold text-foreground">
                       {selectedBill.billNumber}
                     </h2>
-
                     <BillingStatusBadge status={selectedBill.status} />
                   </div>
-
-                  <p className="text-sm text-neutral-400">
+                  <p className="text-sm text-muted-foreground">
                     {selectedBill.tailor.name}
                   </p>
                 </div>
-
                 <button
                   type="button"
                   onClick={() => setShowDetail(false)}
-                  className="rounded-lg p-2 text-neutral-500 transition hover:bg-white/5 hover:text-neutral-300"
+                  className="rounded-lg p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground/80"
                 >
                   <X className="h-5 w-5" />
                 </button>
               </div>
-
               <div className="flex-1 overflow-y-auto px-6 py-5">
                 <div className="mb-5 grid gap-4 sm:grid-cols-3">
                   <InfoBox
                     label="Penjahit"
                     value={selectedBill.tailor.name}
                   />
-
                   <InfoBox
                     label="Dibuat Oleh"
                     value={selectedBill.createdBy?.name || "-"}
                   />
-
                   <InfoBox
                     label="Tanggal Dibuat"
                     value={formatDate(selectedBill.createdAt)}
                   />
                 </div>
-
-                <div className="overflow-hidden rounded-xl border border-white/10">
-                  <div className="border-b border-white/10 bg-[#111010] px-4 py-3">
-                    <h3 className="text-sm font-semibold text-neutral-200">
+                <div className="overflow-hidden rounded-xl border border-border">
+                  <div className="border-b border-border bg-background px-4 py-3">
+                    <h3 className="text-sm font-semibold text-foreground">
                       Detail Item
                     </h3>
                   </div>
-
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[700px]">
                       <thead>
-                        <tr className="border-b border-white/10">
-                          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                        <tr className="border-b border-border">
+                          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                             SPK
                           </th>
-                          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                             Produk
                           </th>
-                          <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                          <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                             Qty
                           </th>
-                          <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                          <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                             Tarif
                           </th>
-                          <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                          <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                             Jumlah
                           </th>
                         </tr>
                       </thead>
-
-                      <tbody className="divide-y divide-white/10">
+                      <tbody className="divide-y divide-border">
                         {selectedBill.items.map((item) => (
                           <tr key={item.id}>
-                            <td className="px-4 py-3 text-sm font-medium text-neutral-100">
+                            <td className="px-4 py-3 text-sm font-medium text-foreground">
                               {item.spk.spkNumber}
                             </td>
-
                             <td className="px-4 py-3">
-                              <div className="text-sm text-neutral-200">
+                              <div className="text-sm text-foreground">
                                 {item.product.name}
                               </div>
-
-                              <div className="text-xs text-neutral-500">
+                              <div className="text-xs text-muted-foreground">
                                 {item.product.code}
                               </div>
                             </td>
-
-                            <td className="px-4 py-3 text-right text-sm text-neutral-200">
+                            <td className="px-4 py-3 text-right text-sm text-foreground">
                               {formatNumber(item.quantity)} pcs
                             </td>
-
-                            <td className="px-4 py-3 text-right text-sm text-neutral-200">
+                            <td className="px-4 py-3 text-right text-sm text-foreground">
                               {formatCurrency(item.rate)}
                             </td>
-
-                            <td className="px-4 py-3 text-right text-sm font-semibold text-neutral-100">
+                            <td className="px-4 py-3 text-right text-sm font-semibold text-foreground">
                               {formatCurrency(item.amount)}
                             </td>
                           </tr>
@@ -1145,73 +970,63 @@ export default function TailorBillingPage() {
                     </table>
                   </div>
                 </div>
-
                 <div className="mt-5 flex justify-end">
-                  <div className="w-full max-w-sm rounded-xl border border-white/10 bg-[#111010] p-4">
-                    <div className="flex items-center justify-between text-sm text-neutral-400">
+                  <div className="w-full max-w-sm rounded-xl border border-border bg-background p-4">
+                    <div className="flex items-center justify-between text-sm text-muted-foreground">
                       <span>Subtotal</span>
-
-                      <span className="font-medium text-neutral-200">
+                      <span className="font-medium text-foreground">
                         {formatCurrency(selectedBill.subtotal)}
                       </span>
                     </div>
-
-                    <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-3">
-                      <span className="font-semibold text-neutral-100">
+                    <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
+                      <span className="font-semibold text-foreground">
                         Total
                       </span>
-
-                      <span className="text-xl font-bold text-rose-300">
+                      <span className="text-xl font-bold text-rose-700 dark:text-rose-300">
                         {formatCurrency(selectedBill.totalAmount)}
                       </span>
                     </div>
                   </div>
                 </div>
-
                 {selectedBill.notes && (
-                  <div className="mt-5 rounded-xl border border-white/10 bg-[#151313] p-4">
-                    <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                  <div className="mt-5 rounded-xl border border-border bg-card p-4">
+                    <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                       Catatan
                     </div>
-
-                    <p className="whitespace-pre-wrap text-sm text-neutral-300">
+                    <p className="whitespace-pre-wrap text-sm text-foreground/80">
                       {selectedBill.notes}
                     </p>
                   </div>
                 )}
-
                 {selectedBill.paidAt && (
-                  <div className="mt-4 rounded-xl border border-emerald-800/50 bg-emerald-950/30 p-4 text-sm text-emerald-300">
+                  <div className="mt-4 rounded-xl border border-emerald-200 dark:border-emerald-800/50 bg-emerald-50 dark:bg-emerald-950/30 p-4 text-sm text-emerald-700 dark:text-emerald-300">
                     Dibayar pada{" "}
                     <strong>{formatDate(selectedBill.paidAt)}</strong>
                   </div>
                 )}
               </div>
-
-              <div className="flex flex-col gap-3 border-t border-white/10 bg-[#111010] px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-3 border-t border-border bg-background px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
                 <button
                   type="button"
                   onClick={() => setShowDetail(false)}
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-white/10 bg-[#151313] px-4 text-sm font-medium text-neutral-200 transition hover:bg-white/5"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-border bg-card px-4 text-sm font-medium text-foreground transition hover:bg-muted"
                 >
                   <ArrowLeft className="h-4 w-4" />
                   Tutup
                 </button>
-
                 <div className="flex flex-wrap justify-end gap-2">
                   {selectedBill.status === "PAID" && (
                     <PermissionGate permission="tailor-billing.view">
                       <button
                         type="button"
                         onClick={() => downloadInvoice(selectedBill)}
-                        className="inline-flex h-10 items-center gap-2 rounded-lg border border-emerald-700/50 bg-emerald-950/30 px-4 text-sm font-semibold text-emerald-300 transition hover:bg-emerald-900/40"
+                        className="inline-flex h-10 items-center gap-2 rounded-lg border border-emerald-700/50 bg-emerald-50 dark:bg-emerald-950/30 px-4 text-sm font-semibold text-emerald-700 dark:text-emerald-300 transition hover:bg-emerald-100 dark:hover:bg-emerald-900/40"
                       >
                         <Printer className="h-4 w-4" />
                         Cetak Invoice PDF
                       </button>
                     </PermissionGate>
                   )}
-
                   {selectedBill.status === "DRAFT" && (
                     <>
                       <PermissionGate permission="tailor-billing.submit">
@@ -1221,12 +1036,11 @@ export default function TailorBillingPage() {
                           onClick={() =>
                             processBillAction(selectedBill.id, "cancel")
                           }
-                          className="inline-flex h-10 items-center gap-2 rounded-lg border border-rose-800/50 bg-[#151313] px-4 text-sm font-medium text-rose-300 transition hover:bg-rose-950/30 disabled:opacity-50"
+                          className="inline-flex h-10 items-center gap-2 rounded-lg border border-rose-200 dark:border-rose-800/50 bg-card px-4 text-sm font-medium text-rose-700 dark:text-rose-300 transition hover:bg-rose-50 dark:hover:bg-rose-950/30 disabled:opacity-50"
                         >
                           <X className="h-4 w-4" />
                           Cancel
                         </button>
-
                         <button
                           type="button"
                           disabled={processingId === selectedBill.id}
@@ -1245,7 +1059,6 @@ export default function TailorBillingPage() {
                       </PermissionGate>
                     </>
                   )}
-
                   {selectedBill.status === "SUBMITTED" && (
                     <>
                       <PermissionGate permission="tailor-billing.cancel">
@@ -1255,13 +1068,12 @@ export default function TailorBillingPage() {
                           onClick={() =>
                             processBillAction(selectedBill.id, "cancel")
                           }
-                          className="inline-flex h-10 items-center gap-2 rounded-lg border border-rose-800/50 bg-[#151313] px-4 text-sm font-medium text-rose-300 transition hover:bg-rose-950/30 disabled:opacity-50"
+                          className="inline-flex h-10 items-center gap-2 rounded-lg border border-rose-200 dark:border-rose-800/50 bg-card px-4 text-sm font-medium text-rose-700 dark:text-rose-300 transition hover:bg-rose-50 dark:hover:bg-rose-950/30 disabled:opacity-50"
                         >
                           <X className="h-4 w-4" />
                           Cancel
                         </button>
                       </PermissionGate>
-
                       <PermissionGate permission="tailor-billing.pay">
                         <button
                           type="button"
@@ -1290,7 +1102,6 @@ export default function TailorBillingPage() {
     </PermissionGate>
   );
 }
-
 function InfoBox({
   label,
   value,
@@ -1299,12 +1110,11 @@ function InfoBox({
   value: string;
 }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-[#111010] p-4">
-      <div className="text-xs font-medium text-neutral-500">
+    <div className="rounded-xl border border-border bg-background p-4">
+      <div className="text-xs font-medium text-muted-foreground">
         {label}
       </div>
-
-      <div className="mt-1 text-sm font-semibold text-neutral-200">
+      <div className="mt-1 text-sm font-semibold text-foreground">
         {value}
       </div>
     </div>

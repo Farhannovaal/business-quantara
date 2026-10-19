@@ -140,28 +140,27 @@ export default function QCDetailModal({
 
   return (
 
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 dark:bg-black/80 p-4 backdrop-blur-sm">
 
-      <div className="max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-2xl bg-[#151515] shadow-2xl">
+      <div className="max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-2xl bg-card shadow-2xl">
 
-
-        <div className="flex items-start justify-between border-b border-[#303030] px-6 py-5">
+        <div className="flex items-start justify-between border-b border-border px-6 py-5">
 
           <div>
 
-            <p className="text-xs font-semibold uppercase tracking-wider text-red-400">
+            <p className="text-xs font-semibold uppercase tracking-wider text-rose-700 dark:text-rose-700 dark:text-rose-400">
 
               QC Detail
 
             </p>
 
-            <h2 className="mt-1 text-xl font-bold text-gray-100">
+            <h2 className="mt-1 text-xl font-bold text-foreground">
 
               {item.spkNumber}
 
             </h2>
 
-            <p className="mt-1 text-sm text-gray-400">
+            <p className="mt-1 text-sm text-muted-foreground">
 
               {item.product.name} ·{" "}
 
@@ -177,7 +176,7 @@ export default function QCDetailModal({
 
             onClick={onClose}
 
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition hover:bg-[#292929] hover:text-gray-200"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground"
 
             aria-label="Tutup"
 
@@ -189,9 +188,7 @@ export default function QCDetailModal({
 
         </div>
 
-
         <div className="max-h-[calc(90vh-100px)] overflow-y-auto px-6 py-6">
-
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
 
@@ -217,7 +214,7 @@ export default function QCDetailModal({
 
               value={item.totalAcc}
 
-              valueClassName="text-emerald-400"
+              valueClassName="text-emerald-700 dark:text-emerald-400"
 
             />
 
@@ -227,7 +224,7 @@ export default function QCDetailModal({
 
               value={item.totalRijek}
 
-              valueClassName="text-rose-400"
+              valueClassName="text-rose-700 dark:text-rose-400"
 
             />
 
@@ -241,9 +238,9 @@ export default function QCDetailModal({
 
                 item.sisaQC > 0
 
-                  ? "text-amber-300"
+                  ? "text-amber-700 dark:text-amber-300"
 
-                  : "text-emerald-400"
+                  : "text-emerald-700 dark:text-emerald-400"
 
               }
 
@@ -251,20 +248,19 @@ export default function QCDetailModal({
 
           </div>
 
-
-          <div className="mt-5 rounded-2xl border border-[#353535] bg-[#1c1c1c] p-5">
+          <div className="mt-5 rounded-2xl border border-border bg-muted p-5">
 
             <div className="flex items-center justify-between gap-4">
 
               <div>
 
-                <p className="text-sm font-semibold text-gray-200">
+                <p className="text-sm font-semibold text-foreground">
 
                   Progress QC
 
                 </p>
 
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-1 text-xs text-muted-foreground">
 
                   {formatNumber(
 
@@ -288,7 +284,7 @@ export default function QCDetailModal({
 
               </div>
 
-              <p className="shrink-0 text-lg font-bold text-red-400">
+              <p className="shrink-0 text-lg font-bold text-rose-700 dark:text-rose-700 dark:text-rose-400">
 
                 {item.progressPercentage}%
 
@@ -296,11 +292,11 @@ export default function QCDetailModal({
 
             </div>
 
-            <div className="mt-4 h-3 overflow-hidden rounded-full bg-[#151515]">
+            <div className="mt-4 h-3 overflow-hidden rounded-full bg-card">
 
               <div
 
-                className="h-full rounded-full bg-gradient-to-r from-red-700 to-red-500 transition-all"
+                className="h-full rounded-full bg-gradient-to-r from-rose-700 to-rose-500 transition-all"
 
                 style={{
 
@@ -320,12 +316,11 @@ export default function QCDetailModal({
 
           </div>
 
-
           {item.lastQC && (
 
-            <div className="mt-5 rounded-2xl border border-red-900/60 bg-red-950/20 p-5">
+            <div className="mt-5 rounded-2xl border border-rose-200 dark:border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/20 p-5">
 
-              <p className="text-xs font-semibold uppercase tracking-wider text-red-400">
+              <p className="text-xs font-semibold uppercase tracking-wider text-rose-700 dark:text-rose-700 dark:text-rose-400">
 
                 QC Terakhir
 
@@ -335,13 +330,13 @@ export default function QCDetailModal({
 
                 <div>
 
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-muted-foreground">
 
                     PIC QC
 
                   </p>
 
-                  <p className="mt-1 text-sm font-semibold text-gray-200">
+                  <p className="mt-1 text-sm font-semibold text-foreground">
 
                     {item.lastQC.employee}
 
@@ -351,13 +346,13 @@ export default function QCDetailModal({
 
                 <div>
 
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-muted-foreground">
 
                     Jumlah
 
                   </p>
 
-                  <p className="mt-1 text-sm font-semibold text-gray-200">
+                  <p className="mt-1 text-sm font-semibold text-foreground">
 
                     {formatNumber(
 
@@ -373,13 +368,13 @@ export default function QCDetailModal({
 
                 <div>
 
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-muted-foreground">
 
                     Waktu
 
                   </p>
 
-                  <p className="mt-1 text-sm font-semibold text-gray-200">
+                  <p className="mt-1 text-sm font-semibold text-foreground">
 
                     {formatDate(
 
@@ -397,18 +392,17 @@ export default function QCDetailModal({
 
           )}
 
-
           <div className="mt-6">
 
             <div className="mb-4">
 
-              <h3 className="font-semibold text-gray-100">
+              <h3 className="font-semibold text-foreground">
 
                 Timeline Proses
 
               </h3>
 
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-1 text-xs text-muted-foreground">
 
                 Riwayat perjalanan barang
 
@@ -420,9 +414,9 @@ export default function QCDetailModal({
 
             {loading ? (
 
-              <div className="flex items-center gap-3 py-8 text-sm text-gray-400">
+              <div className="flex items-center gap-3 py-8 text-sm text-muted-foreground">
 
-                <Loader2 className="h-5 w-5 animate-spin text-red-400" />
+                <Loader2 className="h-5 w-5 animate-spin text-rose-700 dark:text-rose-700 dark:text-rose-400" />
 
                 Memuat timeline...
 
@@ -430,7 +424,7 @@ export default function QCDetailModal({
 
             ) : error ? (
 
-              <div className="rounded-xl border border-rose-900/60 bg-rose-950/30 px-4 py-3 text-sm text-rose-300">
+              <div className="rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/30 px-4 py-3 text-sm text-rose-700 dark:text-rose-300">
 
                 {error}
 
@@ -438,9 +432,9 @@ export default function QCDetailModal({
 
             ) : timeline.length === 0 ? (
 
-              <div className="rounded-xl border border-dashed border-[#353535] bg-[#1c1c1c] px-4 py-8 text-center">
+              <div className="rounded-xl border border-dashed border-border bg-muted px-4 py-8 text-center">
 
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-muted-foreground">
 
                   Belum ada transaksi.
 
@@ -450,7 +444,7 @@ export default function QCDetailModal({
 
             ) : (
 
-              <div className="relative ml-2 border-l border-[#353535]">
+              <div className="relative ml-2 border-l border-border">
 
                 {timeline.map(
 
@@ -464,16 +458,15 @@ export default function QCDetailModal({
 
                     >
 
+                      <div className="absolute -left-[7px] top-1 h-3 w-3 rounded-full border-2 border-border bg-rose-100 dark:bg-rose-950 shadow" />
 
-                      <div className="absolute -left-[7px] top-1 h-3 w-3 rounded-full border-2 border-[#303030] bg-red-950/300 shadow" />
-
-                      <div className="rounded-xl border border-[#353535] bg-[#151515] p-4">
+                      <div className="rounded-xl border border-border bg-card p-4">
 
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
 
                           <div>
 
-                            <p className="text-sm font-semibold text-gray-100">
+                            <p className="text-sm font-semibold text-foreground">
 
                               {
 
@@ -483,7 +476,7 @@ export default function QCDetailModal({
 
                             </p>
 
-                            <p className="mt-1 text-xs text-gray-500">
+                            <p className="mt-1 text-xs text-muted-foreground">
 
                               {
 
@@ -495,7 +488,7 @@ export default function QCDetailModal({
 
                           </div>
 
-                          <span className="w-fit rounded-lg bg-[#292929] px-2.5 py-1 text-xs font-bold text-gray-200">
+                          <span className="w-fit rounded-lg bg-muted px-2.5 py-1 text-xs font-bold text-foreground">
 
                             {formatNumber(
 
@@ -509,13 +502,13 @@ export default function QCDetailModal({
 
                         </div>
 
-                        <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-gray-400">
+                        <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted-foreground">
 
                           <span>
 
                             PIC:{" "}
 
-                            <strong className="font-semibold text-gray-200">
+                            <strong className="font-semibold text-foreground">
 
                               {
 
@@ -569,7 +562,7 @@ function DetailMetric({
 
   value,
 
-  valueClassName = "text-gray-100",
+  valueClassName = "text-foreground",
 
 }: {
 
@@ -583,9 +576,9 @@ function DetailMetric({
 
   return (
 
-    <div className="rounded-xl border border-[#353535] bg-[#151515] p-4">
+    <div className="rounded-xl border border-border bg-card p-4">
 
-      <p className="text-xs font-medium text-gray-500">
+      <p className="text-xs font-medium text-muted-foreground">
 
         {label}
 

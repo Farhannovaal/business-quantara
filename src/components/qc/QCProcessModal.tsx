@@ -306,25 +306,25 @@ export default function QCProcessModal({
 
   return (
 
-    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 dark:bg-black/85 p-4 backdrop-blur-sm">
 
-      <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-[#151515] shadow-2xl">
+      <div className="w-full max-w-lg overflow-hidden rounded-2xl bg-card shadow-2xl">
 
-        <div className="border-b border-[#303030] px-6 py-5">
+        <div className="border-b border-border px-6 py-5">
 
-          <p className="text-xs font-semibold uppercase tracking-wider text-red-400">
+          <p className="text-xs font-semibold uppercase tracking-wider text-rose-700 dark:text-rose-700 dark:text-rose-400">
 
             Quality Control
 
           </p>
 
-          <h2 className="mt-1 text-xl font-bold text-gray-100">
+          <h2 className="mt-1 text-xl font-bold text-foreground">
 
             Proses QC
 
           </h2>
 
-          <p className="mt-1 text-sm text-gray-400">
+          <p className="mt-1 text-sm text-muted-foreground">
 
             {item.spkNumber} ·{" "}
 
@@ -332,7 +332,7 @@ export default function QCProcessModal({
 
           </p>
 
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-muted-foreground">
 
             Penjahit: {item.tailor.name}
 
@@ -348,15 +348,15 @@ export default function QCProcessModal({
 
         >
 
-          <div className="rounded-xl border border-amber-900/60 bg-amber-950/30 p-4">
+          <div className="rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/30 p-4">
 
-            <p className="text-xs font-medium text-amber-300">
+            <p className="text-xs font-medium text-amber-700 dark:text-amber-300">
 
               Sisa yang dapat diperiksa
 
             </p>
 
-            <p className="mt-1 text-2xl font-bold text-amber-300">
+            <p className="mt-1 text-2xl font-bold text-amber-700 dark:text-amber-300">
 
               {formatNumber(item.sisaQC)} pcs
 
@@ -366,7 +366,7 @@ export default function QCProcessModal({
 
           <div>
 
-            <label className="mb-2 block text-sm font-semibold text-gray-200">
+            <label className="mb-2 block text-sm font-semibold text-foreground">
 
               PIC QC
 
@@ -388,7 +388,7 @@ export default function QCProcessModal({
 
               disabled={loadingEmployees}
 
-              className="h-11 w-full rounded-xl border border-[#353535] bg-[#151515] px-3 text-sm text-gray-200 outline-none focus:border-red-500 focus:ring-4 focus:ring-red-500/10"
+              className="h-11 w-full rounded-xl border border-border bg-card px-3 text-sm text-foreground outline-none focus:border-rose-500 focus:ring-4 focus:ring-red-500/10"
 
             >
 
@@ -430,7 +430,7 @@ export default function QCProcessModal({
 
             <div>
 
-              <label className="mb-2 block text-sm font-semibold text-emerald-300">
+              <label className="mb-2 block text-sm font-semibold text-emerald-700 dark:text-emerald-300">
 
                 ACC
 
@@ -456,7 +456,7 @@ export default function QCProcessModal({
 
                 }
 
-                className="h-11 w-full rounded-xl border border-[#353535] px-3 text-sm outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
+                className="h-11 w-full rounded-xl border border-border bg-background text-foreground px-3 text-sm outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
 
               />
 
@@ -464,7 +464,7 @@ export default function QCProcessModal({
 
             <div>
 
-              <label className="mb-2 block text-sm font-semibold text-rose-300">
+              <label className="mb-2 block text-sm font-semibold text-rose-700 dark:text-rose-300">
 
                 Rijek
 
@@ -490,7 +490,7 @@ export default function QCProcessModal({
 
                 }
 
-                className="h-11 w-full rounded-xl border border-[#353535] px-3 text-sm outline-none focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10"
+                className="h-11 w-full rounded-xl border border-border bg-background text-foreground px-3 text-sm outline-none focus:border-rose-500 focus:ring-4 focus:ring-rose-500/10"
 
               />
 
@@ -504,9 +504,9 @@ export default function QCProcessModal({
 
               total > item.sisaQC
 
-                ? "border-rose-900/60 bg-rose-950/30"
+                ? "border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/30"
 
-                : "border-[#353535] bg-[#1c1c1c]"
+                : "border-border bg-muted"
 
             }`}
 
@@ -514,13 +514,13 @@ export default function QCProcessModal({
 
             <div className="flex items-center justify-between">
 
-              <span className="text-sm text-gray-400">
+              <span className="text-sm text-muted-foreground">
 
                 Total diperiksa
 
               </span>
 
-              <span className="text-lg font-bold text-gray-100">
+              <span className="text-lg font-bold text-foreground">
 
                 {formatNumber(total)} /{" "}
 
@@ -532,7 +532,7 @@ export default function QCProcessModal({
 
             {total > item.sisaQC && (
 
-              <p className="mt-1 text-xs font-medium text-rose-400">
+              <p className="mt-1 text-xs font-medium text-rose-700 dark:text-rose-400">
 
                 Melebihi sisa QC.
 
@@ -544,7 +544,7 @@ export default function QCProcessModal({
 
           <div>
 
-            <label className="mb-2 block text-sm font-semibold text-gray-200">
+            <label className="mb-2 block text-sm font-semibold text-foreground">
 
               Catatan
 
@@ -568,7 +568,7 @@ export default function QCProcessModal({
 
               placeholder="Catatan hasil QC (opsional)"
 
-              className="w-full resize-none rounded-xl border border-[#353535] px-3 py-2.5 text-sm outline-none focus:border-red-500 focus:ring-4 focus:ring-red-500/10"
+              className="w-full resize-none rounded-xl border border-border bg-background text-foreground px-3 py-2.5 text-sm outline-none focus:border-rose-500 focus:ring-4 focus:ring-red-500/10"
 
             />
 
@@ -576,7 +576,7 @@ export default function QCProcessModal({
 
           {error && (
 
-            <div className="rounded-xl border border-rose-900/60 bg-rose-950/30 px-4 py-3 text-sm text-rose-300">
+            <div className="rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/30 px-4 py-3 text-sm text-rose-700 dark:text-rose-300">
 
               {error}
 
@@ -586,7 +586,7 @@ export default function QCProcessModal({
 
           {success && (
 
-            <div className="rounded-xl border border-emerald-900/60 bg-emerald-950/30 px-4 py-3 text-sm text-emerald-300">
+            <div className="rounded-xl border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50 dark:bg-emerald-950/30 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300">
 
               {success}
 
@@ -594,7 +594,7 @@ export default function QCProcessModal({
 
           )}
 
-          <div className="flex justify-end gap-3 border-t border-[#303030] pt-5">
+          <div className="flex justify-end gap-3 border-t border-border pt-5">
 
             <button
 
@@ -604,7 +604,7 @@ export default function QCProcessModal({
 
               disabled={loading}
 
-              className="h-10 rounded-xl border border-[#353535] px-4 text-sm font-semibold text-gray-300 hover:bg-[#1c1c1c]"
+              className="h-10 rounded-xl border border-border px-4 text-sm font-semibold text-muted-foreground hover:bg-muted"
 
             >
 
@@ -622,7 +622,7 @@ export default function QCProcessModal({
 
               }
 
-              className="inline-flex h-10 items-center gap-2 rounded-xl bg-red-600 px-5 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-10 items-center gap-2 rounded-xl bg-rose-600 px-5 text-sm font-semibold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
 
             >
 

@@ -228,19 +228,19 @@ export default function SPKDetailPage() {
 
       case "ACTIVE":
 
-        return "border-emerald-500/20 bg-emerald-500/10 text-emerald-300";
+        return "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300";
 
       case "COMPLETED":
 
-        return "border-sky-500/20 bg-sky-500/10 text-sky-300";
+        return "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-300";
 
       case "CANCELLED":
 
-        return "border-red-500/20 bg-red-500/10 text-red-300";
+        return "border-red-200 bg-red-50 text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300";
 
       default:
 
-        return "border-white/10 bg-[#0b0b0d] text-zinc-300";
+        return "border-border bg-muted text-foreground";
 
     }
 
@@ -292,11 +292,11 @@ export default function SPKDetailPage() {
 
     return (
 
-      <div className="min-h-screen bg-[#09090b] p-4 text-zinc-100 sm:p-6">
+      <div className="min-h-screen bg-background p-4 text-foreground sm:p-6">
 
         <div className="mx-auto flex min-h-[70vh] max-w-7xl items-center justify-center">
 
-          <div className="flex items-center gap-2 text-sm text-zinc-500">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
 
             <Loader2 size={18} className="animate-spin" />
 
@@ -316,7 +316,7 @@ export default function SPKDetailPage() {
 
     return (
 
-      <div className="min-h-screen bg-[#09090b] p-4 text-zinc-100 sm:p-6">
+      <div className="min-h-screen bg-background p-4 text-foreground sm:p-6">
 
         <div className="mx-auto max-w-7xl">
 
@@ -324,11 +324,11 @@ export default function SPKDetailPage() {
 
             href="/operations/spk"
 
-            className="mb-5 inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white"
+            className="mb-5 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
 
           >
 
-            <ArrowLeft size={16} className="text-red-400" />
+            <ArrowLeft size={16} className="text-rose-600 dark:text-rose-400" />
 
             Back to SPK
 
@@ -350,7 +350,7 @@ export default function SPKDetailPage() {
 
   return (
 
-    <div className="min-h-screen bg-[#09090b] p-4 text-zinc-100 sm:p-6">
+    <div className="min-h-screen bg-background p-4 text-foreground sm:p-6">
 
       <div className="mx-auto max-w-7xl">
 
@@ -358,23 +358,23 @@ export default function SPKDetailPage() {
 
           href="/operations/spk"
 
-          className="mb-5 inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white"
+          className="mb-5 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
 
         >
 
-          <ArrowLeft size={16} className="text-red-400" />
+          <ArrowLeft size={16} className="text-rose-600 dark:text-rose-400" />
 
           Back to SPK
 
         </Link>
 
-        <div className="mb-6 flex flex-col gap-4 rounded-2xl border border-white/10 bg-[#111113] p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="mb-6 flex flex-col gap-4 rounded-2xl border border-border bg-card p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
 
           <div>
 
             <div className="flex flex-wrap items-center gap-3">
 
-              <h1 className="text-2xl font-semibold text-white">
+              <h1 className="text-2xl font-semibold text-foreground">
 
                 {spk.spkNumber}
 
@@ -396,7 +396,7 @@ export default function SPKDetailPage() {
 
             </div>
 
-            <p className="mt-1 text-sm text-zinc-500">
+            <p className="mt-1 text-sm text-muted-foreground">
 
               Production tracking dan transaction history.
 
@@ -410,11 +410,11 @@ export default function SPKDetailPage() {
 
             onClick={loadSpk}
 
-            className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-500/30 bg-red-500/5 px-4 py-2.5 text-sm font-semibold text-red-300 transition hover:bg-red-500/10"
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/15"
 
           >
 
-            <RefreshCw size={16} className="text-red-400" />
+            <RefreshCw size={16} className="text-rose-600 dark:text-rose-400" />
 
             Refresh
 
@@ -424,9 +424,9 @@ export default function SPKDetailPage() {
 
         <div className="mb-6 grid gap-4 md:grid-cols-3">
 
-          <div className="rounded-2xl border border-white/10 bg-[#111113] p-5 shadow-sm md:col-span-1">
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm md:col-span-1">
 
-            <div className="mb-3 flex items-center gap-2 text-sm font-medium text-zinc-500">
+            <div className="mb-3 flex items-center gap-2 text-sm font-medium text-muted-foreground">
 
               <Package size={17} />
 
@@ -438,7 +438,7 @@ export default function SPKDetailPage() {
 
               {spk.items.length === 0 ? (
 
-                <div className="text-sm text-zinc-500">
+                <div className="text-sm text-muted-foreground">
 
                   Tidak ada product.
 
@@ -452,7 +452,7 @@ export default function SPKDetailPage() {
 
                     key={item.id}
 
-                    className="rounded-lg border border-white/5 bg-[#0b0b0d] px-3 py-2.5"
+                    className="rounded-lg border border-border/70 bg-muted px-3 py-2.5"
 
                   >
 
@@ -460,13 +460,13 @@ export default function SPKDetailPage() {
 
                       <div className="min-w-0">
 
-                        <div className="truncate font-semibold text-white">
+                        <div className="truncate font-semibold text-foreground">
 
                           {item.product.name}
 
                         </div>
 
-                        <div className="mt-0.5 text-xs text-zinc-500">
+                        <div className="mt-0.5 text-xs text-muted-foreground">
 
                           {item.product.code}
 
@@ -474,7 +474,7 @@ export default function SPKDetailPage() {
 
                       </div>
 
-                      <span className="shrink-0 rounded-full bg-[#111113] px-2.5 py-1 text-xs font-semibold text-zinc-300 ring-1 ring-white/10">
+                      <span className="shrink-0 rounded-full bg-card px-2.5 py-1 text-xs font-semibold text-foreground ring-1 ring-white/10">
 
                         {formatNumber(item.quantity)} pcs
 
@@ -492,9 +492,9 @@ export default function SPKDetailPage() {
 
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-[#111113] p-5 shadow-sm">
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
 
-            <div className="mb-3 flex items-center gap-2 text-sm font-medium text-zinc-500">
+            <div className="mb-3 flex items-center gap-2 text-sm font-medium text-muted-foreground">
 
               <UserRound size={17} />
 
@@ -502,13 +502,13 @@ export default function SPKDetailPage() {
 
             </div>
 
-            <div className="font-semibold text-white">
+            <div className="font-semibold text-foreground">
 
               {spk.tailor.name}
 
             </div>
 
-            <div className="mt-1 text-sm text-zinc-500">
+            <div className="mt-1 text-sm text-muted-foreground">
 
               {spk.items.length} product dalam SPK
 
@@ -516,9 +516,9 @@ export default function SPKDetailPage() {
 
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-[#111113] p-5 shadow-sm">
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
 
-            <div className="mb-3 flex items-center gap-2 text-sm font-medium text-zinc-500">
+            <div className="mb-3 flex items-center gap-2 text-sm font-medium text-muted-foreground">
 
               <Activity size={17} />
 
@@ -526,13 +526,13 @@ export default function SPKDetailPage() {
 
             </div>
 
-            <div className="font-semibold text-white">
+            <div className="font-semibold text-foreground">
 
               {spk.transactions.length}
 
             </div>
 
-            <div className="mt-1 text-sm text-zinc-500">
+            <div className="mt-1 text-sm text-muted-foreground">
 
               Total recorded transactions
 
@@ -546,13 +546,13 @@ export default function SPKDetailPage() {
 
           <div className="mb-3">
 
-            <h2 className="text-lg font-semibold text-white">
+            <h2 className="text-lg font-semibold text-foreground">
 
               Production Summary
 
             </h2>
 
-            <p className="mt-1 text-sm text-zinc-500">
+            <p className="mt-1 text-sm text-muted-foreground">
 
               Current production state berdasarkan transaction.
 
@@ -636,17 +636,17 @@ export default function SPKDetailPage() {
 
         </div>
 
-        <div className="mb-6 rounded-xl border border-white/10 bg-[#111113] shadow-sm">
+        <div className="mb-6 rounded-xl border border-border bg-card shadow-sm">
 
-          <div className="border-b border-white/10 px-5 py-4">
+          <div className="border-b border-border px-5 py-4">
 
-            <h2 className="font-semibold text-white">
+            <h2 className="font-semibold text-foreground">
 
               Product Production Summary
 
             </h2>
 
-            <p className="mt-1 text-sm text-zinc-500">
+            <p className="mt-1 text-sm text-muted-foreground">
 
               Production state dan next process untuk setiap product dalam SPK.
 
@@ -654,11 +654,11 @@ export default function SPKDetailPage() {
 
           </div>
 
-          <div className="divide-y divide-white/10">
+          <div className="divide-y divide-border">
 
             {spk.productSummaries.length === 0 ? (
 
-              <div className="px-5 py-6 text-sm text-zinc-500">
+              <div className="px-5 py-6 text-sm text-muted-foreground">
 
                 Tidak ada product summary.
 
@@ -674,13 +674,13 @@ export default function SPKDetailPage() {
 
                     <div>
 
-                      <div className="font-semibold text-white">
+                      <div className="font-semibold text-foreground">
 
                         {item.product.name}
 
                       </div>
 
-                      <div className="mt-0.5 text-xs text-zinc-500">
+                      <div className="mt-0.5 text-xs text-muted-foreground">
 
                         {item.product.code}
 
@@ -688,7 +688,7 @@ export default function SPKDetailPage() {
 
                     </div>
 
-                    <span className="w-fit rounded-full bg-[#0b0b0d] px-3 py-1 text-xs font-semibold text-zinc-300 ring-1 ring-white/10">
+                    <span className="w-fit rounded-full bg-muted px-3 py-1 text-xs font-semibold text-foreground ring-1 ring-white/10">
 
                       Qty SPK: {formatNumber(item.quantity)} pcs
 
@@ -772,7 +772,7 @@ export default function SPKDetailPage() {
 
                   <div className="mt-4">
 
-                    <div className="mb-2 text-sm font-semibold text-white">
+                    <div className="mb-2 text-sm font-semibold text-foreground">
 
                       Next Allowed Process
 
@@ -780,7 +780,7 @@ export default function SPKDetailPage() {
 
                     {item.summary.nextTransactionTypes.length === 0 ? (
 
-                      <div className="rounded-lg bg-[#0b0b0d] px-4 py-3 text-sm text-zinc-500">
+                      <div className="rounded-lg bg-muted px-4 py-3 text-sm text-muted-foreground">
 
                         Tidak ada process berikutnya.
 
@@ -796,11 +796,11 @@ export default function SPKDetailPage() {
 
                             key={code}
 
-                            className="inline-flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-sm font-medium text-red-300"
+                            className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300"
 
                           >
 
-                            <ArrowRight size={15} className="text-red-400" />
+                            <ArrowRight size={15} className="text-rose-600 dark:text-rose-400" />
 
                             {getTransactionLabel(code)}
 
@@ -824,17 +824,17 @@ export default function SPKDetailPage() {
 
         </div>
 
-        <div className="mb-6 rounded-2xl border border-white/10 bg-[#111113] p-5 shadow-sm">
+        <div className="mb-6 rounded-2xl border border-border bg-card p-5 shadow-sm">
 
           <div className="mb-4">
 
-            <h2 className="font-semibold text-white">
+            <h2 className="font-semibold text-foreground">
 
               Next Allowed Process
 
             </h2>
 
-            <p className="mt-1 text-sm text-zinc-500">
+            <p className="mt-1 text-sm text-muted-foreground">
 
               Transaction yang saat ini diperbolehkan berdasarkan state seluruh SPK.
 
@@ -844,7 +844,7 @@ export default function SPKDetailPage() {
 
           {spk.summary.nextTransactionTypes.length === 0 ? (
 
-            <div className="rounded-lg bg-[#0b0b0d] px-4 py-3 text-sm text-zinc-500">
+            <div className="rounded-lg bg-muted px-4 py-3 text-sm text-muted-foreground">
 
               Tidak ada process berikutnya.
 
@@ -860,11 +860,11 @@ export default function SPKDetailPage() {
 
                   key={code}
 
-                  className="inline-flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2 text-sm font-medium text-red-300"
+                  className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300"
 
                 >
 
-                  <ArrowRight size={15} className="text-red-400" />
+                  <ArrowRight size={15} className="text-rose-600 dark:text-rose-400" />
 
                   {getTransactionLabel(code)}
 
@@ -878,17 +878,17 @@ export default function SPKDetailPage() {
 
         </div>
 
-        <div className="overflow-hidden rounded-xl border border-white/10 bg-[#111113] shadow-sm">
+        <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
 
-          <div className="border-b border-white/10 px-5 py-4">
+          <div className="border-b border-border px-5 py-4">
 
-            <h2 className="font-semibold text-white">
+            <h2 className="font-semibold text-foreground">
 
               Transaction History
 
             </h2>
 
-            <p className="mt-1 text-sm text-zinc-500">
+            <p className="mt-1 text-sm text-muted-foreground">
 
               Semua transaction yang tercatat untuk SPK ini.
 
@@ -902,13 +902,13 @@ export default function SPKDetailPage() {
 
               <div>
 
-                <p className="font-medium text-white">
+                <p className="font-medium text-foreground">
 
                   Belum ada transaction
 
                 </p>
 
-                <p className="mt-1 text-sm text-zinc-500">
+                <p className="mt-1 text-sm text-muted-foreground">
 
                   Transaction pertama untuk SPK ini belum dibuat.
 
@@ -926,39 +926,39 @@ export default function SPKDetailPage() {
 
                 <thead>
 
-                  <tr className="border-b border-white/10 bg-[#0b0b0d]">
+                  <tr className="border-b border-border bg-muted">
 
-                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
 
                       Date
 
                     </th>
 
-                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
 
                       Product
 
                     </th>
 
-                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
 
                       Transaction
 
                     </th>
 
-                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
 
                       Number
 
                     </th>
 
-                    <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                    <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
 
                       Quantity
 
                     </th>
 
-                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                    <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
 
                       Employee
 
@@ -968,7 +968,7 @@ export default function SPKDetailPage() {
 
                 </thead>
 
-                <tbody className="divide-y divide-white/10">
+                <tbody className="divide-y divide-border">
 
                   {spk.transactions.map((transaction) => (
 
@@ -976,11 +976,11 @@ export default function SPKDetailPage() {
 
                       key={transaction.id}
 
-                      className="hover:bg-[#0b0b0d]"
+                      className="hover:bg-muted"
 
                     >
 
-                      <td className="px-5 py-4 text-sm text-zinc-400">
+                      <td className="px-5 py-4 text-sm text-muted-foreground">
 
                         {formatDate(transaction.createdAt)}
 
@@ -992,13 +992,13 @@ export default function SPKDetailPage() {
 
                           <>
 
-                            <div className="text-sm font-medium text-white">
+                            <div className="text-sm font-medium text-foreground">
 
                               {transaction.product.name}
 
                             </div>
 
-                            <div className="mt-0.5 text-xs text-zinc-500">
+                            <div className="mt-0.5 text-xs text-muted-foreground">
 
                               {transaction.product.code}
 
@@ -1008,7 +1008,7 @@ export default function SPKDetailPage() {
 
                         ) : (
 
-                          <span className="text-sm text-zinc-500">-</span>
+                          <span className="text-sm text-muted-foreground">-</span>
 
                         )}
 
@@ -1016,7 +1016,7 @@ export default function SPKDetailPage() {
 
                       <td className="px-5 py-4">
 
-                        <div className="text-sm font-medium text-white">
+                        <div className="text-sm font-medium text-foreground">
 
                           {getTransactionLabel(
 
@@ -1026,7 +1026,7 @@ export default function SPKDetailPage() {
 
                         </div>
 
-                        <div className="mt-0.5 text-xs text-zinc-500">
+                        <div className="mt-0.5 text-xs text-muted-foreground">
 
                           {transaction.transactionType.code}
 
@@ -1034,19 +1034,19 @@ export default function SPKDetailPage() {
 
                       </td>
 
-                      <td className="px-5 py-4 text-sm text-zinc-400">
+                      <td className="px-5 py-4 text-sm text-muted-foreground">
 
                         {transaction.transactionNumber}
 
                       </td>
 
-                      <td className="px-5 py-4 text-right text-sm font-semibold text-white">
+                      <td className="px-5 py-4 text-right text-sm font-semibold text-foreground">
 
                         {formatNumber(transaction.quantity)}
 
                       </td>
 
-                      <td className="px-5 py-4 text-sm text-zinc-300">
+                      <td className="px-5 py-4 text-sm text-foreground">
 
                         {transaction.employee.name}
 
@@ -1096,17 +1096,17 @@ function SummaryCard({
 
     <div
 
-      className={`rounded-xl border bg-[#111113] p-5 shadow-sm ${
+      className={`rounded-xl border bg-card p-5 shadow-sm ${
 
-        highlight ? "border-white/15" : "border-white/10"
+        highlight ? "border-border" : "border-border"
 
       }`}
 
     >
 
-      <div className="text-sm text-zinc-500">{label}</div>
+      <div className="text-sm text-muted-foreground">{label}</div>
 
-      <div className="mt-2 text-2xl font-semibold text-white">
+      <div className="mt-2 text-2xl font-semibold text-foreground">
 
         {value.toLocaleString("id-ID")}
 

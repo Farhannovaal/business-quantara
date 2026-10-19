@@ -18,14 +18,14 @@ export default function QCSummaryCard({
   iconClassName,
 }: Props) {
   return (
-    <div className="rounded-2xl border border-[#353535] bg-[#151515] p-5 shadow-lg shadow-black/10 transition hover:border-red-900/60">
+    <div className="rounded-2xl border border-border bg-card p-5 shadow-sm transition hover:border-rose-200 dark:hover:border-rose-900/60">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-medium text-gray-400">{title}</p>
-          <p className="mt-2 text-2xl font-bold tracking-tight text-gray-100">
+          <p className="text-sm font-medium text-muted-foreground">{title}</p>
+          <p className="mt-2 text-2xl font-bold tracking-tight text-foreground">
             {formatNumber(value)}
           </p>
-          <p className="mt-1 text-xs text-gray-500">{subtitle}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p>
         </div>
         <div
           className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${iconClassName}`}
