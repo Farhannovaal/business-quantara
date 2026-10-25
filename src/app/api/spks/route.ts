@@ -1,23 +1,61 @@
+
+import { Prisma, SPKStatus } from "@prisma/client";
 import { requirePermission } from "@/lib/auth/authorization";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+type SPKItemInput = {
+  productId: number;
+  quantity: number;
+};
+
+function jsonError(message: string, status: number) {
+  return NextResponse.json(
+    {
+      success: false,
+      error: message,
+    },
+    { status },
+  );
+}
+
+function isObject(
+  value: unknown,
+): value is Record<string, unknown> {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    !Array.isArray(value)
+  );
+}
+
+function isPrismaUniqueError(
+  error: unknown,
+): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2002"
+  );
+}
+
 export async function GET(request: NextRequest) {
   const { user, response } = await requireAuth();
 
-  if (response) return response;
+  if (response || !user) {
+    return response ?? jsonError("Unauthorized.", 401);
+  }
 
   const permission = requirePermission(user, "spk.view");
-  if (permission.response) return permission.response;
+
+  if (permission.response) {
+    return permission.response;
+  }
 
   if (user.companyId == null) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: "User belum terhubung dengan perusahaan.",
-      },
-      { status: 403 },
+    return jsonError(
+      "User belum terhubung dengan perusahaan.",
+      403,
     );
   }
 
@@ -25,12 +63,26 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
 
     const search = searchParams.get("search")?.trim() || "";
-    const status = searchParams.get("status")?.trim() || "";
+    const rawStatus = searchParams.get("status")?.trim() || "";
+
+    const validStatuses = Object.values(SPKStatus) as string[];
+
+    if (
+      rawStatus &&
+      !validStatuses.includes(rawStatus)
+    ) {
+      return jsonError("Invalid SPK status filter.", 400);
+    }
+
+    const status: SPKStatus | undefined = rawStatus
+      ? (rawStatus as SPKStatus)
+      : undefined;
 
     const spks = await prisma.sPK.findMany({
       where: {
         companyId: user.companyId,
         deletedAt: null,
+
         ...(search
           ? {
               OR: [
@@ -71,15 +123,10 @@ export async function GET(request: NextRequest) {
               ],
             }
           : {}),
-        ...(status
-          ? {
-              status: status as
-                | "ACTIVE"
-                | "COMPLETED"
-                | "CANCELLED",
-            }
-          : {}),
+
+        ...(status ? { status } : {}),
       },
+
       include: {
         items: {
           include: {
@@ -95,18 +142,21 @@ export async function GET(request: NextRequest) {
             id: "asc",
           },
         },
+
         tailor: {
           select: {
             id: true,
             name: true,
           },
         },
+
         _count: {
           select: {
             transactions: true,
           },
         },
       },
+
       orderBy: {
         createdAt: "desc",
       },
@@ -119,175 +169,175 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("GET SPKs error:", error);
 
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to load SPKs.",
-      },
-      { status: 500 },
-    );
+    return jsonError("Failed to load SPKs.", 500);
   }
 }
 
 export async function POST(request: NextRequest) {
   const { user, response } = await requireAuth();
 
-  if (response) return response;
+  if (response || !user) {
+    return response ?? jsonError("Unauthorized.", 401);
+  }
 
   const permission = requirePermission(user, "spk.create");
-  if (permission.response) return permission.response;
+
+  if (permission.response) {
+    return permission.response;
+  }
 
   if (user.companyId == null) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: "User belum terhubung dengan perusahaan.",
-      },
-      { status: 403 },
+    return jsonError(
+      "User belum terhubung dengan perusahaan.",
+      403,
     );
   }
 
   try {
-    const body = await request.json();
+    const body: unknown = await request.json();
 
-    const spkNumber = String(body.spkNumber ?? "").trim();
+    if (!isObject(body)) {
+      return jsonError("Invalid request body.", 400);
+    }
+
+    const spkNumber =
+      typeof body.spkNumber === "string"
+        ? body.spkNumber.trim()
+        : "";
+
     const tailorId = Number(body.tailorId);
     const rawItems = body.items;
 
     if (!spkNumber) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "SPK number is required.",
-        },
-        { status: 400 },
-      );
+      return jsonError("SPK number is required.", 400);
     }
 
-    if (!Number.isInteger(tailorId) || tailorId <= 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Valid tailor is required.",
-        },
-        { status: 400 },
-      );
+    if (
+      !Number.isSafeInteger(tailorId) ||
+      tailorId <= 0
+    ) {
+      return jsonError("Valid tailor is required.", 400);
     }
 
     if (!Array.isArray(rawItems) || rawItems.length === 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "At least one product is required.",
-        },
-        { status: 400 },
+      return jsonError(
+        "At least one product is required.",
+        400,
       );
     }
 
-    const items: { productId: number; quantity: number }[] = [];
+    const items: SPKItemInput[] = [];
 
-    for (const item of rawItems) {
-      const productId = Number(item?.productId);
-      const quantity = Number(item?.quantity);
+    for (const rawItem of rawItems) {
+      if (!isObject(rawItem)) {
+        return jsonError("Invalid SPK item.", 400);
+      }
+
+      const productId = Number(rawItem.productId);
+      const quantity = Number(rawItem.quantity);
 
       if (
-        !Number.isInteger(productId) ||
+        !Number.isSafeInteger(productId) ||
         productId <= 0 ||
-        !Number.isInteger(quantity) ||
+        !Number.isSafeInteger(quantity) ||
         quantity <= 0
       ) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Each item must have a valid product and quantity.",
-          },
-          { status: 400 },
+        return jsonError(
+          "Each item must have a valid product and positive integer quantity.",
+          400,
         );
       }
 
-      items.push({ productId, quantity });
+      items.push({
+        productId,
+        quantity,
+      });
     }
 
-    const productIds = [...new Set(items.map((item) => item.productId))];
+    const productIds = items.map((item) => item.productId);
 
-    if (productIds.length !== items.length) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Duplicate products are not allowed in one SPK.",
-        },
-        { status: 400 },
+    if (new Set(productIds).size !== productIds.length) {
+      return jsonError(
+        "Duplicate products are not allowed in one SPK.",
+        400,
       );
     }
 
-    const existingSPK = await prisma.sPK.findUnique({
-      where: {
-        companyId_spkNumber: {
-          companyId: user.companyId,
-          spkNumber,
-        },
-      },
-    });
+    const companyId = user.companyId;
 
-    if (existingSPK) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "SPK number already exists.",
+    const [existingSPK, tailor, products] = await Promise.all([
+      prisma.sPK.findUnique({
+        where: {
+          companyId_spkNumber: {
+            companyId,
+            spkNumber,
+          },
         },
-        { status: 409 },
-      );
-    }
+        select: {
+          id: true,
+        },
+      }),
 
-    const [tailor, products] = await Promise.all([
       prisma.tailor.findUnique({
         where: {
           companyId_id: {
-            companyId: user.companyId,
+            companyId,
             id: tailorId,
           },
         },
+        select: {
+          id: true,
+          name: true,
+          isActive: true,
+        },
       }),
+
       prisma.product.findMany({
         where: {
-          companyId: user.companyId,
+          companyId,
           id: {
             in: productIds,
           },
         },
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          isActive: true,
+        },
       }),
     ]);
 
+    if (existingSPK) {
+      return jsonError("SPK number already exists.", 409);
+    }
+
     if (!tailor) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Tailor not found.",
-        },
-        { status: 404 },
+      return jsonError(
+        "Tailor not found in this company.",
+        404,
       );
     }
 
     if (!tailor.isActive) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Selected tailor is inactive.",
-        },
-        { status: 400 },
-      );
+      return jsonError("Selected tailor is inactive.", 400);
     }
 
-    if (products.length !== productIds.length) {
-      const foundProductIds = new Set(products.map((product) => product.id));
-      const missingProductIds = productIds.filter(
-        (id) => !foundProductIds.has(id),
-      );
+    const foundProductIds = new Set(
+      products.map((product) => product.id),
+    );
 
+    const missingProductIds = productIds.filter(
+      (id) => !foundProductIds.has(id),
+    );
+
+    if (missingProductIds.length > 0) {
       return NextResponse.json(
         {
           success: false,
-          error: `Product not found: ${missingProductIds.join(", ")}`,
+          error:
+            "One or more products were not found in this company.",
+          productIds: missingProductIds,
         },
         { status: 404 },
       );
@@ -301,9 +351,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: `Selected product is inactive: ${inactiveProducts
-            .map((product) => product.name)
-            .join(", ")}`,
+          error: "One or more selected products are inactive.",
+          products: inactiveProducts.map((product) => ({
+            id: product.id,
+            code: product.code,
+            name: product.name,
+          })),
         },
         { status: 400 },
       );
@@ -311,10 +364,11 @@ export async function POST(request: NextRequest) {
 
     const spk = await prisma.sPK.create({
       data: {
-        companyId: user.companyId,
+        companyId,
         spkNumber,
         tailorId,
         status: "ACTIVE",
+
         items: {
           create: items.map((item) => ({
             productId: item.productId,
@@ -322,6 +376,7 @@ export async function POST(request: NextRequest) {
           })),
         },
       },
+
       include: {
         items: {
           include: {
@@ -337,6 +392,7 @@ export async function POST(request: NextRequest) {
             id: "asc",
           },
         },
+
         tailor: {
           select: {
             id: true,
@@ -354,14 +410,12 @@ export async function POST(request: NextRequest) {
       { status: 201 },
     );
   } catch (error) {
+    if (isPrismaUniqueError(error)) {
+      return jsonError("SPK number already exists.", 409);
+    }
+
     console.error("POST SPK error:", error);
 
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to create SPK.",
-      },
-      { status: 500 },
-    );
+    return jsonError("Failed to create SPK.", 500);
   }
 }

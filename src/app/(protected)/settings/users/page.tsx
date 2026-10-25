@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -40,19 +38,41 @@ import RolePermissionManager from "./_components/RolePermissionManager";
 
 type UserStatus = "ACTIVE" | "INACTIVE";
 
-type Role = {
+type Company = {
 
   id: number;
 
   name: string;
 
+  code: string;
+
+  slug?: string;
+
+  status?: string;
+
+};
+
+type Role = {
+
+  id: number;
+
+  companyId: number | null;
+
+  name: string;
+
   description?: string | null;
+
+  company?: Company | null;
 
 };
 
 type UserItem = {
 
   id: number;
+
+  companyId: number | null;
+
+  company: Company | null;
 
   name: string;
 
@@ -84,6 +104,8 @@ type UserForm = {
 
   password: string;
 
+  companyId: string;
+
   roleId: string;
 
   status: UserStatus;
@@ -97,6 +119,8 @@ const INITIAL_FORM: UserForm = {
   email: "",
 
   password: "",
+
+  companyId: "",
 
   roleId: "",
 
@@ -141,6 +165,10 @@ export default function UserManagementPage() {
   const [users, setUsers] = useState<UserItem[]>([]);
 
   const [roles, setRoles] = useState<Role[]>([]);
+
+  const [companies, setCompanies] = useState<Company[]>([]);
+
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
   const [search, setSearch] = useState("");
 
@@ -216,6 +244,10 @@ export default function UserManagementPage() {
 
       setRoles(Array.isArray(json.roles) ? json.roles : []);
 
+      setCompanies(Array.isArray(json.companies) ? json.companies : []);
+
+      setIsSuperAdmin(json.isSuperAdmin === true);
+
     } catch (err) {
 
       setError(
@@ -260,6 +292,10 @@ export default function UserManagementPage() {
 
         user.role?.name ?? "",
 
+        user.company?.name ?? "",
+
+        user.company?.code ?? "",
+
         user.status,
 
       ].some((value) => value.toLowerCase().includes(keyword))
@@ -286,6 +322,16 @@ export default function UserManagementPage() {
 
   const inactiveCount = users.length - activeCount;
 
+  const selectedCompanyId = isSuperAdmin
+    ? (form.companyId ? Number(form.companyId) : null)
+    : (editingUser?.companyId ?? roles[0]?.companyId ?? null);
+
+  const availableRoles = roles.filter(
+
+    (role) => role.companyId === selectedCompanyId,
+
+  );
+
   useEffect(() => {
 
     setPage(1);
@@ -300,13 +346,29 @@ export default function UserManagementPage() {
 
   function openCreateModal() {
 
+    const defaultCompanyId = isSuperAdmin
+
+      ? (companies[0] ? String(companies[0].id) : "")
+
+      : (roles[0]?.companyId != null ? String(roles[0].companyId) : "");
+
+    const defaultRole = roles.find(
+
+      (role) => role.companyId === Number(defaultCompanyId),
+
+    );
+
+
+
     setEditingUser(null);
 
     setForm({
 
       ...INITIAL_FORM,
 
-      roleId: roles[0] ? String(roles[0].id) : "",
+      companyId: defaultCompanyId,
+
+      roleId: defaultRole ? String(defaultRole.id) : "",
 
     });
 
@@ -329,6 +391,8 @@ export default function UserManagementPage() {
       email: user.email,
 
       password: "",
+
+      companyId: user.companyId != null ? String(user.companyId) : "",
 
       roleId: user.roleId ? String(user.roleId) : "",
 
@@ -382,6 +446,28 @@ export default function UserManagementPage() {
 
     }
 
+    if (isSuperAdmin && !form.companyId) {
+
+      setError("Silakan pilih perusahaan tujuan.");
+
+      return;
+
+    }
+
+    const selectedRole = availableRoles.find(
+
+      (role) => role.id === Number(form.roleId),
+
+    );
+
+    if (!selectedRole) {
+
+      setError("Role tidak sesuai dengan perusahaan yang dipilih.");
+
+      return;
+
+    }
+
     if (!editingUser && form.password.length < 8) {
 
       setError("Password akun baru minimal 8 karakter.");
@@ -414,6 +500,10 @@ export default function UserManagementPage() {
 
       payload.password = form.password;
 
+    }
+
+    if (isSuperAdmin) {
+      payload.companyId = Number(form.companyId);
     }
 
     try {
@@ -678,7 +768,7 @@ export default function UserManagementPage() {
 
             onClick={openCreateModal}
 
-            disabled={roles.length === 0}
+            disabled={roles.length === 0 || (isSuperAdmin && companies.length === 0)}
 
             className="inline-flex items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-rose-950/30 transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
 
@@ -820,7 +910,7 @@ export default function UserManagementPage() {
 
               onChange={(event) => setSearch(event.target.value)}
 
-              placeholder="Cari nama, email, atau role..."
+              placeholder="Cari nama, email, role, atau perusahaan..."
 
               className="w-full rounded-xl border border-border bg-background py-2.5 pl-10 pr-4 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-rose-400 focus:ring-2 focus:ring-rose-500/15"
 
@@ -844,13 +934,15 @@ export default function UserManagementPage() {
 
         <div className="overflow-x-auto">
 
-          <table className="w-full min-w-[760px] text-left text-sm">
+          <table className={`w-full ${isSuperAdmin ? "min-w-[900px]" : "min-w-[760px]"} text-left text-sm`}>
 
             <thead className="bg-muted text-xs uppercase tracking-wider text-muted-foreground">
 
               <tr>
 
                 <th className="px-5 py-4 font-semibold">Pengguna</th>
+
+                <th className="px-5 py-4 font-semibold">Perusahaan</th>
 
                 <th className="px-5 py-4 font-semibold">Role</th>
 
@@ -905,6 +997,22 @@ export default function UserManagementPage() {
                     </div>
 
                   </td>
+
+                    <td className="px-5 py-4">
+
+                      <div className="font-medium text-foreground">
+
+                        {user.company?.name ?? "Tidak diketahui"}
+
+                      </div>
+
+                      <div className="mt-1 text-xs text-muted-foreground">
+
+                        {user.company?.code ?? "-"}
+
+                      </div>
+
+                    </td>
 
                   <td className="px-5 py-4">
 
@@ -1010,7 +1118,7 @@ export default function UserManagementPage() {
 
                 <tr>
 
-                  <td colSpan={5} className="px-5 py-16 text-center">
+                  <td colSpan={isSuperAdmin ? 6 : 5} className="px-5 py-16 text-center">
 
                     <Search className="mx-auto h-8 w-8 text-muted-foreground" />
 
@@ -1044,9 +1152,9 @@ export default function UserManagementPage() {
 
             Menampilkan{" "}
 
-            {filteredUsers.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}–
+            {filteredUsers.length === 0 ? 0 : (page - 1) *  PAGE_SIZE + 1}–
 
-            {Math.min(page * PAGE_SIZE, filteredUsers.length)} dari{" "}
+            {Math.min(page  * PAGE_SIZE, filteredUsers.length)} dari{" "}
 
             {filteredUsers.length} pengguna
 
@@ -1206,7 +1314,7 @@ export default function UserManagementPage() {
 
                 >
 
-                  Nama lengkap <span className="text-rose-400">*</span>
+                  Nama lengkap <span className="text-rose-400"></span>
 
                 </label>
 
@@ -1250,7 +1358,7 @@ export default function UserManagementPage() {
 
                 >
 
-                  Email <span className="text-rose-400">*</span>
+                  Email <span className="text-rose-400"></span>
 
                 </label>
 
@@ -1286,6 +1394,51 @@ export default function UserManagementPage() {
 
               </div>
 
+              {isSuperAdmin && (
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="user-company"
+                    className="text-xs font-semibold text-foreground"
+                  >
+                    Perusahaan tujuan <span className="text-rose-400"></span>
+                  </label>
+                  <select
+                    id="user-company"
+                    required
+                    value={form.companyId}
+                    onChange={(event) => {
+                      const companyId = event.target.value;
+                      const firstRole = roles.find(
+                        (role) => role.companyId === Number(companyId),
+                      );
+                      setForm((current) => ({
+                        ...current,
+                        companyId,
+                        roleId: firstRole ? String(firstRole.id) : "",
+                      }));
+                    }}
+                    className="w-full rounded-xl border border-border bg-background px-3 py-3 text-sm text-foreground outline-none focus:border-rose-400"
+                  >
+                    <option value="">Pilih perusahaan</option>
+                    {companies.map((company) => (
+                      <option key={company.id} value={company.id}>
+                        {company.name} ({company.code})
+                      </option>
+                    ))}
+                  </select>
+                  {companies.length === 0 && (
+                    <p className="text-xs text-rose-500">
+                      Tidak ada perusahaan yang tersedia.
+                    </p>
+                  )}
+                  {editingUser && form.companyId !== String(editingUser.companyId ?? "") && (
+                    <p className="text-xs text-amber-600 dark:text-amber-300">
+                      Perubahan perusahaan akan memindahkan pengguna ke perusahaan tujuan.
+                      Pastikan role yang dipilih sesuai.
+                    </p>
+                  )}
+                </div>
+              )}
               <div className="space-y-1.5">
 
                 <label
@@ -1298,7 +1451,7 @@ export default function UserManagementPage() {
 
                   Password{" "}
 
-                  {!editingUser && <span className="text-rose-400">*</span>}
+                  {!editingUser && <span className="text-rose-400"></span>}
 
                 </label>
 
@@ -1368,7 +1521,7 @@ export default function UserManagementPage() {
 
                   >
 
-                    Role <span className="text-rose-400">*</span>
+                    Role <span className="text-rose-400"></span>
 
                   </label>
 
@@ -1398,7 +1551,7 @@ export default function UserManagementPage() {
 
                     <option value="">Pilih role</option>
 
-                    {roles.map((role) => (
+                    {availableRoles.map((role) => (
 
                       <option key={role.id} value={role.id}>
 
@@ -1488,7 +1641,7 @@ export default function UserManagementPage() {
 
                   type="submit"
 
-                  disabled={saving || roles.length === 0}
+                  disabled={saving || availableRoles.length === 0 || (isSuperAdmin && companies.length === 0)}
 
                   className="inline-flex items-center justify-center gap-2 rounded-xl bg-rose-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
 

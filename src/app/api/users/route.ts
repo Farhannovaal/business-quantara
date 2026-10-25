@@ -1,4 +1,3 @@
-
 import { NextRequest, NextResponse } from "next/server";
 
 import { requireAuth } from "@/lib/auth/require-auth";
@@ -6,30 +5,105 @@ import { requirePermission } from "@/lib/auth/authorization";
 import { hashPassword } from "@/lib/auth/password";
 import { prisma } from "@/lib/prisma";
 
+type RequestBody = Record<string, unknown>;
+
+function isObjectBody(value: unknown): value is RequestBody {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    !Array.isArray(value)
+  );
+}
+
+function parsePositiveInteger(value: unknown): number | null {
+  const parsed =
+    typeof value === "number"
+      ? value
+      : typeof value === "string" && value.trim() !== ""
+        ? Number(value)
+        : NaN;
+
+  return Number.isSafeInteger(parsed) && parsed > 0
+    ? parsed
+    : null;
+}
+
+function isPrismaUniqueError(
+  error: unknown,
+): error is { code: string } {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "P2002"
+  );
+}
+
+/**
+ * Superadmin dikenali berdasarkan nama role persis "Superadmin".
+ * Identitas role diambil kembali dari database.
+ */
+async function isSuperAdmin(userId: number): Promise<boolean> {
+  const currentUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      role: {
+        select: {
+          name: true,
+        },
+      },
+    },
+  });
+
+  return currentUser?.role?.name === "Superadmin";
+}
+
 export async function GET() {
   const { user, response } = await requireAuth();
 
-  if (response || !user) {
-    return response;
-  }
+  if (response) return response;
 
   const permission = requirePermission(user, "user.view");
-
-  if (permission.response) {
-    return permission.response;
-  }
+  if (permission.response) return permission.response;
 
   try {
-    const [users, roles] = await Promise.all([
+    const superAdmin = await isSuperAdmin(user.id);
+
+    if (!superAdmin && user.companyId == null) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "User belum terhubung dengan perusahaan.",
+        },
+        { status: 403 },
+      );
+    }
+
+    const companyId = user.companyId;
+
+    const [users, roles, companies] = await Promise.all([
       prisma.user.findMany({
+        where: superAdmin
+          ? {}
+          : {
+              companyId: companyId!,
+            },
         select: {
           id: true,
+          companyId: true,
           name: true,
           email: true,
           status: true,
           roleId: true,
           createdAt: true,
           updatedAt: true,
+          company: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+            },
+          },
           role: {
             select: {
               id: true,
@@ -43,21 +117,56 @@ export async function GET() {
       }),
 
       prisma.role.findMany({
+        where: superAdmin
+          ? {
+              companyId: {
+                not: null,
+              },
+            }
+          : {
+              companyId: companyId!,
+            },
         select: {
           id: true,
+          companyId: true,
           name: true,
           description: true,
+          company: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+            },
+          },
         },
-        orderBy: {
-          name: "asc",
-        },
+        orderBy: [
+          { companyId: "asc" },
+          { name: "asc" },
+        ],
       }),
+
+      superAdmin
+        ? prisma.company.findMany({
+            select: {
+              id: true,
+              name: true,
+              code: true,
+              slug: true,
+              status: true,
+            },
+            orderBy: {
+              name: "asc",
+            },
+          })
+        : Promise.resolve([]),
     ]);
 
     return NextResponse.json({
       success: true,
       data: users,
       roles,
+      companies,
+      isSuperAdmin: superAdmin,
     });
   } catch (error) {
     console.error("GET /api/users error:", error);
@@ -75,33 +184,81 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   const { user, response } = await requireAuth();
 
-  if (response || !user) {
-    return response;
-  }
+  if (response) return response;
 
   const permission = requirePermission(user, "user.manage");
-
-  if (permission.response) {
-    return permission.response;
-  }
+  if (permission.response) return permission.response;
 
   try {
-    const body = await request.json();
+    const superAdmin = await isSuperAdmin(user.id);
+
+    if (!superAdmin && user.companyId == null) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "User belum terhubung dengan perusahaan.",
+        },
+        { status: 403 },
+      );
+    }
+
+    const body: unknown = await request.json();
+
+    if (!isObjectBody(body)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Format data tidak valid.",
+        },
+        { status: 400 },
+      );
+    }
+
+    const input = body;
 
     const name =
-      typeof body.name === "string" ? body.name.trim() : "";
+      typeof input.name === "string"
+        ? input.name.trim()
+        : "";
 
     const email =
-      typeof body.email === "string"
-        ? body.email.trim().toLowerCase()
+      typeof input.email === "string"
+        ? input.email.trim().toLowerCase()
         : "";
 
     const password =
-      typeof body.password === "string" ? body.password : "";
+      typeof input.password === "string"
+        ? input.password
+        : "";
 
-    const roleId = Number(body.roleId);
+    const roleId = parsePositiveInteger(input.roleId);
+    const status = input.status ?? "ACTIVE";
 
-    const status = body.status ?? "ACTIVE";
+    /*
+     * Superadmin wajib memilih perusahaan tujuan.
+     * User biasa tidak dapat menentukan companyId sendiri.
+     */
+    let targetCompanyId: number;
+
+    if (superAdmin) {
+      const requestedCompanyId = parsePositiveInteger(
+        input.companyId,
+      );
+
+      if (requestedCompanyId === null) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Perusahaan tujuan wajib dipilih.",
+          },
+          { status: 400 },
+        );
+      }
+
+      targetCompanyId = requestedCompanyId;
+    } else {
+      targetCompanyId = user.companyId!;
+    }
 
     if (!name || name.length > 150) {
       return NextResponse.json(
@@ -137,7 +294,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!Number.isInteger(roleId) || roleId <= 0) {
+    if (roleId === null) {
       return NextResponse.json(
         {
           success: false,
@@ -147,7 +304,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!["ACTIVE", "INACTIVE"].includes(status)) {
+    if (status !== "ACTIVE" && status !== "INACTIVE") {
       return NextResponse.json(
         {
           success: false,
@@ -157,17 +314,76 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const [existingUser, role] = await Promise.all([
-      prisma.user.findUnique({
-        where: { email },
-        select: { id: true },
-      }),
+    /*
+     * Pastikan perusahaan tujuan benar-benar tersedia.
+     */
+    const company = await prisma.company.findUnique({
+      where: {
+        id: targetCompanyId,
+      },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+      },
+    });
 
-      prisma.role.findUnique({
-        where: { id: roleId },
-        select: { id: true },
-      }),
-    ]);
+    if (!company) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Perusahaan tujuan tidak ditemukan.",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (company.status !== "ACTIVE") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Perusahaan tujuan tidak aktif.",
+        },
+        { status: 400 },
+      );
+    }
+
+    /*
+     * Role harus berasal dari perusahaan tujuan.
+     * Role global (companyId = null) tidak diperbolehkan.
+     */
+    const role = await prisma.role.findFirst({
+      where: {
+        id: roleId,
+        companyId: targetCompanyId,
+      },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+
+    if (!role) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Role tidak ditemukan untuk perusahaan tujuan.",
+        },
+        { status: 400 },
+      );
+    }
+
+    /*
+     * Email unik secara global sesuai Prisma schema.
+     */
+    const existingUser = await prisma.user.findUnique({
+      where: {
+        email,
+      },
+      select: {
+        id: true,
+      },
+    });
 
     if (existingUser) {
       return NextResponse.json(
@@ -179,20 +395,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!role) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Role tidak ditemukan.",
-        },
-        { status: 400 },
-      );
-    }
-
     const passwordHash = await hashPassword(password);
 
     const createdUser = await prisma.user.create({
       data: {
+        companyId: targetCompanyId,
         name,
         email,
         passwordHash,
@@ -201,11 +408,19 @@ export async function POST(request: NextRequest) {
       },
       select: {
         id: true,
+        companyId: true,
         name: true,
         email: true,
         status: true,
         roleId: true,
         createdAt: true,
+        company: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
         role: {
           select: {
             id: true,
@@ -225,6 +440,16 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     console.error("POST /api/users error:", error);
+
+    if (isPrismaUniqueError(error)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Email sudah digunakan.",
+        },
+        { status: 409 },
+      );
+    }
 
     return NextResponse.json(
       {

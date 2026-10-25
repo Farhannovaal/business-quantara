@@ -2,6 +2,7 @@
 import { requirePermission } from "@/lib/auth/authorization";
 import { requireAuth } from "@/lib/auth/require-auth";
 import * as XLSX from "xlsx";
+import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
@@ -13,6 +14,16 @@ export async function GET() {
   const permission = requirePermission(user, "product.manage");
 
   if (permission.response) return permission.response;
+
+  if (user.companyId == null) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "User belum terhubung dengan perusahaan.",
+      },
+      { status: 403 },
+    );
+  }
 
   try {
     const workbook = XLSX.utils.book_new();
@@ -30,14 +41,14 @@ export async function GET() {
     XLSX.utils.book_append_sheet(
       workbook,
       productsSheet,
-      "Products"
+      "Products",
     );
 
     const instructionsSheet = XLSX.utils.aoa_to_sheet([
       ["PETUNJUK IMPORT MASTER DATA PRODUCT"],
       [""],
       ["Kolom", "Keterangan"],
-      ["Code", "Wajib diisi, maksimal 100 karakter, harus unik."],
+      ["Code", "Wajib diisi, maksimal 100 karakter, harus unik dalam perusahaan."],
       ["Name", "Wajib diisi, maksimal 255 karakter."],
       [
         "Is Active",
@@ -47,10 +58,11 @@ export async function GET() {
       ["ATURAN IMPORT"],
       ["1", "Isi data pada sheet Products, mulai dari baris kedua."],
       ["2", "Jangan mengubah nama header."],
-      ["3", "Code yang sudah ada di database akan dilewati."],
+      ["3", "Code yang sudah terdaftar dalam perusahaan akan dilewati."],
       ["4", "Code duplikat di dalam file akan ditandai sebagai error."],
       ["5", "Import hanya menambah data baru, tidak memperbarui data lama."],
-      ["6", "Simpan file sebagai Excel Workbook (.xlsx)."],
+      ["6", "Data akan diimpor ke perusahaan dari akun yang sedang login."],
+      ["7", "Simpan file sebagai Excel Workbook (.xlsx)."],
     ]);
 
     instructionsSheet["!cols"] = [
@@ -61,7 +73,7 @@ export async function GET() {
     XLSX.utils.book_append_sheet(
       workbook,
       instructionsSheet,
-      "Instructions"
+      "Instructions",
     );
 
     const buffer = XLSX.write(workbook, {
@@ -82,9 +94,12 @@ export async function GET() {
   } catch (error) {
     console.error("GET /api/products/template error:", error);
 
-    return Response.json(
-      { success: false, error: "Gagal membuat template product" },
-      { status: 500 }
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Gagal membuat template product",
+      },
+      { status: 500 },
     );
   }
 }

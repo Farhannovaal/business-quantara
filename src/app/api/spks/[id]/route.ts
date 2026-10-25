@@ -1,3 +1,5 @@
+
+import { Prisma } from "@prisma/client";
 import { requirePermission } from "@/lib/auth/authorization";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { prisma } from "@/lib/prisma";
@@ -15,39 +17,116 @@ type SPKItemInput = {
   quantity: number;
 };
 
+type SPKStatus = "ACTIVE" | "COMPLETED" | "CANCELLED";
+
+function jsonError(message: string, status: number) {
+  return NextResponse.json(
+    {
+      success: false,
+      error: message,
+    },
+    { status },
+  );
+}
+
+function isObject(
+  value: unknown,
+): value is Record<string, unknown> {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    !Array.isArray(value)
+  );
+}
+
+function isSPKStatus(value: unknown): value is SPKStatus {
+  return (
+    value === "ACTIVE" ||
+    value === "COMPLETED" ||
+    value === "CANCELLED"
+  );
+}
+
+function isPrismaUniqueError(
+  error: unknown,
+): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2002"
+  );
+}
+
+async function getSPKId(context: RouteContext) {
+  const { id } = await context.params;
+  const spkId = Number(id);
+
+  if (!Number.isSafeInteger(spkId) || spkId <= 0) {
+    return null;
+  }
+
+  return spkId;
+}
+
+async function getCompanyAuth(permissionCode: string) {
+  const auth = await requireAuth();
+
+  if (auth.response || !auth.user) {
+    return {
+      user: null,
+      response: auth.response ?? jsonError("Unauthorized.", 401),
+    };
+  }
+
+  const permission = requirePermission(auth.user, permissionCode);
+
+  if (permission.response) {
+    return {
+      user: null,
+      response: permission.response,
+    };
+  }
+
+  if (auth.user.companyId == null) {
+    return {
+      user: null,
+      response: jsonError(
+        "User belum terhubung dengan perusahaan.",
+        403,
+      ),
+    };
+  }
+
+  return {
+    user: auth.user,
+    response: null,
+  };
+}
+
+/**
+ * GET /api/spks/[id]
+ * Mengambil detail SPK milik perusahaan user yang login.
+ */
 export async function GET(
   _request: NextRequest,
   context: RouteContext,
 ) {
-  const { user, response } = await requireAuth();
+  const auth = await getCompanyAuth("spk.view");
 
-  if (response) {
-    return response;
-  }
-
-  const permission = requirePermission(user, "spk.view");
-
-  if (permission.response) {
-    return permission.response;
+  if (auth.response || !auth.user) {
+    return auth.response ?? jsonError("Unauthorized.", 401);
   }
 
   try {
-    const { id } = await context.params;
-    const spkId = Number(id);
+    const spkId = await getSPKId(context);
 
-    if (!Number.isInteger(spkId) || spkId <= 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid SPK ID.",
-        },
-        { status: 400 },
-      );
+    if (spkId === null) {
+      return jsonError("Invalid SPK ID.", 400);
     }
 
     const spk = await prisma.sPK.findFirst({
       where: {
         id: spkId,
+        companyId: auth.user.companyId!,
         deletedAt: null,
       },
       include: {
@@ -108,13 +187,7 @@ export async function GET(
     });
 
     if (!spk) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "SPK not found.",
-        },
-        { status: 404 },
-      );
+      return jsonError("SPK not found.", 404);
     }
 
     const activeTransactions = spk.transactions.filter(
@@ -149,50 +222,37 @@ export async function GET(
     });
   } catch (error) {
     console.error("GET SPK detail error:", error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to load SPK.",
-      },
-      { status: 500 },
-    );
+    return jsonError("Failed to load SPK.", 500);
   }
 }
 
+/**
+ * PATCH /api/spks/[id]
+ * Memperbarui SPK dengan validasi perusahaan.
+ */
 export async function PATCH(
   request: NextRequest,
   context: RouteContext,
 ) {
-  const { user, response } = await requireAuth();
+  const auth = await getCompanyAuth("spk.update");
 
-  if (response) {
-    return response;
-  }
-
-  const permission = requirePermission(user, "spk.update");
-
-  if (permission.response) {
-    return permission.response;
+  if (auth.response || !auth.user) {
+    return auth.response ?? jsonError("Unauthorized.", 401);
   }
 
   try {
-    const { id } = await context.params;
-    const spkId = Number(id);
+    const spkId = await getSPKId(context);
 
-    if (!Number.isInteger(spkId) || spkId <= 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid SPK ID.",
-        },
-        { status: 400 },
-      );
+    if (spkId === null) {
+      return jsonError("Invalid SPK ID.", 400);
     }
+
+    const companyId = auth.user.companyId!;
 
     const existing = await prisma.sPK.findFirst({
       where: {
         id: spkId,
+        companyId,
         deletedAt: null,
       },
       include: {
@@ -206,48 +266,49 @@ export async function PATCH(
     });
 
     if (!existing) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "SPK not found.",
-        },
-        { status: 404 },
-      );
+      return jsonError("SPK not found.", 404);
     }
 
-    const body = await request.json();
+    const body: unknown = await request.json();
+
+    if (!isObject(body)) {
+      return jsonError("Invalid request body.", 400);
+    }
 
     let spkNumber: string | undefined;
 
     if (body.spkNumber !== undefined) {
-      spkNumber = String(body.spkNumber).trim();
+      if (typeof body.spkNumber !== "string") {
+        return jsonError("Invalid SPK number.", 400);
+      }
+
+      spkNumber = body.spkNumber.trim();
 
       if (!spkNumber) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "SPK number cannot be empty.",
-          },
-          { status: 400 },
+        return jsonError(
+          "SPK number cannot be empty.",
+          400,
         );
       }
 
       const duplicate = await prisma.sPK.findFirst({
         where: {
+          companyId,
           spkNumber,
-          NOT: {
-            id: spkId,
+          id: {
+            not: spkId,
           },
+          deletedAt: null,
+        },
+        select: {
+          id: true,
         },
       });
 
       if (duplicate) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: `SPK "${spkNumber}" already exists.`,
-          },
-          { status: 409 },
+        return jsonError(
+          `SPK "${spkNumber}" already exists.`,
+          409,
         );
       }
     }
@@ -257,116 +318,88 @@ export async function PATCH(
     if (body.tailorId !== undefined) {
       tailorId = Number(body.tailorId);
 
-      if (!Number.isInteger(tailorId) || tailorId <= 0) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Invalid tailor ID.",
-          },
-          { status: 400 },
-        );
+      if (
+        !Number.isSafeInteger(tailorId) ||
+        tailorId <= 0
+      ) {
+        return jsonError("Invalid tailor ID.", 400);
       }
 
-      const tailor = await prisma.tailor.findUnique({
+      const tailor = await prisma.tailor.findFirst({
         where: {
           id: tailorId,
+          companyId,
+        },
+        select: {
+          id: true,
+          isActive: true,
         },
       });
 
       if (!tailor) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Tailor not found.",
-          },
-          { status: 404 },
+        return jsonError(
+          "Tailor not found in this company.",
+          404,
         );
       }
 
       if (!tailor.isActive) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Selected tailor is inactive.",
-          },
-          { status: 400 },
+        return jsonError(
+          "Selected tailor is inactive.",
+          400,
         );
       }
     }
 
-    let status:
-      | "ACTIVE"
-      | "COMPLETED"
-      | "CANCELLED"
-      | undefined;
+    let status: SPKStatus | undefined;
 
     if (body.status !== undefined) {
-      const requestedStatus = String(body.status);
-
-      if (
-        !["ACTIVE", "COMPLETED", "CANCELLED"].includes(
-          requestedStatus,
-        )
-      ) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Invalid SPK status.",
-          },
-          { status: 400 },
-        );
+      if (!isSPKStatus(body.status)) {
+        return jsonError("Invalid SPK status.", 400);
       }
 
-      status = requestedStatus as
-        | "ACTIVE"
-        | "COMPLETED"
-        | "CANCELLED";
+      status = body.status;
     }
 
     let items: SPKItemInput[] | undefined;
 
     if (body.items !== undefined) {
-      if (!Array.isArray(body.items) || body.items.length === 0) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "At least one product is required.",
-          },
-          { status: 400 },
+      if (
+        !Array.isArray(body.items) ||
+        body.items.length === 0
+      ) {
+        return jsonError(
+          "At least one product is required.",
+          400,
         );
       }
 
-      const normalizedItems: SPKItemInput[] = body.items.map(
-        (item: unknown) => {
-          const raw = item as {
-            productId?: unknown;
-            quantity?: unknown;
-          };
+      const normalizedItems: SPKItemInput[] = [];
 
-          return {
-            productId: Number(raw.productId),
-            quantity: Number(raw.quantity),
-          };
-        },
-      );
+      for (const rawItem of body.items) {
+        if (!isObject(rawItem)) {
+          return jsonError("Invalid SPK item.", 400);
+        }
 
-      const invalidItem = normalizedItems.find(
-        (item) =>
-          !Number.isInteger(item.productId) ||
-          item.productId <= 0 ||
-          !Number.isInteger(item.quantity) ||
-          item.quantity <= 0,
-      );
+        const productId = Number(rawItem.productId);
+        const quantity = Number(rawItem.quantity);
 
-      if (invalidItem) {
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              "Each item must have a valid productId and positive integer quantity.",
-          },
-          { status: 400 },
-        );
+        if (
+          !Number.isSafeInteger(productId) ||
+          productId <= 0 ||
+          !Number.isSafeInteger(quantity) ||
+          quantity <= 0
+        ) {
+          return jsonError(
+            "Each item must have a valid productId and positive integer quantity.",
+            400,
+          );
+        }
+
+        normalizedItems.push({
+          productId,
+          quantity,
+        });
       }
 
       const productIds = normalizedItems.map(
@@ -374,17 +407,15 @@ export async function PATCH(
       );
 
       if (new Set(productIds).size !== productIds.length) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "A product can only appear once in an SPK.",
-          },
-          { status: 400 },
+        return jsonError(
+          "A product can only appear once in an SPK.",
+          400,
         );
       }
 
       const products = await prisma.product.findMany({
         where: {
+          companyId,
           id: {
             in: productIds,
           },
@@ -409,7 +440,8 @@ export async function PATCH(
         return NextResponse.json(
           {
             success: false,
-            error: "One or more selected products were not found.",
+            error:
+              "One or more selected products were not found in this company.",
             productIds: missingProductIds,
           },
           { status: 404 },
@@ -417,8 +449,7 @@ export async function PATCH(
       }
 
       const inactiveProducts = products.filter(
-        (product) =>
-          !product.isActive && productIds.includes(product.id),
+        (product) => !product.isActive,
       );
 
       if (inactiveProducts.length > 0) {
@@ -439,51 +470,42 @@ export async function PATCH(
       items = normalizedItems;
     }
 
+    // Dukungan format lama: productId tunggal.
     if (
       items === undefined &&
       body.productId !== undefined
     ) {
       const productId = Number(body.productId);
 
-      if (!Number.isInteger(productId) || productId <= 0) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Invalid product ID.",
-          },
-          { status: 400 },
-        );
+      if (
+        !Number.isSafeInteger(productId) ||
+        productId <= 0
+      ) {
+        return jsonError("Invalid product ID.", 400);
       }
 
-      const product = await prisma.product.findUnique({
+      const product = await prisma.product.findFirst({
         where: {
           id: productId,
+          companyId,
         },
         select: {
           id: true,
-          code: true,
-          name: true,
           isActive: true,
         },
       });
 
       if (!product) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Product not found.",
-          },
-          { status: 404 },
+        return jsonError(
+          "Product not found in this company.",
+          404,
         );
       }
 
       if (!product.isActive) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Selected product is inactive.",
-          },
-          { status: 400 },
+        return jsonError(
+          "Selected product is inactive.",
+          400,
         );
       }
 
@@ -499,6 +521,8 @@ export async function PATCH(
       ];
     }
 
+    // Komposisi dan jumlah produk tidak boleh berubah
+    // jika SPK sudah memiliki transaksi.
     if (
       items !== undefined &&
       existing._count.transactions > 0
@@ -523,174 +547,162 @@ export async function PATCH(
         );
 
       if (!sameItems) {
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              "SPK products or quantities cannot be changed because the SPK already has transactions.",
-          },
-          { status: 409 },
+        return jsonError(
+          "SPK products or quantities cannot be changed because the SPK already has transactions.",
+          409,
         );
       }
     }
 
-    const spk = await prisma.$transaction(async (tx) => {
-      const updated = await tx.sPK.updateMany({
-        where: {
-          id: spkId,
-          deletedAt: null,
-        },
-        data: {
-          ...(spkNumber !== undefined ? { spkNumber } : {}),
-          ...(tailorId !== undefined ? { tailorId } : {}),
-          ...(status !== undefined ? { status } : {}),
-        },
-      });
-
-      if (updated.count === 0) {
-        throw new Error("SPK_NOT_FOUND_OR_DELETED");
-      }
-
-      if (items !== undefined) {
-        await tx.sPKItem.deleteMany({
+    const updatedSPK = await prisma.$transaction(
+      async (tx) => {
+        const updated = await tx.sPK.updateMany({
           where: {
-            spkId,
+            id: spkId,
+            companyId,
+            deletedAt: null,
+          },
+          data: {
+            ...(spkNumber !== undefined ? { spkNumber } : {}),
+            ...(tailorId !== undefined ? { tailorId } : {}),
+            ...(status !== undefined ? { status } : {}),
           },
         });
 
-        await tx.sPKItem.createMany({
-          data: items.map((item) => ({
-            spkId,
-            productId: item.productId,
-            quantity: item.quantity,
-          })),
-        });
-      }
+        if (updated.count === 0) {
+          throw new Error("SPK_NOT_FOUND_OR_DELETED");
+        }
 
-      return tx.sPK.findFirst({
-        where: {
-          id: spkId,
-          deletedAt: null,
-        },
-        include: {
-          items: {
-            include: {
-              product: {
-                select: {
-                  id: true,
-                  code: true,
-                  name: true,
-                  isActive: true,
-                },
+        if (items !== undefined) {
+          await tx.sPKItem.deleteMany({
+            where: {
+              spkId,
+              spk: {
+                companyId,
+                deletedAt: null,
               },
             },
-            orderBy: {
-              id: "asc",
-            },
-          },
-          tailor: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-          _count: {
-            select: {
-              transactions: true,
-            },
-          },
-        },
-      });
-    });
+          });
 
-    if (!spk) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "SPK not found.",
-        },
-        { status: 404 },
-      );
+          await tx.sPKItem.createMany({
+            data: items.map((item) => ({
+              spkId,
+              productId: item.productId,
+              quantity: item.quantity,
+            })),
+          });
+        }
+
+        return tx.sPK.findFirst({
+          where: {
+            id: spkId,
+            companyId,
+            deletedAt: null,
+          },
+          include: {
+            items: {
+              include: {
+                product: {
+                  select: {
+                    id: true,
+                    code: true,
+                    name: true,
+                    isActive: true,
+                  },
+                },
+              },
+              orderBy: {
+                id: "asc",
+              },
+            },
+            tailor: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+            _count: {
+              select: {
+                transactions: true,
+              },
+            },
+          },
+        });
+      },
+      {
+        maxWait: 10000,
+        timeout: 30000,
+      },
+    );
+
+    if (!updatedSPK) {
+      return jsonError("SPK not found.", 404);
     }
 
     return NextResponse.json({
       success: true,
-      data: spk,
+      data: updatedSPK,
     });
   } catch (error) {
     if (
       error instanceof Error &&
       error.message === "SPK_NOT_FOUND_OR_DELETED"
     ) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "SPK not found or already deleted.",
-        },
-        { status: 404 },
+      return jsonError(
+        "SPK not found or already deleted.",
+        404,
       );
     }
 
-    console.error("PATCH SPK error:", error);
+    if (isPrismaUniqueError(error)) {
+      return jsonError("SPK number already exists.", 409);
+    }
 
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to update SPK.",
-      },
-      { status: 500 },
-    );
+    console.error("PATCH SPK error:", error);
+    return jsonError("Failed to update SPK.", 500);
   }
 }
 
+/**
+ * DELETE /api/spks/[id]
+ * Soft delete SPK milik perusahaan user yang login.
+ */
 export async function DELETE(
   _request: NextRequest,
   context: RouteContext,
 ) {
-  const { user, response } = await requireAuth();
+  const auth = await getCompanyAuth("spk.delete");
 
-  if (response) {
-    return response;
-  }
-
-  const permission = requirePermission(user, "spk.delete");
-
-  if (permission.response) {
-    return permission.response;
+  if (auth.response || !auth.user) {
+    return auth.response ?? jsonError("Unauthorized.", 401);
   }
 
   try {
-    const { id } = await context.params;
-    const spkId = Number(id);
+    const spkId = await getSPKId(context);
 
-    if (!Number.isInteger(spkId) || spkId <= 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid SPK ID.",
-        },
-        { status: 400 },
-      );
+    if (spkId === null) {
+      return jsonError("Invalid SPK ID.", 400);
     }
+
+    const companyId = auth.user.companyId!;
 
     const existing = await prisma.sPK.findFirst({
       where: {
         id: spkId,
+        companyId,
         deletedAt: null,
       },
       select: {
         id: true,
+        companyId: true,
         spkNumber: true,
       },
     });
 
     if (!existing) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "SPK not found or already deleted.",
-        },
-        { status: 404 },
+      return jsonError(
+        "SPK not found or already deleted.",
+        404,
       );
     }
 
@@ -698,11 +710,12 @@ export async function DELETE(
       const result = await tx.sPK.updateMany({
         where: {
           id: spkId,
+          companyId,
           deletedAt: null,
         },
         data: {
           deletedAt: new Date(),
-          deletedById: user.id,
+          deletedById: auth.user!.id,
         },
       });
 
@@ -712,7 +725,8 @@ export async function DELETE(
 
       await tx.activityLog.create({
         data: {
-          userId: user.id,
+          companyId,
+          userId: auth.user!.id,
           action: "SOFT_DELETE",
           entityType: "SPK",
           entityId: String(spkId),
@@ -730,23 +744,13 @@ export async function DELETE(
       error instanceof Error &&
       error.message === "SPK_ALREADY_DELETED"
     ) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "SPK not found or already deleted.",
-        },
-        { status: 404 },
+      return jsonError(
+        "SPK not found or already deleted.",
+        404,
       );
     }
 
     console.error("DELETE SPK error:", error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to delete SPK.",
-      },
-      { status: 500 },
-    );
+    return jsonError("Failed to delete SPK.", 500);
   }
 }

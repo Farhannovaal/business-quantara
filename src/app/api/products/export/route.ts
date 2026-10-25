@@ -3,6 +3,7 @@ import { requirePermission } from "@/lib/auth/authorization";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { prisma } from "@/lib/prisma";
 import * as XLSX from "xlsx";
+import { NextResponse } from "next/server";
 
 export async function GET() {
   const { user, response } = await requireAuth();
@@ -13,9 +14,25 @@ export async function GET() {
 
   if (permission.response) return permission.response;
 
+  if (user.companyId == null) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "User belum terhubung dengan perusahaan.",
+      },
+      { status: 403 },
+    );
+  }
+
   try {
+    // Export hanya produk milik perusahaan user.
     const products = await prisma.product.findMany({
-      orderBy: { createdAt: "desc" },
+      where: {
+        companyId: user.companyId,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
       select: {
         code: true,
         name: true,
@@ -34,6 +51,7 @@ export async function GET() {
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(rows);
+
     worksheet["!cols"] = [
       { wch: 22 },
       { wch: 32 },
@@ -43,10 +61,11 @@ export async function GET() {
     ];
 
     const workbook = XLSX.utils.book_new();
+
     XLSX.utils.book_append_sheet(
       workbook,
       worksheet,
-      "Products"
+      "Products",
     );
 
     const buffer = XLSX.write(workbook, {
@@ -67,9 +86,12 @@ export async function GET() {
   } catch (error) {
     console.error("GET /api/products/export error:", error);
 
-    return Response.json(
-      { success: false, error: "Failed to export products" },
-      { status: 500 }
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Failed to export products",
+      },
+      { status: 500 },
     );
   }
 }

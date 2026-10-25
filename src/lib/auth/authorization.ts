@@ -1,8 +1,10 @@
+
 import { NextResponse } from "next/server";
 import type { User } from "@prisma/client";
 
 type UserWithRolePermissions = User & {
   role: {
+    name: string;
     permissions: {
       permission: {
         code: string;
@@ -11,12 +13,20 @@ type UserWithRolePermissions = User & {
   } | null;
 };
 
+export function isSuperAdmin(user: UserWithRolePermissions): boolean {
+  return user.role?.name === "Superadmin";
+}
+
 export function hasPermission(
   user: UserWithRolePermissions,
   permissionCode: string
-) {
+): boolean {
   if (!user.role) {
     return false;
+  }
+
+  if (user.role.name === "Superadmin") {
+    return true;
   }
 
   return user.role.permissions.some(

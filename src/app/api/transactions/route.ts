@@ -1,11 +1,14 @@
+import { NextRequest, NextResponse } from "next/server";
+
 import { requirePermission } from "@/lib/auth/authorization";
 import { requireAuth } from "@/lib/auth/require-auth";
-import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+
 import {
   createTransaction,
   TransactionEngineError,
 } from "@/lib/transaction/engine";
+
 import { canCreateTransactionType } from "@/lib/transaction/permissions";
 
 type BatchItem = {
@@ -13,17 +16,39 @@ type BatchItem = {
   quantity: number;
 };
 
+function jsonError(message: string, status: number) {
+  return NextResponse.json(
+    {
+      success: false,
+      error: message,
+    },
+    { status },
+  );
+}
+
+async function isSuperAdmin(userId: number): Promise<boolean> {
+  const currentUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      role: {
+        select: {
+          name: true,
+        },
+      },
+    },
+  });
+
+  return currentUser?.role?.name === "Superadmin";
+}
+
+/**
+ * GET: mengambil transaksi sesuai cakupan perusahaan pengguna.
+ */
 export async function GET(request: NextRequest) {
   const { user, response } = await requireAuth();
 
   if (response || !user) {
-    return (
-      response ??
-      NextResponse.json(
-        { success: false, error: "Unauthorized." },
-        { status: 401 },
-      )
-    );
+    return response ?? jsonError("Unauthorized.", 401);
   }
 
   const permission = requirePermission(user, "transaction.view");
@@ -33,6 +58,15 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const superAdmin = await isSuperAdmin(user.id);
+
+    if (!superAdmin && user.companyId == null) {
+      return jsonError(
+        "User belum terhubung dengan perusahaan.",
+        403,
+      );
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const search = searchParams.get("search")?.trim() || "";
     const spkIdParam = searchParams.get("spkId");
@@ -42,23 +76,17 @@ export async function GET(request: NextRequest) {
     const where: {
       spkId?: number;
       transactionTypeId?: number;
-      OR?: Array<{
-        transactionNumber?: { contains: string };
-        spk?: { spkNumber?: { contains: string } };
-      }>;
+      OR?: Array<
+        | { transactionNumber: { contains: string } }
+        | { spk: { spkNumber: { contains: string } } }
+      >;
     } = {};
 
     if (spkIdParam) {
       const spkId = Number(spkIdParam);
 
-      if (!Number.isInteger(spkId) || spkId <= 0) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Invalid SPK ID.",
-          },
-          { status: 400 },
-        );
+      if (!Number.isSafeInteger(spkId) || spkId <= 0) {
+        return jsonError("Invalid SPK ID.", 400);
       }
 
       where.spkId = spkId;
@@ -68,16 +96,10 @@ export async function GET(request: NextRequest) {
       const transactionTypeId = Number(transactionTypeIdParam);
 
       if (
-        !Number.isInteger(transactionTypeId) ||
+        !Number.isSafeInteger(transactionTypeId) ||
         transactionTypeId <= 0
       ) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Invalid transaction type ID.",
-          },
-          { status: 400 },
-        );
+        return jsonError("Invalid transaction type ID.", 400);
       }
 
       where.transactionTypeId = transactionTypeId;
@@ -103,6 +125,11 @@ export async function GET(request: NextRequest) {
     const transactions = await prisma.transaction.findMany({
       where: {
         ...where,
+
+        // Tenant biasa hanya dapat membaca transaksi perusahaannya.
+        ...(superAdmin ? {} : { companyId: user.companyId! }),
+
+        // Jangan tampilkan transaksi yang SPK-nya sudah dihapus.
         spk: {
           is: {
             deletedAt: null,
@@ -148,18 +175,20 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Ambil seluruh ID transaksi yang sedang ditampilkan.
     const transactionIds = transactions.map((item) =>
       String(item.id),
     );
 
-    // Hitung aktivitas secara kolektif untuk menghindari
-    // query terpisah pada setiap transaksi.
+    const activityCompanyFilter = superAdmin
+      ? {}
+      : { companyId: user.companyId! };
+
     const [editCounts, activityCounts] = transactionIds.length
       ? await Promise.all([
           prisma.activityLog.groupBy({
             by: ["entityId"],
             where: {
+              ...activityCompanyFilter,
               entityType: "Transaction",
               entityId: {
                 in: transactionIds,
@@ -174,6 +203,7 @@ export async function GET(request: NextRequest) {
           prisma.activityLog.groupBy({
             by: ["entityId"],
             where: {
+              ...activityCompanyFilter,
               entityType: "Transaction",
               entityId: {
                 in: transactionIds,
@@ -217,114 +247,101 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("GET transactions error:", error);
 
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to load transactions.",
-      },
-      { status: 500 },
-    );
+    return jsonError("Failed to load transactions.", 500);
   }
 }
 
+/**
+ * POST: membuat transaksi dengan companyId yang ditentukan
+ * berdasarkan SPK, bukan berdasarkan input dari client.
+ */
 export async function POST(request: NextRequest) {
   const { user, response } = await requireAuth();
 
   if (response || !user) {
-    return (
-      response ??
-      NextResponse.json(
-        { success: false, error: "Unauthorized." },
-        { status: 401 },
-      )
-    );
+    return response ?? jsonError("Unauthorized.", 401);
   }
 
   try {
-    const body = await request.json();
+    const superAdmin = await isSuperAdmin(user.id);
 
-    const spkId = Number(body?.spkId);
-    const transactionTypeId = Number(body?.transactionTypeId);
-    const employeeId = Number(body?.employeeId);
+    if (!superAdmin && user.companyId == null) {
+      return jsonError(
+        "User belum terhubung dengan perusahaan.",
+        403,
+      );
+    }
 
-    // Format batch: items: [{ productId, quantity }].
-    // Format lama productId + quantity tetap didukung.
-    const items: BatchItem[] = Array.isArray(body?.items)
-      ? body.items.map(
-          (item: {
-            productId: unknown;
-            quantity: unknown;
-          }) => ({
-            productId: Number(item?.productId),
-            quantity: Number(item?.quantity),
-          }),
-        )
+    const body: unknown = await request.json();
+
+    if (
+      body === null ||
+      typeof body !== "object" ||
+      Array.isArray(body)
+    ) {
+      return jsonError("Format data tidak valid.", 400);
+    }
+
+    const input = body as Record<string, unknown>;
+
+    const spkId = Number(input.spkId);
+    const transactionTypeId = Number(input.transactionTypeId);
+    const employeeId = Number(input.employeeId);
+
+    // Format batch tetap didukung.
+    // Format lama productId + quantity juga tetap didukung.
+    const items: BatchItem[] = Array.isArray(input.items)
+      ? input.items.map((item) => {
+          const value =
+            item !== null &&
+            typeof item === "object" &&
+            !Array.isArray(item)
+              ? (item as Record<string, unknown>)
+              : {};
+
+          return {
+            productId: Number(value.productId),
+            quantity: Number(value.quantity),
+          };
+        })
       : [
           {
-            productId: Number(body?.productId),
-            quantity: Number(body?.quantity),
+            productId: Number(input.productId),
+            quantity: Number(input.quantity),
           },
         ];
 
-    if (!Number.isInteger(spkId) || spkId <= 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid SPK ID.",
-        },
-        { status: 400 },
-      );
+    if (!Number.isSafeInteger(spkId) || spkId <= 0) {
+      return jsonError("Invalid SPK ID.", 400);
     }
 
     if (
-      !Number.isInteger(transactionTypeId) ||
+      !Number.isSafeInteger(transactionTypeId) ||
       transactionTypeId <= 0
     ) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid transaction type ID.",
-        },
-        { status: 400 },
-      );
+      return jsonError("Invalid transaction type ID.", 400);
     }
 
-    if (!Number.isInteger(employeeId) || employeeId <= 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid employee ID.",
-        },
-        { status: 400 },
-      );
+    if (!Number.isSafeInteger(employeeId) || employeeId <= 0) {
+      return jsonError("Invalid employee ID.", 400);
     }
 
     if (items.length === 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Pilih minimal satu produk.",
-        },
-        { status: 400 },
-      );
+      return jsonError("Pilih minimal satu produk.", 400);
     }
 
     if (
       items.some(
         (item) =>
-          !Number.isInteger(item.productId) ||
+          !Number.isSafeInteger(item.productId) ||
           item.productId <= 0 ||
-          !Number.isInteger(item.quantity) ||
+          !Number.isSafeInteger(item.quantity) ||
           item.quantity <= 0,
       )
     ) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Setiap produk harus memiliki ID valid dan jumlah bulat lebih dari 0.",
-        },
-        { status: 400 },
+      return jsonError(
+        "Setiap produk harus memiliki ID valid dan jumlah bulat lebih dari 0.",
+        400,
       );
     }
 
@@ -332,73 +349,26 @@ export async function POST(request: NextRequest) {
       new Set(items.map((item) => item.productId)).size !==
       items.length
     ) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Produk yang sama tidak boleh dimasukkan dua kali.",
-        },
-        { status: 400 },
-      );
-    }
-
-    const transactionType =
-      await prisma.transactionType.findUnique({
-        where: {
-          id: transactionTypeId,
-        },
-        select: {
-          id: true,
-          code: true,
-          name: true,
-          isActive: true,
-        },
-      });
-
-    if (!transactionType) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Transaction type not found.",
-        },
-        { status: 404 },
-      );
-    }
-
-    if (!transactionType.isActive) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Transaction type is inactive.",
-        },
-        { status: 400 },
-      );
-    }
-
-    if (!canCreateTransactionType(user, transactionType.code)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Anda tidak memiliki akses untuk melakukan jenis transaksi ini.",
-          transactionType: {
-            id: transactionType.id,
-            code: transactionType.code,
-            name: transactionType.name,
-          },
-        },
-        { status: 403 },
+      return jsonError(
+        "Produk yang sama tidak boleh dimasukkan dua kali.",
+        400,
       );
     }
 
     const results = await prisma.$transaction(
       async (tx) => {
-        const spk = await tx.sPK.findUnique({
+        // Batasi pencarian SPK untuk tenant biasa.
+        const spk = await tx.sPK.findFirst({
           where: {
             id: spkId,
             deletedAt: null,
+            ...(superAdmin
+              ? {}
+              : { companyId: user.companyId! }),
           },
           select: {
+            id: true,
+            companyId: true,
             tailorId: true,
           },
         });
@@ -406,8 +376,55 @@ export async function POST(request: NextRequest) {
         if (!spk) {
           throw new TransactionEngineError(
             "SPK_NOT_FOUND",
-            "SPK not found.",
+            "SPK tidak ditemukan atau tidak dapat diakses.",
             404,
+          );
+        }
+
+        if (spk.companyId == null) {
+          throw new TransactionEngineError(
+            "INVALID_COMPANY",
+            "SPK belum terhubung dengan perusahaan.",
+            400,
+          );
+        }
+
+        const transactionType =
+          await tx.transactionType.findFirst({
+            where: {
+              id: transactionTypeId,
+              companyId: spk.companyId,
+            },
+            select: {
+              id: true,
+              companyId: true,
+              code: true,
+              name: true,
+              isActive: true,
+            },
+          });
+
+        if (!transactionType) {
+          throw new TransactionEngineError(
+            "TRANSACTION_TYPE_NOT_FOUND",
+            "Jenis transaksi tidak ditemukan untuk perusahaan ini.",
+            404,
+          );
+        }
+
+        if (!transactionType.isActive) {
+          throw new TransactionEngineError(
+            "TRANSACTION_TYPE_INACTIVE",
+            "Transaction type is inactive.",
+            400,
+          );
+        }
+
+        if (!canCreateTransactionType(user, transactionType.code)) {
+          throw new TransactionEngineError(
+            "TRANSACTION_TYPE_FORBIDDEN",
+            "Anda tidak memiliki akses untuk melakukan jenis transaksi ini.",
+            403,
           );
         }
 
@@ -423,6 +440,17 @@ export async function POST(request: NextRequest) {
             quantity: item.quantity,
             createdById: user.id,
           });
+
+          // Engine harus memvalidasi bahwa produk, tailor,
+          // karyawan, dan jenis transaksi cocok dengan companyId SPK.
+          // companyId tidak diterima dari client.
+          if (transaction.companyId !== spk.companyId) {
+            throw new TransactionEngineError(
+              "COMPANY_MISMATCH",
+              "Perusahaan transaksi tidak sesuai dengan perusahaan SPK.",
+              400,
+            );
+          }
 
           created.push(transaction);
         }
@@ -444,8 +472,6 @@ export async function POST(request: NextRequest) {
       { status: 201 },
     );
   } catch (error) {
-    console.error("POST transaction error:", error);
-
     if (error instanceof TransactionEngineError) {
       return NextResponse.json(
         {
@@ -459,12 +485,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to create transaction.",
-      },
-      { status: 500 },
-    );
+    console.error("POST transaction error:", error);
+
+    return jsonError("Failed to create transaction.", 500);
   }
 }

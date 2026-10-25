@@ -1,3 +1,4 @@
+
 import { redirect } from "next/navigation";
 import { requireAuth } from "@/lib/auth/require-auth";
 
@@ -8,10 +9,13 @@ export default async function HomePage() {
     redirect("/login");
   }
 
+  if (user.role?.name === "Superadmin") {
+    redirect("/dashboard");
+  }
+
   const permissionCodes =
     user.role?.permissions.map(
-      (rolePermission) =>
-        rolePermission.permission.code,
+      (rolePermission) => rolePermission.permission.code
     ) ?? [];
 
   if (permissionCodes.includes("dashboard.view")) {
@@ -34,9 +38,7 @@ export default async function HomePage() {
     redirect("/operations/tracking");
   }
 
-  if (
-    permissionCodes.includes("tailor-billing.view")
-  ) {
+  if (permissionCodes.includes("tailor-billing.view")) {
     redirect("/master/tailor-billing");
   }
 

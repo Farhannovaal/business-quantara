@@ -1,3 +1,4 @@
+
 import { NextResponse } from "next/server";
 import { requirePermission } from "@/lib/auth/authorization";
 import { requireAuth } from "@/lib/auth/require-auth";
@@ -69,9 +70,51 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    const code = String(body.code ?? "").trim();
-    const name = String(body.name ?? "").trim();
-    const isActive = body.isActive !== false;
+    if (
+      body === null ||
+      typeof body !== "object" ||
+      Array.isArray(body)
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid request body",
+        },
+        { status: 400 },
+      );
+    }
+
+    if (
+      typeof body.code !== "string" ||
+      typeof body.name !== "string"
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Product code and name must be strings",
+        },
+        { status: 400 },
+      );
+    }
+
+    const code = body.code.trim();
+    const name = body.name.trim();
+
+    let isActive = true;
+
+    if (body.isActive !== undefined) {
+      if (typeof body.isActive !== "boolean") {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "isActive must be a boolean",
+          },
+          { status: 400 },
+        );
+      }
+
+      isActive = body.isActive;
+    }
 
     if (!code || !name) {
       return NextResponse.json(
@@ -89,6 +132,9 @@ export async function POST(request: Request) {
           companyId: user.companyId,
           code,
         },
+      },
+      select: {
+        id: true,
       },
     });
 

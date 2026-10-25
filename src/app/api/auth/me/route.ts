@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
 
+import { NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/auth/require-auth";
 
 export async function GET() {
@@ -19,17 +19,17 @@ export async function GET() {
       );
     }
 
+    const isSuperAdmin = user.role?.name === "Superadmin";
+
     const permissions =
       user.role?.permissions?.map(
-        (rolePermission) =>
-          rolePermission.permission.code
+        (rolePermission) => rolePermission.permission.code
       ) ?? [];
 
     return NextResponse.json(
       {
         success: true,
         authenticated: true,
-
         user: {
           id: user.id,
           name: user.name,
@@ -43,6 +43,7 @@ export async function GET() {
               }
             : null,
 
+          isSuperAdmin,
           permissions,
         },
       },
@@ -51,10 +52,7 @@ export async function GET() {
       }
     );
   } catch (error) {
-    console.error(
-      "GET /api/auth/me error:",
-      error
-    );
+    console.error("GET /api/auth/me error:", error);
 
     return NextResponse.json(
       {
