@@ -5,6 +5,12 @@ import { prisma } from "@/lib/prisma";
 import * as XLSX from "xlsx";
 import { NextResponse } from "next/server";
 
+function isSuperAdmin(user: {
+  role?: { name?: string | null } | null;
+}) {
+  return user.role?.name?.toLowerCase() === "superadmin";
+}
+
 export async function GET() {
   const { user, response } = await requireAuth();
 
@@ -14,7 +20,9 @@ export async function GET() {
 
   if (permission.response) return permission.response;
 
-  if (user.companyId == null) {
+  const superAdmin = isSuperAdmin(user);
+
+  if (!superAdmin && user.companyId == null) {
     return NextResponse.json(
       {
         success: false,
@@ -25,11 +33,12 @@ export async function GET() {
   }
 
   try {
-    // Export hanya produk milik perusahaan user.
+    // Super Admin dapat export lintas perusahaan.
+    // User lain hanya export produk milik perusahaannya.
     const products = await prisma.product.findMany({
-      where: {
-        companyId: user.companyId,
-      },
+      where: superAdmin
+        ? {}
+        : { companyId: user.companyId! },
       orderBy: {
         createdAt: "desc",
       },

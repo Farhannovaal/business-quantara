@@ -20,6 +20,12 @@ function jsonError(error: string, status: number) {
   );
 }
 
+function isSuperAdmin(user: {
+  role?: { name?: string | null } | null;
+}) {
+  return user.role?.name?.toLowerCase() === "superadmin";
+}
+
 function parseProductId(id: string): number | null {
   const productId = Number(id);
 
@@ -41,7 +47,9 @@ export async function PATCH(
   const permission = requirePermission(user, "product.manage");
   if (permission.response) return permission.response;
 
-  if (user.companyId == null) {
+  const superAdmin = isSuperAdmin(user);
+
+  if (!superAdmin && user.companyId == null) {
     return jsonError(
       "User belum terhubung dengan perusahaan.",
       403,
@@ -112,14 +120,18 @@ export async function PATCH(
       return jsonError("No valid fields to update", 400);
     }
 
-    // Pastikan produk dimiliki perusahaan user.
+    // Super Admin dapat mencari lintas perusahaan.
+    // User lain hanya dapat mencari produk di perusahaannya.
     const existingProduct = await prisma.product.findFirst({
       where: {
         id: productId,
-        companyId: user.companyId,
+        ...(superAdmin
+          ? {}
+          : { companyId: user.companyId! }),
       },
       select: {
         id: true,
+        companyId: true,
       },
     });
 
@@ -127,11 +139,14 @@ export async function PATCH(
       return jsonError("Product not found", 404);
     }
 
+    // Gunakan perusahaan pemilik produk untuk semua validasi.
+    const companyId = existingProduct.companyId;
+
     // Kode produk harus unik dalam perusahaan yang sama.
     if (data.code !== undefined) {
       const duplicate = await prisma.product.findFirst({
         where: {
-          companyId: user.companyId,
+          companyId,
           code: data.code,
           NOT: {
             id: productId,
@@ -147,11 +162,11 @@ export async function PATCH(
       }
     }
 
-    // Filter companyId tetap diterapkan pada operasi update.
+    // Filter perusahaan tetap diterapkan saat update.
     const result = await prisma.product.updateMany({
       where: {
         id: productId,
-        companyId: user.companyId,
+        companyId,
       },
       data,
     });
@@ -163,7 +178,7 @@ export async function PATCH(
     const product = await prisma.product.findFirst({
       where: {
         id: productId,
-        companyId: user.companyId,
+        companyId,
       },
     });
 
@@ -189,7 +204,9 @@ export async function DELETE(
   const permission = requirePermission(user, "product.manage");
   if (permission.response) return permission.response;
 
-  if (user.companyId == null) {
+  const superAdmin = isSuperAdmin(user);
+
+  if (!superAdmin && user.companyId == null) {
     return jsonError(
       "User belum terhubung dengan perusahaan.",
       403,
@@ -204,14 +221,17 @@ export async function DELETE(
       return jsonError("Invalid product ID", 400);
     }
 
-    // Verifikasi kepemilikan produk terlebih dahulu.
+    // Verifikasi produk berdasarkan role.
     const product = await prisma.product.findFirst({
       where: {
         id: productId,
-        companyId: user.companyId,
+        ...(superAdmin
+          ? {}
+          : { companyId: user.companyId! }),
       },
       select: {
         id: true,
+        companyId: true,
       },
     });
 
@@ -219,11 +239,14 @@ export async function DELETE(
       return jsonError("Product not found", 404);
     }
 
-    // Periksa transaksi dalam perusahaan yang sama.
+    // Semua pengecekan menggunakan perusahaan pemilik produk.
+    const companyId = product.companyId;
+
+    // Periksa apakah produk digunakan transaksi.
     const transactionCount = await prisma.transaction.count({
       where: {
         productId,
-        companyId: user.companyId,
+        companyId,
       },
     });
 
@@ -234,10 +257,10 @@ export async function DELETE(
       );
     }
 
-    // Periksa SPK dalam perusahaan yang sama.
+    // Periksa apakah produk digunakan SPK.
     const spkCount = await prisma.sPK.count({
       where: {
-        companyId: user.companyId,
+        companyId,
         items: {
           some: {
             productId,
@@ -253,10 +276,11 @@ export async function DELETE(
       );
     }
 
+    // Hapus hanya produk yang ID dan companyId-nya sesuai.
     const result = await prisma.product.deleteMany({
       where: {
         id: productId,
-        companyId: user.companyId,
+        companyId,
       },
     });
 

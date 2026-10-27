@@ -1,4 +1,3 @@
-
 import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -32,7 +31,10 @@ function getMaxQuantity(
 ): number | null {
   switch (code) {
     case "PENGIRIMAN_SIAP_JAHIT":
-      return Math.max(spkQuantity - status.totalPengiriman, 0);
+      return Math.max(
+        spkQuantity - status.totalPengiriman,
+        0,
+      );
 
     case "PENERIMAAN_DARI_PENJAHIT":
       return status.sisaJahit;
@@ -50,13 +52,24 @@ function getMaxQuantity(
 
     case "PENERIMAAN_RIJEK":
       return Math.max(
-        status.totalPengirimanRijek - status.totalPenerimaanRijek,
+        status.totalPengirimanRijek -
+          status.totalPenerimaanRijek,
         0,
       );
 
     default:
       return null;
   }
+}
+
+function parsePositiveInteger(value: unknown): number | null {
+  const parsed = Number(value);
+
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+    return null;
+  }
+
+  return parsed;
 }
 
 export async function PATCH(
@@ -70,9 +83,9 @@ export async function PATCH(
   }
 
   const { id } = await context.params;
-  const transactionId = Number(id);
+  const transactionId = parsePositiveInteger(id);
 
-  if (!Number.isInteger(transactionId) || transactionId <= 0) {
+  if (transactionId === null) {
     return jsonError("ID transaksi tidak valid.", 400);
   }
 
@@ -93,12 +106,16 @@ export async function PATCH(
   }
 
   const raw = body as Record<string, unknown>;
+
   const input: EditInput = {
     quantity: Number(raw.quantity),
     employeeId: Number(raw.employeeId),
   };
 
-  if (!Number.isSafeInteger(input.quantity) || input.quantity <= 0) {
+  if (
+    !Number.isSafeInteger(input.quantity) ||
+    input.quantity <= 0
+  ) {
     return jsonError(
       "Jumlah harus berupa bilangan bulat lebih dari 0.",
       400,
@@ -115,11 +132,83 @@ export async function PATCH(
   try {
     const updated = await prisma.$transaction(
       async (tx) => {
+        // Ambil role dan companyId terbaru dari database.
+        const currentUser = await tx.user.findUnique({
+          where: { id: user.id },
+          select: {
+            id: true,
+            companyId: true,
+            role: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        });
+
+        if (!currentUser) {
+          throw new Error("USER_NOT_FOUND");
+        }
+
+        const roleName =
+          currentUser.role?.name?.toLowerCase() ?? "";
+
+        const isSuperAdmin = roleName === "superadmin";
+        const isAdministrator = roleName === "administrator";
+
+        if (!isSuperAdmin && currentUser.companyId == null) {
+          throw new Error("USER_COMPANY_REQUIRED");
+        }
+
+        // Ambil transaksi beserta companyId dan relasinya.
         const transaction = await tx.transaction.findUnique({
           where: { id: transactionId },
           include: {
             transactionType: {
-              select: { code: true, name: true },
+              select: {
+                code: true,
+                name: true,
+              },
+            },
+            spk: {
+              select: {
+                id: true,
+                companyId: true,
+                status: true,
+                deletedAt: true,
+                spkNumber: true,
+                tailorId: true,
+                tailor: {
+                  select: {
+                    id: true,
+                    companyId: true,
+                  },
+                },
+                items: {
+                  select: {
+                    productId: true,
+                    quantity: true,
+                    product: {
+                      select: {
+                        id: true,
+                        companyId: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            product: {
+              select: {
+                id: true,
+                companyId: true,
+              },
+            },
+            tailor: {
+              select: {
+                id: true,
+                companyId: true,
+              },
             },
           },
         });
@@ -128,12 +217,29 @@ export async function PATCH(
           throw new Error("TRANSACTION_NOT_FOUND");
         }
 
-        const isAdministrator =
-          user.role?.name?.toLowerCase() === "administrator";
+        if (transaction.companyId == null) {
+          throw new Error("TRANSACTION_COMPANY_REQUIRED");
+        }
 
-        const isCreator = transaction.createdById === user.id;
+        const companyId = transaction.companyId;
 
-        if (!isAdministrator && !isCreator) {
+        // Super Admin boleh lintas perusahaan.
+        // Role lainnya tetap harus berada dalam perusahaan transaksi.
+        if (
+          !isSuperAdmin &&
+          currentUser.companyId !== companyId
+        ) {
+          throw new Error("FORBIDDEN");
+        }
+
+        const isCreator =
+          transaction.createdById === currentUser.id;
+
+        if (
+          !isSuperAdmin &&
+          !isAdministrator &&
+          !isCreator
+        ) {
           throw new Error("FORBIDDEN");
         }
 
@@ -141,90 +247,132 @@ export async function PATCH(
           throw new Error("TRANSACTION_NOT_ACTIVE");
         }
 
-        // Transaksi lanjutan membuat perubahan kuantitas berisiko
-        // mengubah progres produksi yang sudah berjalan.
-        const dependent = await tx.transaction.findFirst({
-          where: {
-            spkId: transaction.spkId,
-            productId: transaction.productId,
-            status: "ACTIVE",
-            OR: [
-              { createdAt: { gt: transaction.createdAt } },
-              {
-                createdAt: transaction.createdAt,
-                id: { gt: transaction.id },
-              },
-            ],
-          },
-          select: { transactionNumber: true },
-          orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-        });
+        // Pastikan relasi transaksi dan SPK konsisten.
+        const spk = transaction.spk;
 
-        if (dependent) {
-          throw new Error("HAS_DEPENDENT_TRANSACTION");
-        }
-
-        const billItem = await tx.tailorBillItem.findFirst({
-          where: {
-            spkId: transaction.spkId,
-            productId: transaction.productId,
-            bill: {
-              status: { in: ["SUBMITTED", "PAID"] },
-            },
-          },
-          select: { id: true },
-        });
-
-        if (billItem) {
-          throw new Error("TRANSACTION_USED_IN_BILL");
-        }
-
-        const employee = await tx.employee.findUnique({
-          where: { id: input.employeeId },
-          select: { id: true, name: true, isActive: true },
-        });
-
-        if (!employee || !employee.isActive) {
-          throw new Error("EMPLOYEE_NOT_AVAILABLE");
-        }
-
-        const spk = await tx.sPK.findUnique({
-          where: { id: transaction.spkId },
-          include: {
-            items: {
-              where: { productId: transaction.productId },
-              select: { quantity: true },
-            },
-          },
-        });
-
-        if (!spk) {
+        if (!spk || spk.deletedAt !== null) {
           throw new Error("SPK_NOT_FOUND");
+        }
+
+        if (
+          spk.companyId == null ||
+          spk.companyId !== companyId
+        ) {
+          throw new Error("SPK_COMPANY_MISMATCH");
+        }
+
+        if (
+          transaction.product.companyId !== companyId ||
+          transaction.tailor.companyId !== companyId ||
+          spk.tailor.companyId !== companyId
+        ) {
+          throw new Error("RELATED_COMPANY_MISMATCH");
         }
 
         if (spk.status !== "ACTIVE") {
           throw new Error("SPK_NOT_ACTIVE");
         }
 
-        const spkItem = spk.items[0];
+        const spkItem = spk.items.find(
+          (item) => item.productId === transaction.productId,
+        );
 
-        if (!spkItem) {
+        if (
+          !spkItem ||
+          spkItem.product.companyId !== companyId
+        ) {
           throw new Error("PRODUCT_NOT_IN_SPK");
         }
 
-        // Hitung progres tanpa transaksi yang sedang diedit.
-        // Transaksi CANCELLED juga tidak boleh masuk perhitungan.
-        const otherTransactions = await tx.transaction.findMany({
+        // Cegah perubahan transaksi yang sudah memiliki transaksi lanjutan.
+        const dependent = await tx.transaction.findFirst({
           where: {
+            companyId,
             spkId: transaction.spkId,
             productId: transaction.productId,
             status: "ACTIVE",
-            id: { not: transaction.id },
+            OR: [
+              {
+                createdAt: {
+                  gt: transaction.createdAt,
+                },
+              },
+              {
+                createdAt: transaction.createdAt,
+                id: {
+                  gt: transaction.id,
+                },
+              },
+            ],
+          },
+          select: {
+            transactionNumber: true,
+          },
+          orderBy: [
+            { createdAt: "asc" },
+            { id: "asc" },
+          ],
+        });
+
+        if (dependent) {
+          throw new Error("HAS_DEPENDENT_TRANSACTION");
+        }
+
+        // Transaksi yang sudah masuk tagihan submitted/paid tidak boleh diedit.
+        const billItem = await tx.tailorBillItem.findFirst({
+          where: {
+            spkId: transaction.spkId,
+            productId: transaction.productId,
+            bill: {
+              companyId,
+              status: {
+                in: ["SUBMITTED", "PAID"],
+              },
+            },
+          },
+          select: {
+            id: true,
+          },
+        });
+
+        if (billItem) {
+          throw new Error("TRANSACTION_USED_IN_BILL");
+        }
+
+        // Karyawan harus aktif dan berasal dari perusahaan transaksi.
+        const employee = await tx.employee.findFirst({
+          where: {
+            id: input.employeeId,
+            companyId,
+            isActive: true,
+          },
+          select: {
+            id: true,
+            name: true,
+          },
+        });
+
+        if (!employee) {
+          throw new Error("EMPLOYEE_NOT_AVAILABLE");
+        }
+
+        // Hitung ulang progres tanpa transaksi yang sedang diedit.
+        const otherTransactions = await tx.transaction.findMany({
+          where: {
+            companyId,
+            spkId: transaction.spkId,
+            productId: transaction.productId,
+            status: "ACTIVE",
+            id: {
+              not: transaction.id,
+            },
           },
           select: {
             quantity: true,
             transactionType: {
-              select: { code: true },
+              select: {
+                code: true,
+              },
             },
           },
         });
@@ -240,8 +388,13 @@ export async function PATCH(
           spkItem.quantity,
         );
 
-        if (maxQuantity !== null && input.quantity > maxQuantity) {
-          throw new Error(`QUANTITY_EXCEEDS:${maxQuantity}`);
+        if (
+          maxQuantity !== null &&
+          input.quantity > maxQuantity
+        ) {
+          throw new Error(
+            `QUANTITY_EXCEEDS:${maxQuantity}`,
+          );
         }
 
         const quantityChanged =
@@ -251,34 +404,104 @@ export async function PATCH(
           transaction.employeeId !== input.employeeId;
 
         if (!quantityChanged && !employeeChanged) {
-          return tx.transaction.findUniqueOrThrow({
-            where: { id: transaction.id },
+          return tx.transaction.findFirstOrThrow({
+            where: {
+              id: transaction.id,
+              companyId,
+            },
             include: {
-              spk: { select: { id: true, spkNumber: true } },
-              transactionType: {
-                select: { id: true, code: true, name: true },
+              spk: {
+                select: {
+                  id: true,
+                  spkNumber: true,
+                },
               },
-              product: { select: { id: true, code: true, name: true } },
-              tailor: { select: { id: true, name: true } },
-              employee: { select: { id: true, name: true } },
+              transactionType: {
+                select: {
+                  id: true,
+                  code: true,
+                  name: true,
+                },
+              },
+              product: {
+                select: {
+                  id: true,
+                  code: true,
+                  name: true,
+                },
+              },
+              tailor: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+              employee: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
             },
           });
         }
 
-        const updatedTransaction = await tx.transaction.update({
-          where: { id: transaction.id },
+        // Filter companyId tetap digunakan untuk memastikan
+        // transaksi tidak dapat diubah ke perusahaan lain.
+        const updatedTransaction = await tx.transaction.updateMany({
+          where: {
+            id: transaction.id,
+            companyId,
+            status: "ACTIVE",
+          },
           data: {
             quantity: input.quantity,
             employeeId: input.employeeId,
           },
+        });
+
+        if (updatedTransaction.count === 0) {
+          throw new Error("TRANSACTION_NOT_FOUND");
+        }
+
+        const result = await tx.transaction.findFirstOrThrow({
+          where: {
+            id: transaction.id,
+            companyId,
+          },
           include: {
-            spk: { select: { id: true, spkNumber: true } },
-            transactionType: {
-              select: { id: true, code: true, name: true },
+            spk: {
+              select: {
+                id: true,
+                spkNumber: true,
+              },
             },
-            product: { select: { id: true, code: true, name: true } },
-            tailor: { select: { id: true, name: true } },
-            employee: { select: { id: true, name: true } },
+            transactionType: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+              },
+            },
+            product: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+              },
+            },
+            tailor: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+            employee: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
           },
         });
 
@@ -296,9 +519,11 @@ export async function PATCH(
           );
         }
 
+        // Activity log wajib memakai companyId transaksi.
         await tx.activityLog.create({
           data: {
-            userId: user.id,
+            companyId,
+            userId: currentUser.id,
             action: "UPDATE",
             entityType: "Transaction",
             entityId: String(transaction.id),
@@ -308,12 +533,13 @@ export async function PATCH(
           },
         });
 
-        return updatedTransaction;
+        return result;
       },
       {
         maxWait: 10000,
         timeout: 30000,
-        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        isolationLevel:
+          Prisma.TransactionIsolationLevel.Serializable,
       },
     );
 
@@ -323,21 +549,57 @@ export async function PATCH(
       data: updated,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "";
+    const message =
+      error instanceof Error ? error.message : "";
+
+    if (message === "USER_NOT_FOUND") {
+      return jsonError("User tidak ditemukan.", 401);
+    }
+
+    if (message === "USER_COMPANY_REQUIRED") {
+      return jsonError(
+        "User belum terhubung dengan perusahaan.",
+        403,
+      );
+    }
 
     if (message === "TRANSACTION_NOT_FOUND") {
       return jsonError("Transaksi tidak ditemukan.", 404);
     }
 
+    if (message === "TRANSACTION_COMPANY_REQUIRED") {
+      return jsonError(
+        "Transaksi belum memiliki perusahaan yang valid.",
+        409,
+      );
+    }
+
     if (message === "FORBIDDEN") {
       return jsonError(
-        "Hanya pembuat transaksi atau Administrator yang dapat mengedit transaksi ini.",
+        "Anda tidak memiliki akses untuk mengedit transaksi ini.",
         403,
       );
     }
 
     if (message === "TRANSACTION_NOT_ACTIVE") {
-      return jsonError("Transaksi yang dibatalkan tidak dapat diedit.", 409);
+      return jsonError(
+        "Transaksi yang dibatalkan tidak dapat diedit.",
+        409,
+      );
+    }
+
+    if (message === "SPK_NOT_FOUND") {
+      return jsonError("SPK tidak ditemukan.", 404);
+    }
+
+    if (
+      message === "SPK_COMPANY_MISMATCH" ||
+      message === "RELATED_COMPANY_MISMATCH"
+    ) {
+      return jsonError(
+        "Data transaksi tidak konsisten dengan perusahaan SPK.",
+        409,
+      );
     }
 
     if (message === "HAS_DEPENDENT_TRANSACTION") {
@@ -355,19 +617,24 @@ export async function PATCH(
     }
 
     if (message === "EMPLOYEE_NOT_AVAILABLE") {
-      return jsonError("Karyawan tidak ditemukan atau tidak aktif.", 400);
-    }
-
-    if (message === "SPK_NOT_FOUND") {
-      return jsonError("SPK tidak ditemukan.", 404);
+      return jsonError(
+        "Karyawan tidak ditemukan, tidak aktif, atau bukan bagian dari perusahaan transaksi.",
+        400,
+      );
     }
 
     if (message === "SPK_NOT_ACTIVE") {
-      return jsonError("SPK tidak aktif sehingga transaksi tidak dapat diedit.", 409);
+      return jsonError(
+        "SPK tidak aktif sehingga transaksi tidak dapat diedit.",
+        409,
+      );
     }
 
     if (message === "PRODUCT_NOT_IN_SPK") {
-      return jsonError("Produk tidak ditemukan dalam SPK.", 400);
+      return jsonError(
+        "Produk tidak ditemukan dalam SPK atau tidak sesuai dengan perusahaan SPK.",
+        400,
+      );
     }
 
     if (message.startsWith("QUANTITY_EXCEEDS:")) {
@@ -376,15 +643,33 @@ export async function PATCH(
       return NextResponse.json(
         {
           success: false,
-          error: `Jumlah melebihi sisa kuantitas yang tersedia (${maxQuantity}).`,
+          error:
+            `Jumlah melebihi sisa kuantitas yang tersedia (${maxQuantity}).`,
           maxQuantity,
         },
         { status: 400 },
       );
     }
 
-    console.error("PATCH /api/transactions/[id]:", error);
-    return jsonError("Gagal memperbarui transaksi.", 500);
+    if (
+      error instanceof
+        Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2034"
+    ) {
+      return jsonError(
+        "Transaksi berubah bersamaan. Silakan muat ulang lalu coba lagi.",
+        409,
+      );
+    }
+
+    console.error(
+      "PATCH /api/transactions/[id]:",
+      error,
+    );
+
+    return jsonError(
+      "Gagal memperbarui transaksi.",
+      500,
+    );
   }
 }
-    

@@ -1,3 +1,4 @@
+
 import { NextRequest, NextResponse } from "next/server";
 import type { UserStatus } from "@prisma/client";
 
@@ -21,7 +22,7 @@ type RequestBody = Record<string, unknown>;
 function jsonError(message: string, status: number) {
   return NextResponse.json(
     { success: false, error: message },
-    { status }
+    { status },
   );
 }
 
@@ -58,7 +59,7 @@ async function isSuperAdmin(userId: number): Promise<boolean> {
     },
   });
 
-  return currentUser?.role?.name === "Superadmin";
+  return currentUser?.role?.name?.toLowerCase() === "superadmin";
 }
 
 async function getAuthorizedUser(permissionCode: string) {
@@ -72,10 +73,7 @@ async function getAuthorizedUser(permissionCode: string) {
     };
   }
 
-  const permission = requirePermission(
-    auth.user,
-    permissionCode
-  );
+  const permission = requirePermission(auth.user, permissionCode);
 
   if (permission.response) {
     return {
@@ -85,7 +83,7 @@ async function getAuthorizedUser(permissionCode: string) {
     };
   }
 
-  // Periksa role terbaru dari database, bukan dari payload client.
+  // Periksa role terbaru dari database, bukan dari input client.
   const superAdmin = await isSuperAdmin(auth.user.id);
 
   if (!superAdmin && auth.user.companyId == null) {
@@ -94,7 +92,7 @@ async function getAuthorizedUser(permissionCode: string) {
       isSuperAdmin: false,
       response: jsonError(
         "User belum terhubung dengan perusahaan.",
-        403
+        403,
       ),
     };
   }
@@ -141,9 +139,14 @@ const userSelect = {
   },
 } as const;
 
+/**
+ * GET: mengambil detail pengguna.
+ * Super Admin dapat melihat lintas perusahaan.
+ * User biasa hanya dapat melihat pengguna dalam perusahaannya.
+ */
 export async function GET(
   _request: NextRequest,
-  context: RouteContext
+  context: RouteContext,
 ) {
   const auth = await getAuthorizedUser("user.view");
 
@@ -180,16 +183,18 @@ export async function GET(
   } catch (error) {
     console.error("GET /api/users/[id] error:", error);
 
-    return jsonError(
-      "Gagal mengambil data pengguna.",
-      500
-    );
+    return jsonError("Gagal mengambil data pengguna.", 500);
   }
 }
 
+/**
+ * PATCH: memperbarui pengguna.
+ * Super Admin dapat memperbarui pengguna lintas perusahaan.
+ * User biasa hanya dapat memperbarui pengguna satu perusahaan.
+ */
 export async function PATCH(
   request: NextRequest,
-  context: RouteContext
+  context: RouteContext,
 ) {
   const auth = await getAuthorizedUser("user.manage");
 
@@ -237,11 +242,11 @@ export async function PATCH(
 
     const input = body;
 
-    // Pengguna biasa tidak boleh mengirim perubahan perusahaan.
+    // User biasa tidak boleh menentukan atau mengubah perusahaan.
     if (!auth.isSuperAdmin && "companyId" in input) {
       return jsonError(
-        "Hanya Superadmin yang dapat mengubah perusahaan pengguna.",
-        403
+        "Hanya Super Admin yang dapat mengubah perusahaan pengguna.",
+        403,
       );
     }
 
@@ -265,10 +270,7 @@ export async function PATCH(
       const name = input.name.trim();
 
       if (name.length > 150) {
-        return jsonError(
-          "Nama maksimal 150 karakter.",
-          400
-        );
+        return jsonError("Nama maksimal 150 karakter.", 400);
       }
 
       data.name = name;
@@ -285,31 +287,23 @@ export async function PATCH(
         email.length > 255 ||
         !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
       ) {
-        return jsonError(
-          "Format email tidak valid.",
-          400
-        );
+        return jsonError("Format email tidak valid.", 400);
       }
 
       data.email = email;
     }
 
-    /*
-     * Tentukan perusahaan tujuan.
-     * Superadmin boleh mengubahnya; user biasa tetap di perusahaan asal.
-     */
+    // Tentukan perusahaan tujuan.
+    // Jika tidak diubah, pertahankan perusahaan pengguna saat ini.
     let targetCompanyId = existingUser.companyId;
 
     if (auth.isSuperAdmin && "companyId" in input) {
       const requestedCompanyId = parsePositiveInteger(
-        input.companyId
+        input.companyId,
       );
 
       if (requestedCompanyId === null) {
-        return jsonError(
-          "Perusahaan tujuan wajib dipilih.",
-          400
-        );
+        return jsonError("Perusahaan tujuan wajib dipilih.", 400);
       }
 
       const company = await prisma.company.findUnique({
@@ -323,15 +317,12 @@ export async function PATCH(
       if (!company) {
         return jsonError(
           "Perusahaan tujuan tidak ditemukan.",
-          400
+          400,
         );
       }
 
       if (company.status !== "ACTIVE") {
-        return jsonError(
-          "Perusahaan tujuan tidak aktif.",
-          400
-        );
+        return jsonError("Perusahaan tujuan tidak aktif.", 400);
       }
 
       targetCompanyId = company.id;
@@ -341,14 +332,11 @@ export async function PATCH(
     const companyChanged =
       targetCompanyId !== existingUser.companyId;
 
-    /*
-     * Jika perusahaan berubah, role tujuan wajib dipilih juga.
-     * Ini mencegah user membawa role dari perusahaan sebelumnya.
-     */
+    // Saat perusahaan berubah, role dari perusahaan tujuan wajib dipilih.
     if (companyChanged && !("roleId" in input)) {
       return jsonError(
         "Pilih role yang sesuai dengan perusahaan tujuan.",
-        400
+        400,
       );
     }
 
@@ -366,11 +354,11 @@ export async function PATCH(
       if (targetCompanyId === null) {
         return jsonError(
           "Perusahaan pengguna belum ditentukan.",
-          400
+          400,
         );
       }
 
-      // Role harus milik perusahaan tujuan, bukan perusahaan asal.
+      // Role wajib berasal dari perusahaan tujuan.
       const role = await prisma.role.findFirst({
         where: {
           id: roleId,
@@ -378,13 +366,22 @@ export async function PATCH(
         },
         select: {
           id: true,
+          name: true,
         },
       });
 
       if (!role) {
         return jsonError(
           "Role tidak ditemukan untuk perusahaan tujuan.",
-          400
+          400,
+        );
+      }
+
+      // Jangan memberikan role Super Admin melalui form pengelolaan user.
+      if (role.name.toLowerCase() === "superadmin") {
+        return jsonError(
+          "Role Super Admin tidak dapat diberikan melalui form ini.",
+          403,
         );
       }
 
@@ -396,10 +393,7 @@ export async function PATCH(
         input.status !== "ACTIVE" &&
         input.status !== "INACTIVE"
       ) {
-        return jsonError(
-          "Status pengguna tidak valid.",
-          400
-        );
+        return jsonError("Status pengguna tidak valid.", 400);
       }
 
       data.status = input.status;
@@ -413,20 +407,15 @@ export async function PATCH(
       ) {
         return jsonError(
           "Password harus terdiri dari 8–128 karakter.",
-          400
+          400,
         );
       }
 
-      data.passwordHash = await hashPassword(
-        input.password
-      );
+      data.passwordHash = await hashPassword(input.password);
     }
 
     if (Object.keys(data).length === 0) {
-      return jsonError(
-        "Tidak ada data yang diperbarui.",
-        400
-      );
+      return jsonError("Tidak ada data yang diperbarui.", 400);
     }
 
     // Pengamanan perubahan akun sendiri.
@@ -436,7 +425,7 @@ export async function PATCH(
     ) {
       return jsonError(
         "Kamu tidak dapat menonaktifkan akun sendiri.",
-        400
+        400,
       );
     }
 
@@ -447,7 +436,7 @@ export async function PATCH(
     ) {
       return jsonError(
         "Kamu tidak dapat mengubah role akun sendiri.",
-        400
+        400,
       );
     }
 
@@ -458,7 +447,7 @@ export async function PATCH(
     ) {
       return jsonError(
         "Kamu tidak dapat memindahkan akun sendiri ke perusahaan lain.",
-        400
+        400,
       );
     }
 
@@ -468,7 +457,7 @@ export async function PATCH(
     ) {
       return jsonError(
         "Gunakan fitur ubah password untuk akun sendiri.",
-        400
+        400,
       );
     }
 
@@ -485,15 +474,12 @@ export async function PATCH(
       if (duplicate) {
         return jsonError(
           "Email sudah digunakan oleh pengguna lain.",
-          409
+          409,
         );
       }
     }
 
-    /*
-     * Update dibatasi berdasarkan perusahaan untuk user biasa.
-     * Superadmin dapat memperbarui pengguna lintas perusahaan.
-     */
+    // Update tetap dibatasi berdasarkan perusahaan untuk user biasa.
     const result = await prisma.user.updateMany({
       where: auth.isSuperAdmin
         ? { id: userId }
@@ -505,10 +491,7 @@ export async function PATCH(
     });
 
     if (result.count === 0) {
-      return jsonError(
-        "Pengguna tidak ditemukan.",
-        404
-      );
+      return jsonError("Pengguna tidak ditemukan.", 404);
     }
 
     const updatedUser = await prisma.user.findFirst({
@@ -524,7 +507,7 @@ export async function PATCH(
     if (!updatedUser) {
       return jsonError(
         "Data pengguna berhasil diperbarui tetapi gagal dimuat ulang.",
-        500
+        500,
       );
     }
 
@@ -534,10 +517,7 @@ export async function PATCH(
       data: updatedUser,
     });
   } catch (error) {
-    console.error(
-      "PATCH /api/users/[id] error:",
-      error
-    );
+    console.error("PATCH /api/users/[id] error:", error);
 
     if (
       typeof error === "object" &&
@@ -545,15 +525,9 @@ export async function PATCH(
       "code" in error &&
       error.code === "P2002"
     ) {
-      return jsonError(
-        "Email sudah digunakan.",
-        409
-      );
+      return jsonError("Email sudah digunakan.", 409);
     }
 
-    return jsonError(
-      "Gagal memperbarui data pengguna.",
-      500
-    );
+    return jsonError("Gagal memperbarui data pengguna.", 500);
   }
 }

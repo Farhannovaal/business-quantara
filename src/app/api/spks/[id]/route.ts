@@ -1,15 +1,13 @@
-
 import { Prisma } from "@prisma/client";
-import { requirePermission } from "@/lib/auth/authorization";
-import { requireAuth } from "@/lib/auth/require-auth";
-import { prisma } from "@/lib/prisma";
-import { calculateSPKStatus } from "@/lib/spk-status";
 import { NextRequest, NextResponse } from "next/server";
 
+import { requirePermission } from "@/lib/auth/authorization";
+import { requireAuth } from "@/lib/auth/require-auth";
+import { calculateSPKStatus } from "@/lib/spk-status";
+import { prisma } from "@/lib/prisma";
+
 type RouteContext = {
-  params: Promise<{
-    id: string;
-  }>;
+  params: Promise<{ id: string }>;
 };
 
 type SPKItemInput = {
@@ -21,17 +19,12 @@ type SPKStatus = "ACTIVE" | "COMPLETED" | "CANCELLED";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json(
-    {
-      success: false,
-      error: message,
-    },
+    { success: false, error: message },
     { status },
   );
 }
 
-function isObject(
-  value: unknown,
-): value is Record<string, unknown> {
+function isObject(value: unknown): value is Record<string, unknown> {
   return (
     value !== null &&
     typeof value === "object" &&
@@ -47,9 +40,7 @@ function isSPKStatus(value: unknown): value is SPKStatus {
   );
 }
 
-function isPrismaUniqueError(
-  error: unknown,
-): boolean {
+function isPrismaUniqueError(error: unknown): boolean {
   return (
     error instanceof Prisma.PrismaClientKnownRequestError &&
     error.code === "P2002"
@@ -73,6 +64,7 @@ async function getCompanyAuth(permissionCode: string) {
   if (auth.response || !auth.user) {
     return {
       user: null,
+      isSuperAdmin: false,
       response: auth.response ?? jsonError("Unauthorized.", 401),
     };
   }
@@ -82,13 +74,40 @@ async function getCompanyAuth(permissionCode: string) {
   if (permission.response) {
     return {
       user: null,
+      isSuperAdmin: false,
       response: permission.response,
     };
   }
 
-  if (auth.user.companyId == null) {
+  // Ambil role terkini dari database.
+  const currentUser = await prisma.user.findUnique({
+    where: { id: auth.user.id },
+    select: {
+      id: true,
+      companyId: true,
+      role: {
+        select: {
+          name: true,
+        },
+      },
+    },
+  });
+
+  if (!currentUser) {
     return {
       user: null,
+      isSuperAdmin: false,
+      response: jsonError("User not found.", 401),
+    };
+  }
+
+  const isSuperAdmin =
+    currentUser.role?.name?.toLowerCase() === "superadmin";
+
+  if (!isSuperAdmin && currentUser.companyId == null) {
+    return {
+      user: null,
+      isSuperAdmin: false,
       response: jsonError(
         "User belum terhubung dengan perusahaan.",
         403,
@@ -97,14 +116,19 @@ async function getCompanyAuth(permissionCode: string) {
   }
 
   return {
-    user: auth.user,
+    user: {
+      ...auth.user,
+      companyId: currentUser.companyId,
+    },
+    isSuperAdmin,
     response: null,
   };
 }
 
 /**
  * GET /api/spks/[id]
- * Mengambil detail SPK milik perusahaan user yang login.
+ * Super Admin dapat melihat SPK lintas perusahaan.
+ * User biasa hanya dapat melihat SPK perusahaannya.
  */
 export async function GET(
   _request: NextRequest,
@@ -126,7 +150,9 @@ export async function GET(
     const spk = await prisma.sPK.findFirst({
       where: {
         id: spkId,
-        companyId: auth.user.companyId!,
+        ...(auth.isSuperAdmin
+          ? {}
+          : { companyId: auth.user.companyId! }),
         deletedAt: null,
       },
       include: {
@@ -141,9 +167,7 @@ export async function GET(
               },
             },
           },
-          orderBy: {
-            id: "asc",
-          },
+          orderBy: { id: "asc" },
         },
         tailor: {
           select: {
@@ -152,9 +176,12 @@ export async function GET(
           },
         },
         transactions: {
-          orderBy: {
-            createdAt: "desc",
+          where: {
+            // Abaikan transaksi dari SPK yang sudah dihapus
+            // secara soft delete.
+            spk: { deletedAt: null },
           },
+          orderBy: { createdAt: "desc" },
           include: {
             transactionType: {
               select: {
@@ -179,9 +206,7 @@ export async function GET(
           },
         },
         _count: {
-          select: {
-            transactions: true,
-          },
+          select: { transactions: true },
         },
       },
     });
@@ -228,7 +253,8 @@ export async function GET(
 
 /**
  * PATCH /api/spks/[id]
- * Memperbarui SPK dengan validasi perusahaan.
+ * Memperbarui SPK sesuai cakupan perusahaan.
+ * CompanyId SPK tidak dapat diubah melalui request ini.
  */
 export async function PATCH(
   request: NextRequest,
@@ -247,20 +273,18 @@ export async function PATCH(
       return jsonError("Invalid SPK ID.", 400);
     }
 
-    const companyId = auth.user.companyId!;
-
     const existing = await prisma.sPK.findFirst({
       where: {
         id: spkId,
-        companyId,
+        ...(auth.isSuperAdmin
+          ? {}
+          : { companyId: auth.user.companyId! }),
         deletedAt: null,
       },
       include: {
         items: true,
         _count: {
-          select: {
-            transactions: true,
-          },
+          select: { transactions: true },
         },
       },
     });
@@ -269,10 +293,22 @@ export async function PATCH(
       return jsonError("SPK not found.", 404);
     }
 
+    // Seluruh validasi item tetap mengacu pada perusahaan SPK.
+    const companyId = existing.companyId;
+
     const body: unknown = await request.json();
 
     if (!isObject(body)) {
       return jsonError("Invalid request body.", 400);
+    }
+
+    // Jangan izinkan pemindahan SPK ke perusahaan lain
+    // melalui PATCH, termasuk untuk Super Admin.
+    if (body.companyId !== undefined) {
+      return jsonError(
+        "Company assignment cannot be changed through this endpoint.",
+        400,
+      );
     }
 
     let spkNumber: string | undefined;
@@ -285,24 +321,17 @@ export async function PATCH(
       spkNumber = body.spkNumber.trim();
 
       if (!spkNumber) {
-        return jsonError(
-          "SPK number cannot be empty.",
-          400,
-        );
+        return jsonError("SPK number cannot be empty.", 400);
       }
 
       const duplicate = await prisma.sPK.findFirst({
         where: {
           companyId,
           spkNumber,
-          id: {
-            not: spkId,
-          },
+          id: { not: spkId },
           deletedAt: null,
         },
-        select: {
-          id: true,
-        },
+        select: { id: true },
       });
 
       if (duplicate) {
@@ -318,10 +347,7 @@ export async function PATCH(
     if (body.tailorId !== undefined) {
       tailorId = Number(body.tailorId);
 
-      if (
-        !Number.isSafeInteger(tailorId) ||
-        tailorId <= 0
-      ) {
+      if (!Number.isSafeInteger(tailorId) || tailorId <= 0) {
         return jsonError("Invalid tailor ID.", 400);
       }
 
@@ -344,10 +370,7 @@ export async function PATCH(
       }
 
       if (!tailor.isActive) {
-        return jsonError(
-          "Selected tailor is inactive.",
-          400,
-        );
+        return jsonError("Selected tailor is inactive.", 400);
       }
     }
 
@@ -364,10 +387,7 @@ export async function PATCH(
     let items: SPKItemInput[] | undefined;
 
     if (body.items !== undefined) {
-      if (
-        !Array.isArray(body.items) ||
-        body.items.length === 0
-      ) {
+      if (!Array.isArray(body.items) || body.items.length === 0) {
         return jsonError(
           "At least one product is required.",
           400,
@@ -396,10 +416,7 @@ export async function PATCH(
           );
         }
 
-        normalizedItems.push({
-          productId,
-          quantity,
-        });
+        normalizedItems.push({ productId, quantity });
       }
 
       const productIds = normalizedItems.map(
@@ -416,9 +433,7 @@ export async function PATCH(
       const products = await prisma.product.findMany({
         where: {
           companyId,
-          id: {
-            in: productIds,
-          },
+          id: { in: productIds },
         },
         select: {
           id: true,
@@ -471,16 +486,10 @@ export async function PATCH(
     }
 
     // Dukungan format lama: productId tunggal.
-    if (
-      items === undefined &&
-      body.productId !== undefined
-    ) {
+    if (items === undefined && body.productId !== undefined) {
       const productId = Number(body.productId);
 
-      if (
-        !Number.isSafeInteger(productId) ||
-        productId <= 0
-      ) {
+      if (!Number.isSafeInteger(productId) || productId <= 0) {
         return jsonError("Invalid product ID.", 400);
       }
 
@@ -503,10 +512,7 @@ export async function PATCH(
       }
 
       if (!product.isActive) {
-        return jsonError(
-          "Selected product is inactive.",
-          400,
-        );
+        return jsonError("Selected product is inactive.", 400);
       }
 
       const existingItem = existing.items.find(
@@ -521,12 +527,7 @@ export async function PATCH(
       ];
     }
 
-    // Komposisi dan jumlah produk tidak boleh berubah
-    // jika SPK sudah memiliki transaksi.
-    if (
-      items !== undefined &&
-      existing._count.transactions > 0
-    ) {
+    if (items !== undefined && existing._count.transactions > 0) {
       const existingItems = existing.items
         .map((item) => ({
           productId: item.productId,
@@ -611,9 +612,7 @@ export async function PATCH(
                   },
                 },
               },
-              orderBy: {
-                id: "asc",
-              },
+              orderBy: { id: "asc" },
             },
             tailor: {
               select: {
@@ -622,9 +621,7 @@ export async function PATCH(
               },
             },
             _count: {
-              select: {
-                transactions: true,
-              },
+              select: { transactions: true },
             },
           },
         });
@@ -665,7 +662,9 @@ export async function PATCH(
 
 /**
  * DELETE /api/spks/[id]
- * Soft delete SPK milik perusahaan user yang login.
+ * Soft delete SPK.
+ * Super Admin dapat menghapus SPK lintas perusahaan.
+ * User biasa hanya dapat menghapus SPK perusahaannya.
  */
 export async function DELETE(
   _request: NextRequest,
@@ -684,12 +683,12 @@ export async function DELETE(
       return jsonError("Invalid SPK ID.", 400);
     }
 
-    const companyId = auth.user.companyId!;
-
     const existing = await prisma.sPK.findFirst({
       where: {
         id: spkId,
-        companyId,
+        ...(auth.isSuperAdmin
+          ? {}
+          : { companyId: auth.user.companyId! }),
         deletedAt: null,
       },
       select: {
@@ -705,6 +704,9 @@ export async function DELETE(
         404,
       );
     }
+
+    // Gunakan companyId dari SPK, bukan dari request.
+    const companyId = existing.companyId;
 
     await prisma.$transaction(async (tx) => {
       const result = await tx.sPK.updateMany({

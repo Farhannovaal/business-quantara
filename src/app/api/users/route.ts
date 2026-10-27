@@ -1,3 +1,4 @@
+
 import { NextRequest, NextResponse } from "next/server";
 
 import { requireAuth } from "@/lib/auth/require-auth";
@@ -40,8 +41,8 @@ function isPrismaUniqueError(
 }
 
 /**
- * Superadmin dikenali berdasarkan nama role persis "Superadmin".
- * Identitas role diambil kembali dari database.
+ * Identifikasi Super Admin dari database.
+ * Perbandingan nama role tidak sensitif kapitalisasi.
  */
 async function isSuperAdmin(userId: number): Promise<boolean> {
   const currentUser = await prisma.user.findUnique({
@@ -55,9 +56,12 @@ async function isSuperAdmin(userId: number): Promise<boolean> {
     },
   });
 
-  return currentUser?.role?.name === "Superadmin";
+  return currentUser?.role?.name?.toLowerCase() === "superadmin";
 }
 
+/**
+ * GET: mengambil pengguna sesuai cakupan akses.
+ */
 export async function GET() {
   const { user, response } = await requireAuth();
 
@@ -181,6 +185,11 @@ export async function GET() {
   }
 }
 
+/**
+ * POST: membuat pengguna baru.
+ * Super Admin memilih perusahaan tujuan.
+ * User biasa selalu menggunakan companyId miliknya sendiri.
+ */
 export async function POST(request: NextRequest) {
   const { user, response } = await requireAuth();
 
@@ -234,10 +243,7 @@ export async function POST(request: NextRequest) {
     const roleId = parsePositiveInteger(input.roleId);
     const status = input.status ?? "ACTIVE";
 
-    /*
-     * Superadmin wajib memilih perusahaan tujuan.
-     * User biasa tidak dapat menentukan companyId sendiri.
-     */
+    // Tentukan perusahaan tujuan dari role pengguna.
     let targetCompanyId: number;
 
     if (superAdmin) {
@@ -314,9 +320,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    /*
-     * Pastikan perusahaan tujuan benar-benar tersedia.
-     */
+    // Pastikan perusahaan tujuan tersedia dan aktif.
     const company = await prisma.company.findUnique({
       where: {
         id: targetCompanyId,
@@ -348,10 +352,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    /*
-     * Role harus berasal dari perusahaan tujuan.
-     * Role global (companyId = null) tidak diperbolehkan.
-     */
+    // Role wajib berasal dari perusahaan tujuan.
+    // Role global tidak diperbolehkan untuk akun perusahaan.
     const role = await prisma.role.findFirst({
       where: {
         id: roleId,
@@ -373,9 +375,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    /*
-     * Email unik secara global sesuai Prisma schema.
-     */
+    // Cegah pemberian role Super Admin kepada akun baru.
+    if (role.name.toLowerCase() === "superadmin") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Role Super Admin tidak dapat diberikan melalui form ini.",
+        },
+        { status: 403 },
+      );
+    }
+
+    // Email harus unik secara global.
     const existingUser = await prisma.user.findUnique({
       where: {
         email,

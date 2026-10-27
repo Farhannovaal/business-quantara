@@ -1,3 +1,4 @@
+
 import { NextRequest, NextResponse } from "next/server";
 
 import { requirePermission } from "@/lib/auth/authorization";
@@ -38,7 +39,7 @@ async function isSuperAdmin(userId: number): Promise<boolean> {
     },
   });
 
-  return currentUser?.role?.name === "Superadmin";
+  return currentUser?.role?.name?.toLowerCase() === "superadmin";
 }
 
 /**
@@ -126,7 +127,7 @@ export async function GET(request: NextRequest) {
       where: {
         ...where,
 
-        // Tenant biasa hanya dapat membaca transaksi perusahaannya.
+        // User biasa hanya dapat membaca transaksi perusahaannya.
         ...(superAdmin ? {} : { companyId: user.companyId! }),
 
         // Jangan tampilkan transaksi yang SPK-nya sudah dihapus.
@@ -252,8 +253,8 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * POST: membuat transaksi dengan companyId yang ditentukan
- * berdasarkan SPK, bukan berdasarkan input dari client.
+ * POST: membuat transaksi dengan companyId berdasarkan SPK,
+ * bukan berdasarkan input dari client.
  */
 export async function POST(request: NextRequest) {
   const { user, response } = await requireAuth();
@@ -357,7 +358,7 @@ export async function POST(request: NextRequest) {
 
     const results = await prisma.$transaction(
       async (tx) => {
-        // Batasi pencarian SPK untuk tenant biasa.
+        // Batasi pencarian SPK untuk user biasa.
         const spk = await tx.sPK.findFirst({
           where: {
             id: spkId,
@@ -389,6 +390,7 @@ export async function POST(request: NextRequest) {
           );
         }
 
+        // Jenis transaksi harus berasal dari perusahaan SPK.
         const transactionType =
           await tx.transactionType.findFirst({
             where: {
@@ -441,8 +443,8 @@ export async function POST(request: NextRequest) {
             createdById: user.id,
           });
 
-          // Engine harus memvalidasi bahwa produk, tailor,
-          // karyawan, dan jenis transaksi cocok dengan companyId SPK.
+          // Engine harus memastikan produk, tailor, karyawan,
+          // dan jenis transaksi sesuai dengan companyId SPK.
           // companyId tidak diterima dari client.
           if (transaction.companyId !== spk.companyId) {
             throw new TransactionEngineError(

@@ -6,6 +6,12 @@ import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
+function isSuperAdmin(user: {
+  role?: { name?: string | null } | null;
+}) {
+  return user.role?.name?.toLowerCase() === "superadmin";
+}
+
 export async function GET() {
   const { user, response } = await requireAuth();
 
@@ -15,7 +21,9 @@ export async function GET() {
 
   if (permission.response) return permission.response;
 
-  if (user.companyId == null) {
+  const superAdmin = isSuperAdmin(user);
+
+  if (!superAdmin && user.companyId == null) {
     return NextResponse.json(
       {
         success: false,
@@ -48,7 +56,10 @@ export async function GET() {
       ["PETUNJUK IMPORT MASTER DATA PRODUCT"],
       [""],
       ["Kolom", "Keterangan"],
-      ["Code", "Wajib diisi, maksimal 100 karakter, harus unik dalam perusahaan."],
+      [
+        "Code",
+        "Wajib diisi, maksimal 100 karakter, harus unik dalam perusahaan tujuan.",
+      ],
       ["Name", "Wajib diisi, maksimal 255 karakter."],
       [
         "Is Active",
@@ -58,10 +69,15 @@ export async function GET() {
       ["ATURAN IMPORT"],
       ["1", "Isi data pada sheet Products, mulai dari baris kedua."],
       ["2", "Jangan mengubah nama header."],
-      ["3", "Code yang sudah terdaftar dalam perusahaan akan dilewati."],
+      ["3", "Code yang sudah terdaftar dalam perusahaan tujuan akan dilewati."],
       ["4", "Code duplikat di dalam file akan ditandai sebagai error."],
       ["5", "Import hanya menambah data baru, tidak memperbarui data lama."],
-      ["6", "Data akan diimpor ke perusahaan dari akun yang sedang login."],
+      [
+        "6",
+        superAdmin
+          ? "Super Admin harus memilih perusahaan tujuan pada form import."
+          : "Data diimpor ke perusahaan yang terhubung dengan akun yang sedang login.",
+      ],
       ["7", "Simpan file sebagai Excel Workbook (.xlsx)."],
     ]);
 

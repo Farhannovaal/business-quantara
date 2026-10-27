@@ -1,7 +1,14 @@
+
 import { NextResponse } from "next/server";
 import { requirePermission } from "@/lib/auth/authorization";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { prisma } from "@/lib/prisma";
+
+function isSuperAdmin(user: {
+  role?: { name?: string | null } | null;
+}) {
+  return user.role?.name?.toLowerCase() === "superadmin";
+}
 
 export async function GET() {
   const { user, response } = await requireAuth();
@@ -11,7 +18,9 @@ export async function GET() {
   const permission = requirePermission(user, "tailor.view");
   if (permission.response) return permission.response;
 
-  if (user.companyId == null) {
+  const superAdmin = isSuperAdmin(user);
+
+  if (!superAdmin && user.companyId == null) {
     return NextResponse.json(
       {
         success: false,
@@ -23,9 +32,9 @@ export async function GET() {
 
   try {
     const tailors = await prisma.tailor.findMany({
-      where: {
-        companyId: user.companyId,
-      },
+      where: superAdmin
+        ? {}
+        : { companyId: user.companyId! },
       orderBy: {
         createdAt: "desc",
       },
@@ -56,7 +65,9 @@ export async function POST(request: Request) {
   const permission = requirePermission(user, "tailor.manage");
   if (permission.response) return permission.response;
 
-  if (user.companyId == null) {
+  const superAdmin = isSuperAdmin(user);
+
+  if (!superAdmin && user.companyId == null) {
     return NextResponse.json(
       {
         success: false,
@@ -69,8 +80,38 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    const name = String(body.name ?? "").trim();
-    const isActive = body.isActive !== false;
+    if (
+      body === null ||
+      typeof body !== "object" ||
+      Array.isArray(body)
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid request body",
+        },
+        { status: 400 },
+      );
+    }
+
+    const name =
+      typeof body.name === "string" ? body.name.trim() : "";
+
+    let isActive = true;
+
+    if (body.isActive !== undefined) {
+      if (typeof body.isActive !== "boolean") {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "isActive must be a boolean",
+          },
+          { status: 400 },
+        );
+      }
+
+      isActive = body.isActive;
+    }
 
     if (!name) {
       return NextResponse.json(
@@ -82,12 +123,56 @@ export async function POST(request: Request) {
       );
     }
 
+    let companyId: number;
+
+    if (superAdmin) {
+      const requestedCompanyId = Number(body.companyId);
+
+      if (
+        body.companyId === undefined ||
+        body.companyId === null ||
+        body.companyId === "" ||
+        !Number.isInteger(requestedCompanyId) ||
+        requestedCompanyId <= 0
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Super Admin harus memilih perusahaan yang valid.",
+          },
+          { status: 400 },
+        );
+      }
+
+      companyId = requestedCompanyId;
+
+      const company = await prisma.company.findUnique({
+        where: { id: companyId },
+        select: { id: true },
+      });
+
+      if (!company) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Perusahaan tidak ditemukan.",
+          },
+          { status: 404 },
+        );
+      }
+    } else {
+      companyId = user.companyId!;
+    }
+
     const existingTailor = await prisma.tailor.findUnique({
       where: {
         companyId_name: {
-          companyId: user.companyId,
+          companyId,
           name,
         },
+      },
+      select: {
+        id: true,
       },
     });
 
@@ -103,7 +188,7 @@ export async function POST(request: Request) {
 
     const tailor = await prisma.tailor.create({
       data: {
-        companyId: user.companyId,
+        companyId,
         name,
         isActive,
       },

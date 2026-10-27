@@ -64,7 +64,7 @@ export default function PermissionGate({
          * Administrator memiliki seluruh permission.
          */
         if (
-          roleName === "administrator"
+          roleName === "administrator" || roleName === "superadmin"
         ) {
           if (!cancelled) {
             setAllowed(true);

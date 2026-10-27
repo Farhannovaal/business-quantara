@@ -4,6 +4,12 @@ import { requirePermission } from "@/lib/auth/authorization";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { prisma } from "@/lib/prisma";
 
+function isSuperAdmin(user: {
+  role?: { name?: string | null } | null;
+}) {
+  return user.role?.name?.toLowerCase() === "superadmin";
+}
+
 export async function GET() {
   const { user, response } = await requireAuth();
 
@@ -12,7 +18,9 @@ export async function GET() {
   const permission = requirePermission(user, "product.view");
   if (permission.response) return permission.response;
 
-  if (user.companyId == null) {
+  const superAdmin = isSuperAdmin(user);
+
+  if (!superAdmin && user.companyId == null) {
     return NextResponse.json(
       {
         success: false,
@@ -24,9 +32,9 @@ export async function GET() {
 
   try {
     const products = await prisma.product.findMany({
-      where: {
-        companyId: user.companyId,
-      },
+      where: superAdmin
+        ? {}
+        : { companyId: user.companyId! },
       orderBy: {
         createdAt: "desc",
       },
@@ -57,7 +65,9 @@ export async function POST(request: Request) {
   const permission = requirePermission(user, "product.manage");
   if (permission.response) return permission.response;
 
-  if (user.companyId == null) {
+  const superAdmin = isSuperAdmin(user);
+
+  if (!superAdmin && user.companyId == null) {
     return NextResponse.json(
       {
         success: false,
@@ -100,6 +110,16 @@ export async function POST(request: Request) {
     const code = body.code.trim();
     const name = body.name.trim();
 
+    if (!code || !name) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Product code and name are required",
+        },
+        { status: 400 },
+      );
+    }
+
     let isActive = true;
 
     if (body.isActive !== undefined) {
@@ -116,20 +136,46 @@ export async function POST(request: Request) {
       isActive = body.isActive;
     }
 
-    if (!code || !name) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Product code and name are required",
-        },
-        { status: 400 },
-      );
+    let companyId: number;
+
+    if (superAdmin) {
+      if (
+        typeof body.companyId !== "string" ||
+        !body.companyId.trim()
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Super Admin harus memilih perusahaan.",
+          },
+          { status: 400 },
+        );
+      }
+
+      companyId = body.companyId.trim();
+
+      const company = await prisma.company.findUnique({
+        where: { id: companyId },
+        select: { id: true },
+      });
+
+      if (!company) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Perusahaan tidak ditemukan.",
+          },
+          { status: 404 },
+        );
+      }
+    } else {
+      companyId = user.companyId!;
     }
 
     const existingProduct = await prisma.product.findUnique({
       where: {
         companyId_code: {
-          companyId: user.companyId,
+          companyId,
           code,
         },
       },
@@ -150,7 +196,7 @@ export async function POST(request: Request) {
 
     const product = await prisma.product.create({
       data: {
-        companyId: user.companyId,
+        companyId,
         code,
         name,
         isActive,

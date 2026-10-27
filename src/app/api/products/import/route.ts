@@ -17,11 +17,17 @@ function jsonError(error: string, status: number) {
   );
 }
 
+function isSuperAdmin(user: {
+  role?: { name?: string | null } | null;
+}) {
+  return user.role?.name?.toLowerCase() === "superadmin";
+}
+
 function normalizeHeader(value: unknown): string {
   return String(value ?? "")
     .trim()
     .toLowerCase()
-    .replace(/[\s\_-]+/g, "");
+    .replace(/[\s\\_-]+/g, "");
 }
 
 function parseActive(value: unknown): boolean | null {
@@ -53,7 +59,9 @@ export async function POST(request: Request) {
 
   if (permission.response) return permission.response;
 
-  if (user.companyId == null) {
+  const superAdmin = isSuperAdmin(user);
+
+  if (!superAdmin && user.companyId == null) {
     return jsonError(
       "User belum terhubung dengan perusahaan.",
       403,
@@ -77,6 +85,39 @@ export async function POST(request: Request) {
         "Ukuran file harus lebih dari 0 dan maksimal 5 MB",
         400,
       );
+    }
+
+    // Tentukan perusahaan tujuan import.
+    let companyId: number;
+
+    if (superAdmin) {
+      const rawCompanyId = formData.get("companyId");
+      const requestedCompanyId = Number(rawCompanyId);
+
+      if (
+        rawCompanyId === null ||
+        rawCompanyId === "" ||
+        !Number.isSafeInteger(requestedCompanyId) ||
+        requestedCompanyId <= 0
+      ) {
+        return jsonError(
+          "Super Admin harus memilih perusahaan yang valid.",
+          400,
+        );
+      }
+
+      companyId = requestedCompanyId;
+
+      const company = await prisma.company.findUnique({
+        where: { id: companyId },
+        select: { id: true },
+      });
+
+      if (!company) {
+        return jsonError("Perusahaan tidak ditemukan.", 404);
+      }
+    } else {
+      companyId = user.companyId!;
     }
 
     const bytes = await file.arrayBuffer();
@@ -192,7 +233,7 @@ export async function POST(request: Request) {
         return;
       }
 
-      // Mencegah duplikat kode dalam file Excel.
+      // Cegah duplikat kode dalam file Excel.
       const key = code.toLowerCase();
 
       if (seenCodes.has(key)) {
@@ -228,10 +269,10 @@ export async function POST(request: Request) {
       });
     }
 
-    // Periksa kode yang sudah ada HANYA dalam perusahaan user.
+    // Periksa kode yang sudah ada pada perusahaan tujuan.
     const existingProducts = await prisma.product.findMany({
       where: {
-        companyId: user.companyId,
+        companyId,
         code: {
           in: candidates.map((item) => item.code),
         },
@@ -274,10 +315,10 @@ export async function POST(request: Request) {
       });
     }
 
-    // Semua produk baru harus terikat ke perusahaan user.
+    // Semua produk diikat ke perusahaan tujuan.
     const result = await prisma.product.createMany({
       data: newProducts.map(({ code, name, isActive }) => ({
-        companyId: user.companyId!,
+        companyId,
         code,
         name,
         isActive,
@@ -285,13 +326,15 @@ export async function POST(request: Request) {
       skipDuplicates: true,
     });
 
+    const skippedOrFailed = dataRows.length - result.count;
+
     return NextResponse.json({
       success: true,
       message: "Import selesai",
       data: {
         totalRows: dataRows.length,
         imported: result.count,
-        skippedOrFailed: dataRows.length - result.count,
+        skippedOrFailed,
         errors: errors.slice(0, 200),
         errorsTruncated: errors.length > 200,
       },

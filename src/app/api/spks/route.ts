@@ -12,10 +12,7 @@ type SPKItemInput = {
 
 function jsonError(message: string, status: number) {
   return NextResponse.json(
-    {
-      success: false,
-      error: message,
-    },
+    { success: false, error: message },
     { status },
   );
 }
@@ -30,13 +27,17 @@ function isObject(
   );
 }
 
-function isPrismaUniqueError(
-  error: unknown,
-): boolean {
+function isPrismaUniqueError(error: unknown): boolean {
   return (
     error instanceof Prisma.PrismaClientKnownRequestError &&
     error.code === "P2002"
   );
+}
+
+function isSuperAdmin(user: {
+  role?: { name?: string | null } | null;
+}) {
+  return user.role?.name?.toLowerCase() === "superadmin";
 }
 
 export async function GET(request: NextRequest) {
@@ -52,7 +53,9 @@ export async function GET(request: NextRequest) {
     return permission.response;
   }
 
-  if (user.companyId == null) {
+  const superAdmin = isSuperAdmin(user);
+
+  if (!superAdmin && user.companyId == null) {
     return jsonError(
       "User belum terhubung dengan perusahaan.",
       403,
@@ -61,16 +64,12 @@ export async function GET(request: NextRequest) {
 
   try {
     const { searchParams } = new URL(request.url);
-
     const search = searchParams.get("search")?.trim() || "";
     const rawStatus = searchParams.get("status")?.trim() || "";
 
     const validStatuses = Object.values(SPKStatus) as string[];
 
-    if (
-      rawStatus &&
-      !validStatuses.includes(rawStatus)
-    ) {
+    if (rawStatus && !validStatuses.includes(rawStatus)) {
       return jsonError("Invalid SPK status filter.", 400);
     }
 
@@ -80,24 +79,23 @@ export async function GET(request: NextRequest) {
 
     const spks = await prisma.sPK.findMany({
       where: {
-        companyId: user.companyId,
+        ...(superAdmin
+          ? {}
+          : { companyId: user.companyId! }),
+
         deletedAt: null,
 
         ...(search
           ? {
               OR: [
                 {
-                  spkNumber: {
-                    contains: search,
-                  },
+                  spkNumber: { contains: search },
                 },
                 {
                   items: {
                     some: {
                       product: {
-                        name: {
-                          contains: search,
-                        },
+                        name: { contains: search },
                       },
                     },
                   },
@@ -106,18 +104,14 @@ export async function GET(request: NextRequest) {
                   items: {
                     some: {
                       product: {
-                        code: {
-                          contains: search,
-                        },
+                        code: { contains: search },
                       },
                     },
                   },
                 },
                 {
                   tailor: {
-                    name: {
-                      contains: search,
-                    },
+                    name: { contains: search },
                   },
                 },
               ],
@@ -138,9 +132,7 @@ export async function GET(request: NextRequest) {
               },
             },
           },
-          orderBy: {
-            id: "asc",
-          },
+          orderBy: { id: "asc" },
         },
 
         tailor: {
@@ -157,9 +149,7 @@ export async function GET(request: NextRequest) {
         },
       },
 
-      orderBy: {
-        createdAt: "desc",
-      },
+      orderBy: { createdAt: "desc" },
     });
 
     return NextResponse.json({
@@ -168,7 +158,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("GET SPKs error:", error);
-
     return jsonError("Failed to load SPKs.", 500);
   }
 }
@@ -186,7 +175,9 @@ export async function POST(request: NextRequest) {
     return permission.response;
   }
 
-  if (user.companyId == null) {
+  const superAdmin = isSuperAdmin(user);
+
+  if (!superAdmin && user.companyId == null) {
     return jsonError(
       "User belum terhubung dengan perusahaan.",
       403,
@@ -248,10 +239,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      items.push({
-        productId,
-        quantity,
-      });
+      items.push({ productId, quantity });
     }
 
     const productIds = items.map((item) => item.productId);
@@ -263,7 +251,44 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const companyId = user.companyId;
+    // User biasa selalu menggunakan perusahaan dari sesi.
+    // Super Admin wajib memilih perusahaan tujuan.
+    let companyId: number;
+
+    if (superAdmin) {
+      if (
+        body.companyId == null ||
+        body.companyId === ""
+      ) {
+        return jsonError(
+          "Super Admin must select a company.",
+          400,
+        );
+      }
+
+      const requestedCompanyId = Number(body.companyId);
+
+      if (
+        !Number.isSafeInteger(requestedCompanyId) ||
+        requestedCompanyId <= 0
+      ) {
+        return jsonError("Invalid companyId.", 400);
+      }
+
+      companyId = requestedCompanyId;
+    } else {
+      companyId = user.companyId!;
+    }
+
+    // Pastikan perusahaan tujuan benar-benar tersedia.
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      select: { id: true },
+    });
+
+    if (!company) {
+      return jsonError("Company not found.", 404);
+    }
 
     const [existingSPK, tailor, products] = await Promise.all([
       prisma.sPK.findUnique({
@@ -273,9 +298,7 @@ export async function POST(request: NextRequest) {
             spkNumber,
           },
         },
-        select: {
-          id: true,
-        },
+        select: { id: true },
       }),
 
       prisma.tailor.findUnique({
@@ -295,9 +318,7 @@ export async function POST(request: NextRequest) {
       prisma.product.findMany({
         where: {
           companyId,
-          id: {
-            in: productIds,
-          },
+          id: { in: productIds },
         },
         select: {
           id: true,
@@ -388,9 +409,7 @@ export async function POST(request: NextRequest) {
               },
             },
           },
-          orderBy: {
-            id: "asc",
-          },
+          orderBy: { id: "asc" },
         },
 
         tailor: {
@@ -415,7 +434,6 @@ export async function POST(request: NextRequest) {
     }
 
     console.error("POST SPK error:", error);
-
     return jsonError("Failed to create SPK.", 500);
   }
 }
