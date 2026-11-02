@@ -24,6 +24,17 @@ export async function getAuthenticatedUser() {
           },
         },
       },
+      permissionOverrides: {
+        include: {
+          permission: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+            },
+          },
+        },
+      },
     },
   });
 
@@ -45,9 +56,7 @@ export async function requireAuth() {
           success: false,
           error: "Unauthorized",
         },
-        {
-          status: 401,
-        }
+        { status: 401 },
       ),
     };
   }

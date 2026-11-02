@@ -16,6 +16,39 @@ enum CompanyStatus {
   SUSPENDED
 }
 
+enum NotificationChannel {
+  TELEGRAM
+  EMAIL
+}
+
+enum NotificationTrigger {
+  SCHEDULED
+  EVENT
+}
+
+enum NotificationScheduleType {
+  INTERVAL
+  DAILY
+}
+
+enum NotificationIntervalUnit {
+  MINUTES
+  HOURS
+}
+
+enum NotificationJobStatus {
+  PENDING
+  PROCESSING
+  SENT
+  FAILED
+  DEAD
+}
+
+enum NotificationDeliveryStatus {
+  SUCCESS
+  FAILED
+}
+
 model Company {
   id        Int           @id @default(autoincrement())
   name      String        @db.VarChar(200)
@@ -39,6 +72,7 @@ model Company {
   scannedDocuments ScannedDocument[]
   tailorRates      TailorRate[]
   tailorBills      TailorBill[]
+  notificationConfigs NotificationConfig[]
 
   @@index([status])
 }
@@ -87,6 +121,8 @@ model User {
   cancelledTransactions Transaction[]     @relation("TransactionCancelledBy")
   tailorBills           TailorBill[]      @relation("TailorBillCreatedBy")
   deletedSPKs           SPK[]             @relation("SPKDeletedBy")
+  createdNotificationConfigs NotificationConfig[]
+  permissionOverrides UserPermissionOverride[]
 
   @@index([companyId])
   @@index([companyId, status])
@@ -119,6 +155,7 @@ model Permission {
   updatedAt   DateTime @updatedAt
 
   roles RolePermission[]
+  userOverrides UserPermissionOverride[]
 }
 
 model RolePermission {
@@ -571,4 +608,103 @@ model TailorBillItem {
   @@index([billId])
   @@index([spkId])
   @@index([productId])
+}
+
+
+model NotificationConfig {
+  id            Int                      @id @default(autoincrement())
+  companyId     Int
+  name          String                   @db.VarChar(150)
+  channel       NotificationChannel
+  trigger       NotificationTrigger
+  scheduleType  NotificationScheduleType?
+  intervalValue Int?
+  intervalUnit  NotificationIntervalUnit?
+  dailyTime     String?                  @db.VarChar(5)
+  timezone      String                   @default("Asia/Jakarta") @db.VarChar(60)
+  eventName     String?                  @db.VarChar(100)
+  recipient     Json
+  template      String                   @db.Text
+  isActive      Boolean                  @default(true)
+  nextRunAt     DateTime?
+  lastRunAt     DateTime?
+  createdById   Int?
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  createdBy User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  jobs      NotificationJob[]
+  logs      NotificationDeliveryLog[]
+
+  @@index([companyId, isActive])
+  @@index([isActive, nextRunAt])
+  @@index([companyId, trigger, eventName])
+}
+
+model NotificationJob {
+  id          Int                  @id @default(autoincrement())
+  configId    Int
+  eventKey    String?              @db.VarChar(191)
+  payload     Json
+  status      NotificationJobStatus @default(PENDING)
+  attempts    Int                  @default(0)
+  maxAttempts Int                  @default(5)
+  availableAt DateTime             @default(now())
+  lockedAt    DateTime?
+  lockedBy    String?              @db.VarChar(100)
+  lastError   String?              @db.Text
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  config NotificationConfig       @relation(fields: [configId], references: [id], onDelete: Restrict)
+  logs   NotificationDeliveryLog[]
+
+  @@unique([configId, eventKey])
+  @@index([status, availableAt])
+  @@index([configId, createdAt])
+  @@index([status, lockedAt])
+}
+
+model NotificationDeliveryLog {
+  id           Int                      @id @default(autoincrement())
+  configId     Int
+  jobId        Int?
+  channel      NotificationChannel
+  recipient    String                   @db.VarChar(255)
+  status       NotificationDeliveryStatus
+  providerId   String?                  @db.VarChar(255)
+  errorMessage String?                  @db.Text
+  attempt      Int                      @default(1)
+  sentAt       DateTime?
+  createdAt    DateTime                 @default(now())
+
+  config NotificationConfig @relation(fields: [configId], references: [id], onDelete: Restrict)
+  job    NotificationJob?   @relation(fields: [jobId], references: [id], onDelete: SetNull)
+
+  @@index([configId, createdAt])
+  @@index([jobId])
+  @@index([status, createdAt])
+}
+
+enum PermissionOverrideEffect {
+  GRANT
+  DENY
+}
+
+model UserPermissionOverride {
+  id           Int                      @id @default(autoincrement())
+  userId       Int
+  permissionId Int
+  effect       PermissionOverrideEffect
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, permissionId])
+  @@index([permissionId])
+  @@index([userId, effect])
 }

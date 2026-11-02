@@ -1,6 +1,7 @@
 
 import { NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/auth/require-auth";
+import { getEffectivePermissions } from "@/lib/auth/authorization";
 
 export async function GET() {
   try {
@@ -13,18 +14,12 @@ export async function GET() {
           authenticated: false,
           error: "Unauthorized",
         },
-        {
-          status: 401,
-        }
+        { status: 401 },
       );
     }
 
     const isSuperAdmin = user.role?.name === "Superadmin";
-
-    const permissions =
-      user.role?.permissions?.map(
-        (rolePermission) => rolePermission.permission.code
-      ) ?? [];
+    const permissions = getEffectivePermissions(user);
 
     return NextResponse.json(
       {
@@ -35,21 +30,17 @@ export async function GET() {
           name: user.name,
           email: user.email,
           status: user.status,
-
           role: user.role
             ? {
                 id: user.role.id,
                 name: user.role.name,
               }
             : null,
-
           isSuperAdmin,
           permissions,
         },
       },
-      {
-        status: 200,
-      }
+      { status: 200 },
     );
   } catch (error) {
     console.error("GET /api/auth/me error:", error);
@@ -60,9 +51,7 @@ export async function GET() {
         authenticated: false,
         error: "Failed to get authenticated user",
       },
-      {
-        status: 500,
-      }
+      { status: 500 },
     );
   }
 }

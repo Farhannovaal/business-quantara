@@ -12,6 +12,20 @@ services:
     networks:
       - quantara-network
 
+  notification-worker:
+    container_name: notification-worker
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    command: ["node", "scripts/notification-worker.mjs"]
+    env_file:
+      - .env
+    networks:
+      - quantara-network
+    depends_on:
+      - business-operation
+
 networks:
   quantara-network:
     external: true
