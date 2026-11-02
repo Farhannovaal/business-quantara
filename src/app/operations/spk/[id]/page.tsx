@@ -21,7 +21,8 @@ import {
   Loader2,
 
   ArrowRight,
-
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 type Transaction = {
@@ -167,6 +168,9 @@ export default function SPKDetailPage() {
   const [loading, setLoading] = useState(true);
 
   const [error, setError] = useState("");
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyPageSize, setHistoryPageSize] = useState(10);
+  const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
 
   async function loadSpk() {
 
@@ -220,6 +224,24 @@ export default function SPKDetailPage() {
 
     }
 
+  }, [id]);
+
+  useEffect(() => {
+    if (!spk) return;
+
+    setSelectedProductId((current) => {
+      const stillExists = spk.items.some((item) => item.productId === current);
+      return stillExists ? current : (spk.items[0]?.productId ?? null);
+    });
+  }, [spk]);
+
+  const selectedProductSummary =
+    spk?.productSummaries.find(
+      (item) => item.productId === selectedProductId,
+    ) ?? null;
+
+  useEffect(() => {
+    setHistoryPage(1);
   }, [id]);
 
   function getStatusStyle(status: SPKDetail["status"]) {
@@ -287,6 +309,28 @@ export default function SPKDetailPage() {
     return labels[code] || code;
 
   }
+
+  const historyTransactions = spk
+    ? [...spk.transactions].sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime() ||
+          b.id - a.id,
+      )
+    : [];
+
+  const historyTotal = historyTransactions.length;
+  const historyTotalPages = Math.max(
+    1,
+    Math.ceil(historyTotal / historyPageSize),
+  );
+  const historyStart =
+    historyTotal === 0 ? 0 : (historyPage - 1) * historyPageSize + 1;
+  const historyEnd = Math.min(historyPage * historyPageSize, historyTotal);
+  const paginatedHistory = historyTransactions.slice(
+    (historyPage - 1) * historyPageSize,
+    historyPage * historyPageSize,
+  );
+
 
   if (loading) {
 
@@ -422,77 +466,65 @@ export default function SPKDetailPage() {
 
         </div>
 
-        <div className="mb-6 grid gap-4 md:grid-cols-3">
+        <div className="mb-6 grid items-start gap-4 md:grid-cols-3">
 
-          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm md:col-span-1">
+          <div className="h-fit min-w-0 rounded-2xl border border-border bg-card p-5 shadow-sm">
 
-            <div className="mb-3 flex items-center gap-2 text-sm font-medium text-muted-foreground">
-
-              <Package size={17} />
-
-              Products
-
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <Package size={17} />
+                Products
+              </div>
+              <span className="rounded-full border border-border bg-muted px-2.5 py-1 text-xs font-semibold tabular-nums text-foreground">
+                {formatNumber(spk.items.length)}
+              </span>
             </div>
 
-            <div className="space-y-3">
-
-              {spk.items.length === 0 ? (
-
-                <div className="text-sm text-muted-foreground">
-
-                  Tidak ada product.
-
-                </div>
-
-              ) : (
-
-                spk.items.map((item) => (
-
-                  <div
-
+            {spk.items.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-sm text-muted-foreground">
+                Tidak ada product.
+              </div>
+            ) : (
+              <div className="grid max-h-[360px] grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2 md:grid-cols-1 lg:grid-cols-2">
+                {spk.items.map((item) => (
+                  <button
                     key={item.id}
-
-                    className="rounded-lg border border-border/70 bg-muted px-3 py-2.5"
-
+                    type="button"
+                    aria-pressed={selectedProductId === item.productId}
+                    onClick={() => setSelectedProductId(item.productId)}
+                    className={`min-w-0 rounded-lg border px-3 py-2.5 text-left transition-colors focus:outline-none focus:ring-2 focus:ring-rose-500/40 ${
+                      selectedProductId === item.productId
+                        ? "border-rose-500/60 bg-rose-500/10 ring-1 ring-rose-500/20"
+                        : "border-border/70 bg-muted hover:border-rose-300/60"
+                    }`}
                   >
-
-                    <div className="flex items-center justify-between gap-3">
-
+                    <div className="flex items-center justify-between gap-2">
                       <div className="min-w-0">
-
-                        <div className="truncate font-semibold text-foreground">
-
+                        <div className="truncate text-sm font-semibold text-foreground">
                           {item.product.name}
-
                         </div>
-
-                        <div className="mt-0.5 text-xs text-muted-foreground">
-
+                        <div className="mt-0.5 truncate text-xs text-muted-foreground">
                           {item.product.code}
-
                         </div>
-
                       </div>
-
-                      <span className="shrink-0 rounded-full bg-card px-2.5 py-1 text-xs font-semibold text-foreground ring-1 ring-white/10">
-
+                      <span className="shrink-0 rounded-full border border-border bg-card px-2 py-1 text-[11px] font-semibold tabular-nums text-foreground">
                         {formatNumber(item.quantity)} pcs
-
                       </span>
-
                     </div>
+                  </button>
+                ))}
+              </div>
+            )}
 
-                  </div>
-
-                ))
-
-              )}
-
-            </div>
+            {spk.items.length > 8 && (
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Gulir daftar untuk melihat seluruh {formatNumber(spk.items.length)} produk.
+              </p>
+            )}
 
           </div>
 
-          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <div className="h-fit min-w-0 rounded-2xl border border-border bg-card p-5 shadow-sm">
 
             <div className="mb-3 flex items-center gap-2 text-sm font-medium text-muted-foreground">
 
@@ -516,7 +548,7 @@ export default function SPKDetailPage() {
 
           </div>
 
-          <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+          <div className="h-fit min-w-0 rounded-2xl border border-border bg-card p-5 shadow-sm">
 
             <div className="mb-3 flex items-center gap-2 text-sm font-medium text-muted-foreground">
 
@@ -528,7 +560,7 @@ export default function SPKDetailPage() {
 
             <div className="font-semibold text-foreground">
 
-              {spk.transactions.length}
+              {historyTotal}
 
             </div>
 
@@ -636,192 +668,114 @@ export default function SPKDetailPage() {
 
         </div>
 
-        <div className="mb-6 rounded-xl border border-border bg-card shadow-sm">
+        <div className="mb-6 overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+          <div className="flex flex-col gap-2 border-b border-border px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="font-semibold text-foreground">
+                Product Production Summary
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Pilih produk pada bagian Products untuk melihat progress produksinya.
+              </p>
+            </div>
 
-          <div className="border-b border-border px-5 py-4">
-
-            <h2 className="font-semibold text-foreground">
-
-              Product Production Summary
-
-            </h2>
-
-            <p className="mt-1 text-sm text-muted-foreground">
-
-              Production state dan next process untuk setiap product dalam SPK.
-
-            </p>
-
+            {selectedProductSummary && (
+              <span className="w-fit rounded-full border border-rose-500/20 bg-rose-500/10 px-3 py-1 text-xs font-semibold text-rose-700 dark:text-rose-300">
+                {selectedProductSummary.product.name}
+              </span>
+            )}
           </div>
 
-          <div className="divide-y divide-border">
-
-            {spk.productSummaries.length === 0 ? (
-
-              <div className="px-5 py-6 text-sm text-muted-foreground">
-
-                Tidak ada product summary.
-
-              </div>
-
-            ) : (
-
-              spk.productSummaries.map((item) => (
-
-                <div key={item.productId} className="p-5">
-
-                  <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-
-                    <div>
-
-                      <div className="font-semibold text-foreground">
-
-                        {item.product.name}
-
-                      </div>
-
-                      <div className="mt-0.5 text-xs text-muted-foreground">
-
-                        {item.product.code}
-
-                      </div>
-
-                    </div>
-
-                    <span className="w-fit rounded-full bg-muted px-3 py-1 text-xs font-semibold text-foreground ring-1 ring-white/10">
-
-                      Qty SPK: {formatNumber(item.quantity)} pcs
-
-                    </span>
-
+          {!selectedProductSummary ? (
+            <div className="px-5 py-10 text-center">
+              <Package className="mx-auto h-8 w-8 text-muted-foreground" />
+              <p className="mt-3 text-sm font-medium text-foreground">
+                Pilih produk untuk melihat summary
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Klik salah satu produk pada card Products di atas.
+              </p>
+            </div>
+          ) : (
+            <div className="p-5">
+              <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="font-semibold text-foreground">
+                    {selectedProductSummary.product.name}
                   </div>
-
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-
-                    <SummaryCard
-
-                      label="Pengiriman"
-
-                      value={item.summary.totalPengiriman}
-
-                    />
-
-                    <SummaryCard
-
-                      label="Penerimaan"
-
-                      value={item.summary.totalPenerimaan}
-
-                    />
-
-                    <SummaryCard
-
-                      label="Sisa Jahit"
-
-                      value={item.summary.sisaJahit}
-
-                      highlight
-
-                    />
-
-                    <SummaryCard
-
-                      label="Barang di QC"
-
-                      value={item.summary.barangDiQc}
-
-                      highlight
-
-                    />
-
-                    <SummaryCard
-
-                      label="QC Rijek"
-
-                      value={item.summary.totalQcRijek}
-
-                    />
-
-                    <SummaryCard
-
-                      label="QC ACC"
-
-                      value={item.summary.totalQcAcc}
-
-                    />
-
-                    <SummaryCard
-
-                      label="Rijek"
-
-                      value={item.summary.jumlahRijek}
-
-                    />
-
-                    <SummaryCard
-
-                      label="Total Barang"
-
-                      value={item.summary.jumlahBarang}
-
-                      highlight
-
-                    />
-
+                  <div className="mt-0.5 text-xs text-muted-foreground">
+                    {selectedProductSummary.product.code}
                   </div>
-
-                  <div className="mt-4">
-
-                    <div className="mb-2 text-sm font-semibold text-foreground">
-
-                      Next Allowed Process
-
-                    </div>
-
-                    {item.summary.nextTransactionTypes.length === 0 ? (
-
-                      <div className="rounded-lg bg-muted px-4 py-3 text-sm text-muted-foreground">
-
-                        Tidak ada process berikutnya.
-
-                      </div>
-
-                    ) : (
-
-                      <div className="flex flex-wrap gap-2">
-
-                        {item.summary.nextTransactionTypes.map((code) => (
-
-                          <div
-
-                            key={code}
-
-                            className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300"
-
-                          >
-
-                            <ArrowRight size={15} className="text-rose-600 dark:text-rose-400" />
-
-                            {getTransactionLabel(code)}
-
-                          </div>
-
-                        ))}
-
-                      </div>
-
-                    )}
-
-                  </div>
-
                 </div>
 
-              ))
+                <span className="w-fit rounded-full border border-border bg-muted px-3 py-1 text-xs font-semibold text-foreground">
+                  Qty SPK: {formatNumber(selectedProductSummary.quantity)} pcs
+                </span>
+              </div>
 
-            )}
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <SummaryCard
+                  label="Pengiriman"
+                  value={selectedProductSummary.summary.totalPengiriman}
+                />
+                <SummaryCard
+                  label="Penerimaan"
+                  value={selectedProductSummary.summary.totalPenerimaan}
+                />
+                <SummaryCard
+                  label="Sisa Jahit"
+                  value={selectedProductSummary.summary.sisaJahit}
+                  highlight
+                />
+                <SummaryCard
+                  label="Barang di QC"
+                  value={selectedProductSummary.summary.barangDiQc}
+                  highlight
+                />
+                <SummaryCard
+                  label="QC Rijek"
+                  value={selectedProductSummary.summary.totalQcRijek}
+                />
+                <SummaryCard
+                  label="QC ACC"
+                  value={selectedProductSummary.summary.totalQcAcc}
+                />
+                <SummaryCard
+                  label="Rijek"
+                  value={selectedProductSummary.summary.jumlahRijek}
+                />
+                <SummaryCard
+                  label="Total Barang"
+                  value={selectedProductSummary.summary.jumlahBarang}
+                  highlight
+                />
+              </div>
 
-          </div>
+              <div className="mt-4">
+                <div className="mb-2 text-sm font-semibold text-foreground">
+                  Next Allowed Process
+                </div>
 
+                {selectedProductSummary.summary.nextTransactionTypes.length === 0 ? (
+                  <div className="rounded-lg bg-muted px-4 py-3 text-sm text-muted-foreground">
+                    Tidak ada process berikutnya.
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedProductSummary.summary.nextTransactionTypes.map((code) => (
+                      <div
+                        key={code}
+                        className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300"
+                      >
+                        <ArrowRight size={15} className="text-rose-600 dark:text-rose-400" />
+                        {getTransactionLabel(code)}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="mb-6 rounded-2xl border border-border bg-card p-5 shadow-sm">
@@ -878,7 +832,7 @@ export default function SPKDetailPage() {
 
         </div>
 
-        <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+        <div className="mb-6 overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
 
           <div className="border-b border-border px-5 py-4">
 
@@ -890,7 +844,7 @@ export default function SPKDetailPage() {
 
             <p className="mt-1 text-sm text-muted-foreground">
 
-              Semua transaction yang tercatat untuk SPK ini.
+              Riwayat transaksi yang tercatat untuk SPK ini.
 
             </p>
 
@@ -920,6 +874,7 @@ export default function SPKDetailPage() {
 
           ) : (
 
+            <>
             <div className="overflow-x-auto">
 
               <table className="w-full min-w-[900px]">
@@ -970,7 +925,7 @@ export default function SPKDetailPage() {
 
                 <tbody className="divide-y divide-border">
 
-                  {spk.transactions.map((transaction) => (
+                  {paginatedHistory.map((transaction) => (
 
                     <tr
 
@@ -1061,6 +1016,67 @@ export default function SPKDetailPage() {
               </table>
 
             </div>
+
+            {historyTotal > 0 && (
+              <div className="flex flex-col gap-3 border-t border-border bg-card px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
+                  <span>
+                    Menampilkan {formatNumber(historyStart)}–
+                    {formatNumber(historyEnd)} dari{" "}
+                    {formatNumber(historyTotal)} transaksi
+                  </span>
+
+                  <label className="inline-flex items-center gap-2">
+                    <span>Baris</span>
+                    <select
+                      value={historyPageSize}
+                      onChange={(event) => {
+                        setHistoryPageSize(Number(event.target.value));
+                        setHistoryPage(1);
+                      }}
+                      className="rounded-lg border border-border bg-muted px-2 py-1.5 text-xs text-foreground outline-none transition focus:border-rose-500"
+                    >
+                      <option value={10}>10</option>
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div className="flex items-center justify-between gap-2 sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setHistoryPage((page) => Math.max(1, page - 1))
+                    }
+                    disabled={historyPage <= 1}
+                    className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-muted-foreground transition hover:border-rose-300 hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <ChevronLeft size={14} />
+                    Sebelumnya
+                  </button>
+
+                  <span className="min-w-[86px] text-center text-xs font-medium tabular-nums text-muted-foreground">
+                    {historyPage} / {historyTotalPages}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setHistoryPage((page) =>
+                        Math.min(historyTotalPages, page + 1),
+                      )
+                    }
+                    disabled={historyPage >= historyTotalPages}
+                    className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-muted-foreground transition hover:border-rose-300 hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Berikutnya
+                    <ChevronRight size={14} />
+                  </button>
+                </div>
+              </div>
+            )}
+            </>
 
           )}
 

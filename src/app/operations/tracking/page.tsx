@@ -10,6 +10,8 @@ import {
 
   Clock3,
 
+  ChevronDown,
+
   Loader2,
 
   Package,
@@ -39,6 +41,12 @@ type Transaction = {
   transactionNumber: string;
 
   quantity: number;
+
+  status: "ACTIVE" | "CANCELLED";
+
+  cancelledAt?: string | null;
+
+  cancellationReason?: string | null;
 
   createdAt: string;
 
@@ -303,188 +311,117 @@ function formatNumber(value: number) {
 }
 
 export default function TrackingPage() {
-
   const [spks, setSpks] = useState<SPK[]>([]);
-
-  const [selectedSpkId, setSelectedSpkId] = useState<number | null>(
-
-    null,
-
-  );
-
+  const [selectedSpkId, setSelectedSpkId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
-
   const [currentPage, setCurrentPage] = useState(1);
-
   const [pageSize, setPageSize] = useState(10);
-
+  const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(true);
-
   const [refreshing, setRefreshing] = useState(false);
-
   const [error, setError] = useState("");
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [expandedTransactionId, setExpandedTransactionId] = useState<number | null>(null);
+  const [journeyPage, setJourneyPage] = useState(1);
+  const JOURNEY_PAGE_SIZE = 10;
 
-  async function loadTracking(showLoading = true) {
+  useEffect(() => {
+    setJourneyPage(1);
+    setExpandedTransactionId(null);
+  }, [selectedSpkId]);
 
-    try {
+  // Server-side pagination: hanya data pada halaman aktif yang diminta ke API.
+  useEffect(() => {
+    const controller = new AbortController();
 
-      if (showLoading) {
+    const timer = window.setTimeout(async () => {
+      try {
+        if (refreshKey > 0 || !loading) {
+          setRefreshing(true);
+        }
+        setError("");
 
-        setLoading(true);
+        const params = new URLSearchParams({
+          page: String(currentPage),
+          limit: String(pageSize),
+        });
 
-      } else {
+        if (search.trim()) {
+          params.set("search", search.trim());
+        }
 
-        setRefreshing(true);
-
-      }
-
-      setError("");
-
-      const params = new URLSearchParams();
-
-      if (search.trim()) {
-
-        params.set("search", search.trim());
-
-      }
-
-      const query = params.toString();
-
-      const response = await fetch(
-
-        `/api/tracking${query ? `?${query}` : ""}`,
-
-        {
-
+        const response = await fetch(`/api/tracking?${params.toString()}`, {
           cache: "no-store",
+          signal: controller.signal,
+        });
 
-        },
+        const json = await response.json();
 
-      );
+        if (!response.ok) {
+          throw new Error(json.error ?? "Gagal mengambil data tracking.");
+        }
 
-      const json = await response.json();
+        const result: SPK[] = json.data ?? [];
+        const pagination = json.pagination;
 
-      if (!response.ok) {
+        setSpks(result);
+        setTotalItems(pagination?.total ?? result.length);
 
-        throw new Error(
+        // Pertahankan pilihan jika masih ada pada halaman aktif.
+        // Jika tidak, pilih SPK pertama pada halaman tersebut.
+        setSelectedSpkId((currentSelectedId) => {
+          if (
+            currentSelectedId !== null &&
+            result.some((spk) => spk.id === currentSelectedId)
+          ) {
+            return currentSelectedId;
+          }
 
-          json.error ?? "Gagal mengambil data tracking.",
+          return result[0]?.id ?? null;
+        });
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") {
+          return;
+        }
 
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Gagal mengambil data tracking.",
         );
-
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+          setRefreshing(false);
+        }
       }
-
-      setSpks(json.data ?? []);
-
-      if (
-
-        selectedSpkId === null &&
-
-        json.data?.length > 0
-
-      ) {
-
-        setSelectedSpkId(json.data[0].id);
-
-      }
-
-      if (
-
-        selectedSpkId !== null &&
-
-        json.data?.length > 0 &&
-
-        !json.data.some(
-
-          (spk: SPK) => spk.id === selectedSpkId,
-
-        )
-
-      ) {
-
-        setSelectedSpkId(json.data[0].id);
-
-      }
-
-    } catch (err) {
-
-      setError(
-
-        err instanceof Error
-
-          ? err.message
-
-          : "Gagal mengambil data tracking.",
-
-      );
-
-    } finally {
-
-      setLoading(false);
-
-      setRefreshing(false);
-
-    }
-
-  }
-
-  useEffect(() => {
-
-    loadTracking();
-
-  }, []);
-
-  useEffect(() => {
-
-    const timer = setTimeout(() => {
-
-      loadTracking(false);
-
     }, 300);
 
-    return () => clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [search, currentPage, pageSize, refreshKey]);
 
-  }, [search]);
-
-  const selectedSpk = useMemo(() => {
-
-    return (
-
-      spks.find((spk) => spk.id === selectedSpkId) ?? null
-
-    );
-
-  }, [spks, selectedSpkId]);
-
-  const totalPages = Math.max(1, Math.ceil(spks.length / pageSize));
-
-  const paginatedSpks = useMemo(
-
-    () => spks.slice((currentPage - 1) * pageSize, currentPage * pageSize),
-
-    [spks, currentPage, pageSize],
-
+  const selectedSpk = useMemo(
+    () => spks.find((spk) => spk.id === selectedSpkId) ?? null,
+    [spks, selectedSpkId],
   );
 
-  const pageStart = spks.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
-
-  const pageEnd = Math.min(currentPage * pageSize, spks.length);
-
-  useEffect(() => {
-
-    setCurrentPage(1);
-
-  }, [search]);
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const paginatedSpks = spks;
+  const pageStart = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const pageEnd = Math.min(currentPage * pageSize, totalItems);
 
   useEffect(() => {
-
-    if (currentPage > totalPages) setCurrentPage(totalPages);
-
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
   }, [currentPage, totalPages]);
 
   if (loading) {
 
-    return (
+  return (
 
       <div className="flex min-h-[500px] items-center justify-center">
 
@@ -501,6 +438,34 @@ export default function TrackingPage() {
     );
 
   }
+
+    const journeyTransactions = selectedSpk
+    ? [...selectedSpk.transactions].sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime() ||
+          b.id - a.id,
+      )
+    : [];
+
+  const journeyTotalPages = Math.max(
+    1,
+    Math.ceil(journeyTransactions.length / JOURNEY_PAGE_SIZE),
+  );
+
+  const journeyPageStart =
+    journeyTransactions.length === 0
+      ? 0
+      : (journeyPage - 1) * JOURNEY_PAGE_SIZE + 1;
+
+  const journeyPageEnd = Math.min(
+    journeyPage * JOURNEY_PAGE_SIZE,
+    journeyTransactions.length,
+  );
+
+  const paginatedJourneyTransactions = journeyTransactions.slice(
+    (journeyPage - 1) * JOURNEY_PAGE_SIZE,
+    journeyPage * JOURNEY_PAGE_SIZE,
+  );
 
   return (
 
@@ -548,7 +513,7 @@ export default function TrackingPage() {
 
           type="button"
 
-          onClick={() => loadTracking(false)}
+          onClick={() => setRefreshKey((value) => value + 1)}
 
           disabled={refreshing}
 
@@ -596,11 +561,10 @@ export default function TrackingPage() {
 
             value={search}
 
-            onChange={(event) =>
-
-              setSearch(event.target.value)
-
-            }
+            onChange={(event) => {
+              setSearch(event.target.value);
+              setCurrentPage(1);
+            }}
 
             placeholder="Cari SPK, produk, atau penjahit..."
 
@@ -658,7 +622,7 @@ export default function TrackingPage() {
 
                   <p className="mt-1 text-xs text-muted-foreground">
 
-                    {spks.length} SPK tersedia
+                    {formatNumber(totalItems)} SPK tersedia
 
                   </p>
 
@@ -666,7 +630,7 @@ export default function TrackingPage() {
 
                 <div className="rounded-xl bg-rose-50 dark:bg-rose-950/40 px-2.5 py-1 text-xs font-bold text-rose-600 dark:text-rose-400">
 
-                  {spks.length}
+                  {formatNumber(totalItems)}
 
                 </div>
 
@@ -820,7 +784,7 @@ export default function TrackingPage() {
 
               <div className="mb-3 flex flex-col gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
 
-                <span>Menampilkan {pageStart}–{pageEnd} dari {spks.length} SPK</span>
+                <span>Menampilkan {pageStart}–{pageEnd} dari {formatNumber(totalItems)} SPK</span>
 
                 <label className="flex items-center gap-2">
 
@@ -838,11 +802,11 @@ export default function TrackingPage() {
 
               <div className="flex items-center justify-between gap-2">
 
-                <button type="button" onClick={() => setCurrentPage((page) => Math.max(1, page - 1))} disabled={currentPage === 1} className="rounded-lg border border-border px-3 py-2 text-xs font-semibold text-muted-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40">Sebelumnya</button>
+                <button type="button" onClick={() => setCurrentPage((page) => Math.max(1, page - 1))} disabled={currentPage === 1 || refreshing} className="rounded-lg border border-border px-3 py-2 text-xs font-semibold text-muted-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40">Sebelumnya</button>
 
-                <span className="text-xs font-medium text-muted-foreground">{currentPage} / {totalPages}</span>
+                <span className="text-xs font-medium text-muted-foreground">Halaman {currentPage} dari {totalPages}</span>
 
-                <button type="button" onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))} disabled={currentPage >= totalPages} className="rounded-lg border border-border px-3 py-2 text-xs font-semibold text-muted-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40">Berikutnya</button>
+                <button type="button" onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))} disabled={currentPage >= totalPages || refreshing} className="rounded-lg border border-border px-3 py-2 text-xs font-semibold text-muted-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40">Berikutnya</button>
 
               </div>
 
@@ -1287,187 +1251,153 @@ export default function TrackingPage() {
                   </div>
 
                 ) : (
+                  <div className="relative mt-5">
+                    <div className="absolute bottom-4 left-[11px] top-4 w-px bg-border" />
 
-                  <div className="relative mt-7">
+                    <div className="space-y-2">
+                      {paginatedJourneyTransactions.map((transaction, index) => {
+                        const style = getProcessStyle(
+                          transaction.transactionType.code,
+                        );
+                        const isCurrent =
+                          journeyPage === 1 &&
+                          index === 0 &&
+                          transaction.status === "ACTIVE";
+                        const isExpanded = expandedTransactionId === transaction.id;
 
-                    <div className="absolute bottom-7 left-[19px] top-7 w-px bg-gradient-to-b from-rose-700 via-rose-900 to-slate-700" />
-
-                    <div className="space-y-7">
-
-                      {selectedSpk.transactions.map(
-
-                        (transaction, index) => {
-
-                          const style =
-
-                            getProcessStyle(
-
-                              transaction
-
-                                .transactionType.code,
-
-                            );
-
-                          const isLast =
-
-                            index ===
-
-                            selectedSpk.transactions
-
-                              .length -
-
-                            1;
-
-                          return (
-
+                        return (
+                          <div key={transaction.id} className="relative flex gap-3">
                             <div
-
-                              key={transaction.id}
-
-                              className="relative flex gap-4"
-
+                              className={`relative z-10 mt-2 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${style.border} ${style.bg} text-xs`}
+                              aria-hidden="true"
                             >
-
-                              <div
-
-                                className={`relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${style.border} ${style.bg} text-base shadow-sm`}
-
-                              >
-
-                                {style.icon}
-
-                              </div>
-
-                              <div
-
-                                className={`min-w-0 flex-1 rounded-2xl border p-4 transition ${isLast
-
-                                    ? "border-rose-200 dark:border-rose-900/70 bg-gradient-to-br from-rose-50 to-card dark:from-rose-950/30 dark:to-muted shadow-md shadow-red-950/30"
-
-                                    : "border-border bg-muted"
-
-                                  }`}
-
-                              >
-
-                                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-
-                                  <div>
-
-                                    <div className="flex flex-wrap items-center gap-2">
-
-                                      <h3 className="font-bold text-foreground">
-
-                                        {transaction
-
-                                          .transactionType
-
-                                          .name}
-
-                                      </h3>
-
-                                      {isLast && (
-
-                                        <span className="rounded-full bg-rose-50 dark:bg-rose-950/60 px-2 py-0.5 text-[10px] font-bold text-rose-700 dark:text-rose-300">
-
-                                          CURRENT
-
-                                        </span>
-
-                                      )}
-
-                                    </div>
-
-                                    <div className="mt-1 text-xs font-medium text-muted-foreground">
-
-                                      {
-
-                                        transaction.transactionNumber
-
-                                      }
-
-                                    </div>
-
-                                    {transaction.product && (
-
-                                      <div className="mt-2 inline-flex items-center rounded-full bg-rose-50 dark:bg-rose-950/40 px-2.5 py-1 text-[10px] font-semibold text-rose-600 dark:text-rose-400">
-
-                                        {transaction.product.name} · {transaction.product.code}
-
-                                      </div>
-
-                                    )}
-
-                                  </div>
-
-                                  <div className="shrink-0 rounded-xl bg-muted px-3 py-2 text-right shadow-sm">
-
-                                    <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-
-                                      Quantity
-
-                                    </div>
-
-                                    <div className="text-lg font-bold text-foreground">
-
-                                      {formatNumber(
-
-                                        transaction.quantity,
-
-                                      )}{" "}
-
-                                      <span className="text-xs font-medium text-muted-foreground">
-
-                                        pcs
-
-                                      </span>
-
-                                    </div>
-
-                                  </div>
-
-                                </div>
-
-                                <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 border-t border-border pt-3 text-xs text-muted-foreground">
-
-                                  <span className="inline-flex items-center gap-1.5">
-
-                                    <UserRound className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
-
-                                    {transaction.employee
-
-                                      .name}
-
-                                  </span>
-
-                                  <span className="inline-flex items-center gap-1.5">
-
-                                    <Clock3 className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
-
-                                    {formatDate(
-
-                                      transaction.createdAt,
-
-                                    )}
-
-                                  </span>
-
-                                </div>
-
-                              </div>
-
+                              {style.icon}
                             </div>
 
-                          );
+                            <div
+                              className={`min-w-0 flex-1 overflow-hidden rounded-xl border transition-colors ${
+                                isCurrent
+                                  ? "border-rose-200 bg-rose-50/70 dark:border-rose-900/60 dark:bg-rose-950/20"
+                                  : "border-border bg-card"
+                              }`}
+                            >
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setExpandedTransactionId(
+                                    isExpanded ? null : transaction.id,
+                                  )
+                                }
+                                aria-expanded={isExpanded}
+                                className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-muted/50"
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className="truncate text-sm font-semibold text-foreground">
+                                      {transaction.transactionType.name}
+                                    </span>
+                                    {isCurrent && (
+                                      <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[9px] font-bold text-rose-700 dark:bg-rose-950/60 dark:text-rose-300">
+                                        CURRENT
+                                      </span>
+                                    )}
+                                    {transaction.status === "CANCELLED" && (
+                                      <span className="rounded-full bg-red-100 px-2 py-0.5 text-[9px] font-bold text-red-700 dark:bg-red-950/50 dark:text-red-300">
+                                        CANCELLED
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                                    {transaction.transactionNumber}
+                                    <span className="mx-1.5">·</span>
+                                    {formatDate(transaction.createdAt)}
+                                  </div>
+                                </div>
 
-                        },
+                                <div className="shrink-0 text-right">
+                                  <div className="text-sm font-bold tabular-nums text-foreground">
+                                    {formatNumber(transaction.quantity)}
+                                    <span className="ml-1 text-[10px] font-medium text-muted-foreground">
+                                      pcs
+                                    </span>
+                                  </div>
+                                  <div className="text-[9px] text-muted-foreground">Quantity</div>
+                                </div>
 
-                      )}
+                                <ChevronDown
+                                  className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${
+                                    isExpanded ? "rotate-180" : ""
+                                  }`}
+                                />
+                              </button>
 
+                              {isExpanded && (
+                                <div className="flex flex-wrap gap-x-4 gap-y-2 border-t border-border px-3 py-2.5 text-xs text-muted-foreground">
+                                  {transaction.product && (
+                                    <span className="inline-flex items-center gap-1.5">
+                                      <Package className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
+                                      {transaction.product.name} · {transaction.product.code}
+                                    </span>
+                                  )}
+                                  <span className="inline-flex items-center gap-1.5">
+                                    <UserRound className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
+                                    {transaction.employee.name}
+                                  </span>
+                                  {transaction.status === "CANCELLED" && transaction.cancellationReason && (
+                                    <span className="w-full text-red-600 dark:text-red-300">
+                                      Alasan pembatalan: {transaction.cancellationReason}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
 
-                  </div>
+                    {journeyTransactions.length > JOURNEY_PAGE_SIZE && (
+                      <div className="mt-4 flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="text-xs text-muted-foreground">
+                          Menampilkan {journeyPageStart}–{journeyPageEnd} dari{" "}
+                          {formatNumber(journeyTransactions.length)} transaksi
+                          <span className="ml-1">· Terbaru ditampilkan lebih dulu</span>
+                        </p>
 
+                        <div className="flex items-center justify-between gap-2 sm:justify-end">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setJourneyPage((page) => Math.max(1, page - 1));
+                              setExpandedTransactionId(null);
+                            }}
+                            disabled={journeyPage <= 1}
+                            className="rounded-lg border border-border px-3 py-2 text-xs font-semibold text-muted-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            Sebelumnya
+                          </button>
+
+                          <span className="min-w-[90px] text-center text-xs font-medium text-muted-foreground">
+                            {journeyPage} / {journeyTotalPages}
+                          </span>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setJourneyPage((page) =>
+                                Math.min(journeyTotalPages, page + 1),
+                              );
+                              setExpandedTransactionId(null);
+                            }}
+                            disabled={journeyPage >= journeyTotalPages}
+                            className="rounded-lg border border-border px-3 py-2 text-xs font-semibold text-muted-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            Berikutnya
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 )}
 
               </section>
