@@ -436,8 +436,6 @@ export async function getHistoricalProduction(
     notes: [
       "Aktivitas hanya menghitung transaksi dalam rentang tanggal yang dipilih.",
       "Posisi produksi dihitung dari transaksi sampai akhir tanggal laporan.",
-      "SPK dengan deletedAt terisi tidak disertakan dalam aktivitas maupun posisi produksi.",
-      "Data transaksi historis tetap tersimpan di database.",
     ],
   };
 }

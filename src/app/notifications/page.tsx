@@ -600,7 +600,7 @@ export default function NotificationsPage() {
           <InfoPanel
             icon={<Mail className="h-5 w-5" />}
             title="Email"
-            description="Masukkan alamat email penerima. Pengiriman email memerlukan provider email yang dikonfigurasi pada worker."
+            description="Masukkan alamat email penerima."
           />
         </div>
       </div>
