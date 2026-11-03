@@ -1,3 +1,4 @@
+
 import { Prisma } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -5,6 +6,7 @@ import { requirePermission } from "@/lib/auth/authorization";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { calculateSPKStatus } from "@/lib/spk-status";
 import { prisma } from "@/lib/prisma";
+import { dispatchNotificationEvent } from "@/lib/notifications/dispatcher";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -127,6 +129,7 @@ async function getCompanyAuth(permissionCode: string) {
 
 /**
  * GET /api/spks/[id]
+ *
  * Super Admin dapat melihat SPK lintas perusahaan.
  * User biasa hanya dapat melihat SPK perusahaannya.
  */
@@ -155,6 +158,7 @@ export async function GET(
           : { companyId: auth.user.companyId! }),
         deletedAt: null,
       },
+
       include: {
         items: {
           include: {
@@ -169,19 +173,23 @@ export async function GET(
           },
           orderBy: { id: "asc" },
         },
+
         tailor: {
           select: {
             id: true,
             name: true,
           },
         },
+
         transactions: {
           where: {
             // Abaikan transaksi dari SPK yang sudah dihapus
             // secara soft delete.
             spk: { deletedAt: null },
           },
+
           orderBy: { createdAt: "desc" },
+
           include: {
             transactionType: {
               select: {
@@ -190,6 +198,7 @@ export async function GET(
                 name: true,
               },
             },
+
             product: {
               select: {
                 id: true,
@@ -197,6 +206,7 @@ export async function GET(
                 name: true,
               },
             },
+
             employee: {
               select: {
                 id: true,
@@ -205,6 +215,7 @@ export async function GET(
             },
           },
         },
+
         _count: {
           select: { transactions: true },
         },
@@ -253,6 +264,7 @@ export async function GET(
 
 /**
  * PATCH /api/spks/[id]
+ *
  * Memperbarui SPK sesuai cakupan perusahaan.
  * CompanyId SPK tidak dapat diubah melalui request ini.
  */
@@ -281,6 +293,7 @@ export async function PATCH(
           : { companyId: auth.user.companyId! }),
         deletedAt: null,
       },
+
       include: {
         items: true,
         _count: {
@@ -555,6 +568,10 @@ export async function PATCH(
       }
     }
 
+    // =====================================================
+    // UPDATE SPK + NOTIFICATION JOB
+    // =====================================================
+
     const updatedSPK = await prisma.$transaction(
       async (tx) => {
         const updated = await tx.sPK.updateMany({
@@ -563,6 +580,7 @@ export async function PATCH(
             companyId,
             deletedAt: null,
           },
+
           data: {
             ...(spkNumber !== undefined ? { spkNumber } : {}),
             ...(tailorId !== undefined ? { tailorId } : {}),
@@ -594,12 +612,13 @@ export async function PATCH(
           });
         }
 
-        return tx.sPK.findFirst({
+        const updatedSPK = await tx.sPK.findFirst({
           where: {
             id: spkId,
             companyId,
             deletedAt: null,
           },
+
           include: {
             items: {
               include: {
@@ -614,17 +633,55 @@ export async function PATCH(
               },
               orderBy: { id: "asc" },
             },
+
             tailor: {
               select: {
                 id: true,
                 name: true,
               },
             },
+
             _count: {
               select: { transactions: true },
             },
           },
         });
+
+        if (!updatedSPK) {
+          return null;
+        }
+
+        // Hanya dispatch ketika status benar-benar berubah.
+        // SPK tanpa companyId tidak memiliki tenant notification config.
+        if (
+          companyId !== null &&
+          status !== undefined &&
+          existing.status !== updatedSPK.status
+        ) {
+          await dispatchNotificationEvent(tx, {
+            companyId,
+            eventCode: "SPK_STATUS_CHANGED",
+            eventKey: [
+              "spk",
+              updatedSPK.id,
+              "status",
+              existing.status,
+              updatedSPK.status,
+              updatedSPK.updatedAt.toISOString(),
+            ].join(":"),
+
+            payload: {
+              spkId: updatedSPK.id,
+              spkNumber: updatedSPK.spkNumber,
+              oldStatus: existing.status,
+              newStatus: updatedSPK.status,
+              updatedBy: String(auth.user!.id),
+              updatedAt: updatedSPK.updatedAt.toISOString(),
+            },
+          });
+        }
+
+        return updatedSPK;
       },
       {
         maxWait: 10000,
@@ -662,6 +719,7 @@ export async function PATCH(
 
 /**
  * DELETE /api/spks/[id]
+ *
  * Soft delete SPK.
  * Super Admin dapat menghapus SPK lintas perusahaan.
  * User biasa hanya dapat menghapus SPK perusahaannya.
@@ -691,6 +749,7 @@ export async function DELETE(
           : { companyId: auth.user.companyId! }),
         deletedAt: null,
       },
+
       select: {
         id: true,
         companyId: true,
@@ -715,6 +774,7 @@ export async function DELETE(
           companyId,
           deletedAt: null,
         },
+
         data: {
           deletedAt: new Date(),
           deletedById: auth.user!.id,

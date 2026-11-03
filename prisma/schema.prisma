@@ -58,20 +58,20 @@ model Company {
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
-  settings         CompanySetting[]
-  users            User[]
-  roles            Role[]
-  products         Product[]
-  tailors          Tailor[]
-  employees        Employee[]
-  spks             SPK[]
-  transactionTypes TransactionType[]
-  transactions     Transaction[]
-  workflows        Workflow[]
-  activityLogs     ActivityLog[]
-  scannedDocuments ScannedDocument[]
-  tailorRates      TailorRate[]
-  tailorBills      TailorBill[]
+  settings            CompanySetting[]
+  users               User[]
+  roles               Role[]
+  products            Product[]
+  tailors             Tailor[]
+  employees           Employee[]
+  spks                SPK[]
+  transactionTypes    TransactionType[]
+  transactions        Transaction[]
+  workflows           Workflow[]
+  activityLogs        ActivityLog[]
+  scannedDocuments    ScannedDocument[]
+  tailorRates         TailorRate[]
+  tailorBills         TailorBill[]
   notificationConfigs NotificationConfig[]
 
   @@index([status])
@@ -114,15 +114,15 @@ model User {
   company Company? @relation(fields: [companyId], references: [id], onDelete: Restrict)
   role    Role?    @relation(fields: [roleId], references: [id], onDelete: SetNull)
 
-  activityLogs          ActivityLog[]
-  scannedDocuments      ScannedDocument[]
-  sessions              Session[]
-  transactions          Transaction[]     @relation("TransactionCreatedBy")
-  cancelledTransactions Transaction[]     @relation("TransactionCancelledBy")
-  tailorBills           TailorBill[]      @relation("TailorBillCreatedBy")
-  deletedSPKs           SPK[]             @relation("SPKDeletedBy")
+  activityLogs               ActivityLog[]
+  scannedDocuments           ScannedDocument[]
+  sessions                   Session[]
+  transactions               Transaction[]            @relation("TransactionCreatedBy")
+  cancelledTransactions      Transaction[]            @relation("TransactionCancelledBy")
+  tailorBills                TailorBill[]             @relation("TailorBillCreatedBy")
+  deletedSPKs                SPK[]                    @relation("SPKDeletedBy")
   createdNotificationConfigs NotificationConfig[]
-  permissionOverrides UserPermissionOverride[]
+  permissionOverrides        UserPermissionOverride[]
 
   @@index([companyId])
   @@index([companyId, status])
@@ -154,7 +154,7 @@ model Permission {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  roles RolePermission[]
+  roles         RolePermission[]
   userOverrides UserPermissionOverride[]
 }
 
@@ -610,54 +610,60 @@ model TailorBillItem {
   @@index([productId])
 }
 
-
 model NotificationConfig {
-  id            Int                      @id @default(autoincrement())
+  id            Int                       @id @default(autoincrement())
   companyId     Int
-  name          String                   @db.VarChar(150)
+  name          String                    @db.VarChar(150)
   channel       NotificationChannel
   trigger       NotificationTrigger
   scheduleType  NotificationScheduleType?
   intervalValue Int?
   intervalUnit  NotificationIntervalUnit?
-  dailyTime     String?                  @db.VarChar(5)
-  timezone      String                   @default("Asia/Jakarta") @db.VarChar(60)
-  eventName     String?                  @db.VarChar(100)
-  recipient     Json
-  template      String                   @db.Text
-  isActive      Boolean                  @default(true)
-  nextRunAt     DateTime?
-  lastRunAt     DateTime?
-  createdById   Int?
-  createdAt     DateTime                 @default(now())
-  updatedAt     DateTime                 @updatedAt
+  dailyTime     String?                   @db.VarChar(5)
+  timezone      String                    @default("Asia/Jakarta") @db.VarChar(60)
 
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  createdBy User?   @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  eventName String? @db.VarChar(100)
+
+  eventId Int?
+  event   NotificationEvent? @relation(fields: [eventId], references: [id], onDelete: Restrict)
+
+  recipient   Json
+  template    String    @db.Text
+  isActive    Boolean   @default(true)
+  nextRunAt   DateTime?
+  lastRunAt   DateTime?
+  createdById Int?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  company   Company                   @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  createdBy User?                     @relation(fields: [createdById], references: [id], onDelete: SetNull)
   jobs      NotificationJob[]
   logs      NotificationDeliveryLog[]
 
   @@index([companyId, isActive])
   @@index([isActive, nextRunAt])
   @@index([companyId, trigger, eventName])
+  @@index([eventId])
+  @@index([companyId, eventId, isActive])
 }
 
 model NotificationJob {
-  id          Int                  @id @default(autoincrement())
+  id          Int                   @id @default(autoincrement())
   configId    Int
-  eventKey    String?              @db.VarChar(191)
+  eventKey    String?               @db.VarChar(191)
   payload     Json
   status      NotificationJobStatus @default(PENDING)
-  attempts    Int                  @default(0)
-  maxAttempts Int                  @default(5)
-  availableAt DateTime             @default(now())
+  attempts    Int                   @default(0)
+  maxAttempts Int                   @default(5)
+  availableAt DateTime              @default(now())
   lockedAt    DateTime?
-  lockedBy    String?              @db.VarChar(100)
-  lastError   String?              @db.Text
-  createdAt   DateTime             @default(now())
-  updatedAt   DateTime             @updatedAt
+  lockedBy    String?               @db.VarChar(100)
+  lastError   String?               @db.Text
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
 
-  config NotificationConfig       @relation(fields: [configId], references: [id], onDelete: Restrict)
+  config NotificationConfig        @relation(fields: [configId], references: [id], onDelete: Restrict)
   logs   NotificationDeliveryLog[]
 
   @@unique([configId, eventKey])
@@ -667,17 +673,17 @@ model NotificationJob {
 }
 
 model NotificationDeliveryLog {
-  id           Int                      @id @default(autoincrement())
+  id           Int                        @id @default(autoincrement())
   configId     Int
   jobId        Int?
   channel      NotificationChannel
-  recipient    String                   @db.VarChar(255)
+  recipient    String                     @db.VarChar(255)
   status       NotificationDeliveryStatus
-  providerId   String?                  @db.VarChar(255)
-  errorMessage String?                  @db.Text
-  attempt      Int                      @default(1)
+  providerId   String?                    @db.VarChar(255)
+  errorMessage String?                    @db.Text
+  attempt      Int                        @default(1)
   sentAt       DateTime?
-  createdAt    DateTime                 @default(now())
+  createdAt    DateTime                   @default(now())
 
   config NotificationConfig @relation(fields: [configId], references: [id], onDelete: Restrict)
   job    NotificationJob?   @relation(fields: [jobId], references: [id], onDelete: SetNull)
@@ -707,4 +713,21 @@ model UserPermissionOverride {
   @@unique([userId, permissionId])
   @@index([permissionId])
   @@index([userId, effect])
+}
+
+model NotificationEvent {
+  id            Int     @id @default(autoincrement())
+  module        String  @db.VarChar(100)
+  code          String  @unique @db.VarChar(100)
+  name          String  @db.VarChar(150)
+  description   String? @db.Text
+  payloadSchema Json?
+  isActive      Boolean @default(true)
+
+  configs NotificationConfig[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([module, isActive])
 }

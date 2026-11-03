@@ -1,10 +1,8 @@
 ﻿"use client";
-
 import Link from "next/link";
 import ThemeToggle from "@/components/theme-toggle";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-
 import {
   Activity,
   BarChart3,
@@ -23,6 +21,7 @@ import {
   UserCog,
   Users,
   Workflow,
+  Zap,
   X,
 } from "lucide-react";
 
@@ -163,6 +162,12 @@ const menuGroups: MenuGroup[] = [
         icon: Bell,
         permission: "notification.view",
       },
+      {
+        label: "Notification Events",
+        href: "/notifications/events",
+        icon: Zap,
+        permission: "notification.view",
+      },
     ],
   },
 ];
@@ -222,12 +227,20 @@ const mobileItems = [
     icon: Bell,
     permission: "notification.view",
   },
+  {
+    label: "Events",
+    href: "/notifications/events",
+    icon: Zap,
+    permission: "notification.view",
+  },
 ];
 
-function isActivePath(pathname: string, href: string) {
-  if (href === "/") return pathname === "/";
+function getActiveHref(pathname: string, items: MenuItem[]): string | null {
+  const matches = items.filter(({ href }) =>
+    href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`)
+  );
 
-  return pathname === href || pathname.startsWith(`${href}/`);
+  return matches.sort((a, b) => b.href.length - a.href.length)[0]?.href ?? null;
 }
 
 function initials(name?: string) {
@@ -246,18 +259,14 @@ export default function AppShell({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-
   const userMenuRef = useRef<HTMLDivElement>(null);
-
   useEffect(() => {
     let cancelled = false;
-
     async function loadAuthUser() {
       try {
         const response = await fetch("/api/auth/me", {
@@ -265,20 +274,15 @@ export default function AppShell({
           credentials: "include",
           cache: "no-store",
         });
-
         const result = await response.json();
-
         if (cancelled) return;
-
         if (!response.ok || !result?.authenticated || !result?.user) {
           setAuthUser(null);
           return;
         }
-
         setAuthUser(result.user);
       } catch (error) {
         console.error("[AppShell] Failed to load auth:", error);
-
         if (!cancelled) {
           setAuthUser(null);
         }
@@ -288,27 +292,21 @@ export default function AppShell({
         }
       }
     }
-
     void loadAuthUser();
-
     return () => {
       cancelled = true;
     };
   }, []);
-
   useEffect(() => {
     setMobileMenuOpen(false);
     setUserMenuOpen(false);
   }, [pathname]);
-
   useEffect(() => {
     document.body.style.overflow = mobileMenuOpen ? "hidden" : "";
-
     return () => {
       document.body.style.overflow = "";
     };
   }, [mobileMenuOpen]);
-
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (
@@ -318,19 +316,14 @@ export default function AppShell({
         setUserMenuOpen(false);
       }
     }
-
     document.addEventListener("mousedown", handleClickOutside);
-
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
-
   async function handleLogout() {
     if (loggingOut) return;
-
     setLoggingOut(true);
-
     try {
       await fetch("/api/auth/logout", {
         method: "POST",
@@ -342,25 +335,18 @@ export default function AppShell({
       setAuthUser(null);
       setUserMenuOpen(false);
       setMobileMenuOpen(false);
-
       router.replace("/login");
       router.refresh();
-
       setLoggingOut(false);
     }
   }
-
   if (pathname === "/login") {
     return <>{children}</>;
   }
-
   const isSuperAdmin = authUser?.role?.name === "Superadmin";
-
   const permissions = authUser?.permissions ?? [];
-
   const hasPermission = (permission: string) =>
     isSuperAdmin || permissions.includes(permission);
-
   const visibleGroups = menuGroups
     .map((group) => ({
       ...group,
@@ -369,14 +355,12 @@ export default function AppShell({
       ),
     }))
     .filter((group) => group.items.length > 0);
-
   const visibleMobileItems = mobileItems.filter((item) =>
     hasPermission(item.permission)
   );
-
+  const activeMobileHref = getActiveHref(pathname, visibleMobileItems);
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* DESKTOP SIDEBAR */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r border-border bg-card shadow-xl shadow-black/5 dark:shadow-black/30 xl:flex">
         <Link
           href="/"
@@ -385,7 +369,6 @@ export default function AppShell({
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-600 via-red-800 to-[#651b24] text-sm font-black tracking-wide text-white shadow-lg shadow-red-950/40">
             OV
           </div>
-
           <div className="min-w-0">
             <p className="truncate text-sm font-bold tracking-[0.12em] text-foreground">
               OVERPASSION
@@ -395,19 +378,16 @@ export default function AppShell({
             </p>
           </div>
         </Link>
-
         <div className="flex-1 space-y-7 overflow-y-auto px-3 py-6">
           {visibleGroups.map((group) => (
             <section key={group.title}>
               <p className="mb-3 px-3 text-[10px] font-bold tracking-[0.22em] text-muted-foreground">
                 {group.title}
               </p>
-
               <nav className="space-y-1">
                 {group.items.map((item) => {
-                  const active = isActivePath(pathname, item.href);
+                  const active = getActiveHref(pathname, group.items) === item.href;
                   const Icon = item.icon;
-
                   return (
                     <Link
                       key={item.href}
@@ -425,9 +405,7 @@ export default function AppShell({
                             : "text-muted-foreground group-hover:text-rose-600 dark:group-hover:text-rose-300"
                         }`}
                       />
-
                       <span className="flex-1">{item.label}</span>
-
                       {active && (
                         <ChevronRight className="h-4 w-4 text-rose-200" />
                       )}
@@ -438,8 +416,6 @@ export default function AppShell({
             </section>
           ))}
         </div>
-
-        {/* DESKTOP FOOTER */}
         <div className="space-y-3 border-t border-border p-4">
           <div className="flex items-center justify-between gap-3 px-1">
             <span className="text-sm font-medium text-muted-foreground">
@@ -447,22 +423,18 @@ export default function AppShell({
             </span>
             <ThemeToggle />
           </div>
-
           <div className="rounded-2xl border border-border bg-muted/50 p-3">
             <div className="flex min-w-0 items-center gap-3">
               <UserAvatar name={authUser?.name} />
-
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-foreground">
                   {authLoading ? "Loading user..." : authUser?.name || "User"}
                 </p>
-
                 <p className="truncate text-xs text-muted-foreground">
                   {authUser?.role?.name || authUser?.email || "Account"}
                 </p>
               </div>
             </div>
-
             <button
               type="button"
               onClick={handleLogout}
@@ -473,7 +445,6 @@ export default function AppShell({
               <span>{loggingOut ? "Signing out..." : "Logout"}</span>
             </button>
           </div>
-
           <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 dark:border-rose-900/30 dark:bg-gradient-to-br dark:from-rose-950/40 dark:to-[#151010]">
             <div className="mb-2 flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.7)]" />
@@ -481,16 +452,13 @@ export default function AppShell({
                 System Operational
               </span>
             </div>
-
             <p className="text-[11px] leading-relaxed text-muted-foreground">
               Operation system is running and ready to use.
             </p>
           </div>
         </div>
       </aside>
-
       <div className="min-h-screen xl:pl-64">
-        {/* MOBILE HEADER */}
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-card/95 px-4 shadow-lg shadow-black/10 backdrop-blur-xl xl:hidden">
           <div className="flex items-center gap-3">
             <button
@@ -501,12 +469,10 @@ export default function AppShell({
             >
               <Menu className="h-5 w-5" />
             </button>
-
             <Link href="/" className="flex items-center gap-2.5">
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-rose-600 via-red-800 to-[#651b24] text-xs font-black text-white">
                 OV
               </div>
-
               <div>
                 <p className="text-xs font-bold tracking-[0.1em] text-foreground">
                   OVERPASSION
@@ -517,10 +483,8 @@ export default function AppShell({
               </div>
             </Link>
           </div>
-
           <div className="flex items-center gap-2">
             <ThemeToggle />
-
             <div className="relative" ref={userMenuRef}>
               <button
                 type="button"
@@ -534,7 +498,6 @@ export default function AppShell({
                   <Users className="h-4 w-4" />
                 )}
               </button>
-
               {userMenuOpen && (
                 <UserMenu
                   user={authUser}
@@ -546,13 +509,10 @@ export default function AppShell({
             </div>
           </div>
         </header>
-
         <main className="min-h-[calc(100vh-4rem)] bg-background">
           {children}
         </main>
       </div>
-
-      {/* MOBILE SIDEBAR */}
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-50 xl:hidden">
           <button
@@ -561,7 +521,6 @@ export default function AppShell({
             onClick={() => setMobileMenuOpen(false)}
             className="absolute inset-0 h-full w-full bg-black/75 backdrop-blur-sm"
           />
-
           <aside className="absolute inset-y-0 left-0 flex w-[min(20rem,88vw)] flex-col border-r border-border bg-card shadow-2xl shadow-black/10 dark:shadow-black/60">
             <div className="flex h-20 items-center justify-between border-b border-border px-5">
               <Link
@@ -572,7 +531,6 @@ export default function AppShell({
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-600 via-red-800 to-[#651b24] text-sm font-black text-white">
                   BO
                 </div>
-
                 <div>
                   <p className="text-sm font-bold tracking-[0.1em] text-foreground">
                     OVERPASSION
@@ -582,7 +540,6 @@ export default function AppShell({
                   </p>
                 </div>
               </Link>
-
               <button
                 type="button"
                 aria-label="Close navigation menu"
@@ -592,19 +549,16 @@ export default function AppShell({
                 <X className="h-5 w-5" />
               </button>
             </div>
-
             <div className="flex-1 space-y-7 overflow-y-auto px-3 py-6">
               {visibleGroups.map((group) => (
                 <section key={group.title}>
                   <p className="mb-3 px-3 text-[10px] font-bold tracking-[0.22em] text-muted-foreground">
                     {group.title}
                   </p>
-
                   <nav className="space-y-1">
                     {group.items.map((item) => {
-                      const active = isActivePath(pathname, item.href);
+                  const active = getActiveHref(pathname, group.items) === item.href;
                       const Icon = item.icon;
-
                       return (
                         <Link
                           key={item.href}
@@ -623,9 +577,7 @@ export default function AppShell({
                                 : "text-muted-foreground"
                             }`}
                           />
-
                           <span className="flex-1">{item.label}</span>
-
                           {active && (
                             <ChevronRight className="h-4 w-4 text-rose-200" />
                           )}
@@ -636,7 +588,6 @@ export default function AppShell({
                 </section>
               ))}
             </div>
-
             <div className="space-y-3 border-t border-border p-4">
               <div className="flex items-center justify-between gap-3 px-1">
                 <span className="text-sm font-medium text-muted-foreground">
@@ -644,20 +595,16 @@ export default function AppShell({
                 </span>
                 <ThemeToggle />
               </div>
-
               <div className="flex items-center gap-3 rounded-2xl border border-border bg-muted/50 p-3">
                 <UserAvatar name={authUser?.name} />
-
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-foreground">
                     {authLoading ? "Loading user..." : authUser?.name || "User"}
                   </p>
-
                   <p className="truncate text-xs text-muted-foreground">
                     {authUser?.role?.name || "Account"}
                   </p>
                 </div>
-
                 <button
                   type="button"
                   onClick={handleLogout}
@@ -673,8 +620,6 @@ export default function AppShell({
           </aside>
         </div>
       )}
-
-      {/* MOBILE BOTTOM NAVIGATION */}
       {visibleMobileItems.length > 0 && (
         <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card/95 px-1 pb-[max(env(safe-area-inset-bottom),0.35rem)] pt-2 shadow-[0_-12px_35px_rgba(0,0,0,0.25)] backdrop-blur-xl xl:hidden">
           <div className="mx-auto flex max-w-xl items-stretch justify-around gap-1">
@@ -682,10 +627,9 @@ export default function AppShell({
               <MobileNavItem
                 key={item.href}
                 {...item}
-                active={isActivePath(pathname, item.href)}
+                active={activeMobileHref === item.href}
               />
             ))}
-
             <button
               type="button"
               onClick={() => setMobileMenuOpen(true)}
@@ -700,7 +644,6 @@ export default function AppShell({
           </div>
         </nav>
       )}
-
       <div className="h-20 xl:hidden" />
     </div>
   );
@@ -730,23 +673,19 @@ function UserMenu({
       <div className="border-b border-border p-4">
         <div className="flex items-center gap-3">
           <UserAvatar name={user?.name} />
-
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-foreground">
               {authLoading ? "Loading user..." : user?.name || "User"}
             </p>
-
             <p className="truncate text-xs text-muted-foreground">
               {user?.email || "No email available"}
             </p>
           </div>
         </div>
-
         <div className="mt-3 inline-flex max-w-full items-center rounded-full border border-rose-900/40 bg-rose-950/40 px-2.5 py-1 text-[10px] font-semibold text-rose-200">
           <span className="truncate">{user?.role?.name || "Account"}</span>
         </div>
       </div>
-
       <button
         type="button"
         onClick={onLogout}
@@ -787,7 +726,6 @@ function MobileNavItem({
       >
         <Icon className="h-[18px] w-[18px]" />
       </span>
-
       <span className="max-w-full truncate text-[10px] font-medium">
         {label}
       </span>
