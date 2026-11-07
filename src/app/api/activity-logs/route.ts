@@ -1,8 +1,6 @@
+import { NextRequest, NextResponse } from "next/server";
 import { requirePermission } from "@/lib/auth/authorization";
 import { requireAuth } from "@/lib/auth/require-auth";
-
-import { NextRequest, NextResponse } from "next/server";
-
 import { prisma } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
@@ -12,39 +10,34 @@ export async function GET(request: NextRequest) {
     return response;
   }
 
-  const permission = requirePermission(
-    user,
-    "activity.view",
+  if (!user) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Unauthorized.",
+      },
+      { status: 401 },
     );
+  }
+
+  const permission = requirePermission(user, "activity.view");
 
   if (permission.response) {
     return permission.response;
   }
 
   try {
-    const searchParams =
-      request.nextUrl.searchParams;
+    const searchParams = request.nextUrl.searchParams;
 
-    const search =
-      searchParams.get("search")?.trim() || "";
+    const search = searchParams.get("search")?.trim() || "";
+    const action = searchParams.get("action")?.trim() || "";
+    const entityType = searchParams.get("entityType")?.trim() || "";
 
-    const action =
-      searchParams.get("action")?.trim() || "";
-
-    const entityType =
-      searchParams
-        .get("entityType")
-        ?.trim() || "";
-
-    const pageParam =
-      Number(searchParams.get("page") || 1);
-
-    const limitParam =
-      Number(searchParams.get("limit") || 20);
+    const pageParam = Number(searchParams.get("page") || 1);
+    const limitParam = Number(searchParams.get("limit") || 20);
 
     const page =
-      Number.isInteger(pageParam) &&
-      pageParam > 0
+      Number.isInteger(pageParam) && pageParam > 0
         ? pageParam
         : 1;
 
@@ -113,61 +106,49 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    const skip =
-      (page - 1) * limit;
+    const skip = (page - 1) * limit;
 
-    const [logs, total] =
-      await prisma.$transaction([
-        prisma.activityLog.findMany({
-          where,
-
-          orderBy: {
-            createdAt: "desc",
-          },
-
-          skip,
-          take: limit,
-
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
+    const [logs, total] = await prisma.$transaction([
+      prisma.activityLog.findMany({
+        where,
+        orderBy: {
+          createdAt: "desc",
+        },
+        skip,
+        take: limit,
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
             },
           },
-        }),
+        },
+      }),
 
-        prisma.activityLog.count({
-          where,
-        }),
-      ]);
+      prisma.activityLog.count({
+        where,
+      }),
+    ]);
 
     return NextResponse.json({
       success: true,
-
       data: logs,
-
       pagination: {
         page,
         limit,
         total,
-        totalPages:
-          Math.ceil(total / limit),
+        totalPages: Math.ceil(total / limit),
       },
     });
   } catch (error) {
-    console.error(
-      "GET activity logs error:",
-      error,
-    );
+    console.error("GET activity logs error:", error);
 
     return NextResponse.json(
       {
         success: false,
-        error:
-          "Failed to load activity logs.",
+        error: "Failed to load activity logs.",
       },
       { status: 500 },
     );

@@ -1,3 +1,4 @@
+
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
@@ -13,82 +14,93 @@ type Context = {
   }>;
 };
 
+function isSuperAdmin(user: {
+  role?: { name?: string | null } | null;
+}) {
+  return user.role?.name?.toLowerCase() === "superadmin";
+}
+
 export async function GET(
   _request: Request,
   context: Context,
 ) {
-  const { user, response } =
-    await requireAuth();
+  const { user, response } = await requireAuth();
 
   if (response) {
     return response;
   }
 
-  const permission =
-    requirePermission(
-      user,
-      "qc.view",
+  if (!user) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Unauthorized.",
+      },
+      { status: 401 },
     );
+  }
+
+  const permission = requirePermission(user, "qc.view");
 
   if (permission.response) {
     return permission.response;
   }
 
-  try {
-    const { spkId } =
-      await context.params;
+  const superAdmin = isSuperAdmin(user);
 
+  if (!superAdmin && user.companyId == null) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "User belum terhubung dengan perusahaan.",
+      },
+      { status: 403 },
+    );
+  }
+
+  try {
+    const { spkId } = await context.params;
     const id = Number(spkId);
 
-    if (
-      !Number.isInteger(id) ||
-      id <= 0
-    ) {
+    if (!Number.isSafeInteger(id) || id <= 0) {
       return NextResponse.json(
         {
           success: false,
           error: "Invalid SPK ID.",
         },
-        {
-          status: 400,
-        },
+        { status: 400 },
       );
     }
 
-    const summary =
-      await calculateQCMonitoring(id);
-
-    const spk =
-      await prisma.sPK.findUnique({
-        where: {
-          id,
-          deletedAt: null,
-        },
-
-        include: {
-          transactions: {
-            orderBy: {
-              createdAt: "asc",
-            },
-
-            include: {
-              transactionType: {
-                select: {
-                  code: true,
-                  name: true,
-                },
+    // Validasi kepemilikan SPK sebelum kalkulasi QC.
+    const spk = await prisma.sPK.findFirst({
+      where: {
+        id,
+        deletedAt: null,
+        ...(superAdmin ? {} : { companyId: user.companyId! }),
+      },
+      include: {
+        transactions: {
+          orderBy: {
+            createdAt: "asc",
+          },
+          include: {
+            transactionType: {
+              select: {
+                code: true,
+                name: true,
               },
-
-              employee: {
-                select: {
-                  id: true,
-                  name: true,
-                },
+            },
+            employee: {
+              select: {
+                id: true,
+                name: true,
               },
             },
           },
         },
-      });
+      },
+    });
 
     if (!spk) {
       return NextResponse.json(
@@ -96,50 +108,31 @@ export async function GET(
           success: false,
           error: "SPK tidak ditemukan.",
         },
-        {
-          status: 404,
-        },
+        { status: 404 },
       );
     }
 
-    const timeline =
-      spk.transactions.map(
-        (transaction) => ({
-          id: transaction.id,
+    const summary = await calculateQCMonitoring(id);
 
-          transactionNumber:
-            transaction.transactionNumber,
-
-          type:
-            transaction.transactionType.code,
-
-          typeName:
-            transaction.transactionType.name,
-
-          quantity:
-            transaction.quantity,
-
-          employee:
-            transaction.employee.name,
-
-          createdAt:
-            transaction.createdAt,
-        }),
-      );
+    const timeline = spk.transactions.map((transaction) => ({
+      id: transaction.id,
+      transactionNumber: transaction.transactionNumber,
+      type: transaction.transactionType.code,
+      typeName: transaction.transactionType.name,
+      quantity: transaction.quantity,
+      employee: transaction.employee.name,
+      createdAt: transaction.createdAt,
+    }));
 
     return NextResponse.json({
       success: true,
-
       data: {
         summary,
         timeline,
       },
     });
   } catch (error) {
-    console.error(
-      "GET QC detail error:",
-      error,
-    );
+    console.error("GET QC detail error:", error);
 
     return NextResponse.json(
       {
@@ -149,9 +142,7 @@ export async function GET(
             ? error.message
             : "Gagal mengambil detail QC.",
       },
-      {
-        status: 500,
-      },
+      { status: 500 },
     );
   }
 }

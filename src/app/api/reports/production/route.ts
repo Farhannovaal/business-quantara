@@ -15,10 +15,20 @@ export async function GET(request: NextRequest) {
     return response;
   }
 
+  if (!user) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Unauthorized.",
+      },
+      { status: 401 },
+    );
+  }
+
   // Pertahankan kontrol akses laporan.
   const permission = requirePermission(
     user,
-    "dashboard.view"
+    "dashboard.view",
   );
 
   if (permission.response) {
@@ -40,7 +50,7 @@ export async function GET(request: NextRequest) {
         },
         {
           status: 400,
-        }
+        },
       );
     }
 
@@ -59,12 +69,12 @@ export async function GET(request: NextRequest) {
         headers: {
           "Cache-Control": "no-store",
         },
-      }
+      },
     );
   } catch (error) {
     console.error(
       "[GET /api/reports/production]",
-      error
+      error,
     );
 
     const message =
@@ -84,7 +94,7 @@ export async function GET(request: NextRequest) {
       },
       {
         status: isDateValidationError ? 400 : 500,
-      }
+      },
     );
   }
 }

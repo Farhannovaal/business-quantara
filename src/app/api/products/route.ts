@@ -1,84 +1,170 @@
 
 import { NextResponse } from "next/server";
-import { requirePermission } from "@/lib/auth/authorization";
-import { requireAuth } from "@/lib/auth/require-auth";
+import { Prisma } from "@prisma/client";
+
 import { prisma } from "@/lib/prisma";
+import { withApiAuth } from "@/lib/auth/api-guard";
 
-function isSuperAdmin(user: {
-  role?: { name?: string | null } | null;
-}) {
-  return user.role?.name?.toLowerCase() === "superadmin";
-}
-
-export async function GET() {
-  const { user, response } = await requireAuth();
-
-  if (response) return response;
-
-  const permission = requirePermission(user, "product.view");
-  if (permission.response) return permission.response;
-
-  const superAdmin = isSuperAdmin(user);
-
-  if (!superAdmin && user.companyId == null) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: "User belum terhubung dengan perusahaan.",
-      },
-      { status: 403 },
-    );
+function parsePositiveInteger(
+  value: string | null,
+  fallback: number
+): number | null {
+  if (value === null) {
+    return fallback;
   }
 
-  try {
-    const products = await prisma.product.findMany({
-      where: superAdmin
-        ? {}
-        : { companyId: user.companyId! },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
+  if (value.trim() === "") {
+    return null;
+  }
+
+  const parsed = Number(value);
+
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+    return null;
+  }
+
+  return parsed;
+}
+
+/**
+ * GET /api/products
+ *
+ * Superadmin:
+ * - Mengambil produk dari company yang dipilih melalui active_company_id.
+ *
+ * Tenant:
+ * - Mengambil produk dari company milik user yang login.
+ */
+export const GET = withApiAuth(
+  async ({ request, tenant }) => {
+    if (!tenant) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Company context is unavailable.",
+        },
+        { status: 403 }
+      );
+    }
+
+    const searchParams = request.nextUrl.searchParams;
+
+    const page = parsePositiveInteger(
+      searchParams.get("page"),
+      1
+    );
+
+    const requestedLimit = parsePositiveInteger(
+      searchParams.get("limit"),
+      20
+    );
+
+    if (page === null || requestedLimit === null) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Invalid pagination parameters.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const limit = Math.min(requestedLimit, 100);
+    const search = searchParams.get("search")?.trim();
+
+    const where: Prisma.ProductWhereInput = {
+      companyId: tenant.id,
+
+      ...(search
+        ? {
+            OR: [
+              {
+                name: {
+                  contains: search,
+                },
+              },
+              {
+                code: {
+                  contains: search,
+                },
+              },
+            ],
+          }
+        : {}),
+    };
+
+    const [products, total] = await Promise.all([
+      prisma.product.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: {
+          createdAt: "desc",
+        },
+      }),
+
+      prisma.product.count({
+        where,
+      }),
+    ]);
 
     return NextResponse.json({
       success: true,
       data: products,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+      company: {
+        id: tenant.id,
+        name: tenant.name,
+        code: tenant.code,
+      },
     });
-  } catch (error) {
-    console.error("GET /api/products error:", error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to load products",
-      },
-      { status: 500 },
-    );
+  },
+  {
+    tenant: "required",
+    requireActiveCompany: true,
+    permission: "product.view",
   }
-}
+);
 
-export async function POST(request: Request) {
-  const { user, response } = await requireAuth();
+/**
+ * POST /api/products
+ *
+ * Superadmin:
+ * - Company ID otomatis diambil dari active_company_id.
+ *
+ * Tenant:
+ * - Company ID otomatis diambil dari authenticated session.
+ */
+export const POST = withApiAuth(
+  async ({ request, tenant }) => {
+    if (!tenant) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Company context is unavailable.",
+        },
+        { status: 403 }
+      );
+    }
 
-  if (response) return response;
+    let body: unknown;
 
-  const permission = requirePermission(user, "product.manage");
-  if (permission.response) return permission.response;
-
-  const superAdmin = isSuperAdmin(user);
-
-  if (!superAdmin && user.companyId == null) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: "User belum terhubung dengan perusahaan.",
-      },
-      { status: 403 },
-    );
-  }
-
-  try {
-    const body = await request.json();
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Invalid JSON request body.",
+        },
+        { status: 400 }
+      );
+    }
 
     if (
       body === null ||
@@ -88,137 +174,69 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          error: "Invalid request body",
+          message: "Invalid request body.",
         },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
+    const payload = body as Record<string, unknown>;
+
     if (
-      typeof body.code !== "string" ||
-      typeof body.name !== "string"
+      typeof payload.code !== "string" ||
+      typeof payload.name !== "string" ||
+      !payload.code.trim() ||
+      !payload.name.trim()
     ) {
       return NextResponse.json(
         {
           success: false,
-          error: "Product code and name must be strings",
+          message: "Code and name are required.",
         },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
-    const code = body.code.trim();
-    const name = body.name.trim();
+    const code = payload.code.trim();
+    const name = payload.name.trim();
 
-    if (!code || !name) {
+    try {
+      const product = await prisma.product.create({
+        data: {
+          companyId: tenant.id,
+          code,
+          name,
+        },
+      });
+
       return NextResponse.json(
         {
-          success: false,
-          error: "Product code and name are required",
+          success: true,
+          message: "Product created successfully.",
+          data: product,
         },
-        { status: 400 },
+        { status: 201 }
       );
-    }
-
-    let isActive = true;
-
-    if (body.isActive !== undefined) {
-      if (typeof body.isActive !== "boolean") {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "isActive must be a boolean",
-          },
-          { status: 400 },
-        );
-      }
-
-      isActive = body.isActive;
-    }
-
-    let companyId: number;
-
-    if (superAdmin) {
+    } catch (error) {
       if (
-        typeof body.companyId !== "string" ||
-        !body.companyId.trim()
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
       ) {
         return NextResponse.json(
           {
             success: false,
-            error: "Super Admin harus memilih perusahaan.",
+            message: "Product code already exists.",
           },
-          { status: 400 },
+          { status: 409 }
         );
       }
 
-      companyId = body.companyId.trim();
-
-      const company = await prisma.company.findUnique({
-        where: { id: companyId },
-        select: { id: true },
-      });
-
-      if (!company) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Perusahaan tidak ditemukan.",
-          },
-          { status: 404 },
-        );
-      }
-    } else {
-      companyId = user.companyId!;
+      throw error;
     }
-
-    const existingProduct = await prisma.product.findUnique({
-      where: {
-        companyId_code: {
-          companyId,
-          code,
-        },
-      },
-      select: {
-        id: true,
-      },
-    });
-
-    if (existingProduct) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Product code already exists",
-        },
-        { status: 409 },
-      );
-    }
-
-    const product = await prisma.product.create({
-      data: {
-        companyId,
-        code,
-        name,
-        isActive,
-      },
-    });
-
-    return NextResponse.json(
-      {
-        success: true,
-        data: product,
-      },
-      { status: 201 },
-    );
-  } catch (error) {
-    console.error("POST /api/products error:", error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to create product",
-      },
-      { status: 500 },
-    );
+  },
+  {
+    tenant: "required",
+    requireActiveCompany: true,
+    permission: "product.create",
   }
-}
+);

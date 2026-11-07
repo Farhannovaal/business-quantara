@@ -1,3 +1,4 @@
+
 import { ReactNode } from "react";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { requirePermission } from "@/lib/auth/authorization";
@@ -15,6 +16,14 @@ export default async function RoutePermission({
 
   if (response || !user) {
     return null;
+  }
+
+  // Superadmin memiliki akses penuh ke halaman aplikasi.
+  const isSuperAdmin =
+    user.role?.name?.toLowerCase() === "superadmin";
+
+  if (isSuperAdmin) {
+    return <>{children}</>;
   }
 
   const permissionCheck = requirePermission(

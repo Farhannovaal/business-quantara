@@ -1,3 +1,4 @@
+
 import { requirePermission } from "@/lib/auth/authorization";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { prisma } from "@/lib/prisma";
@@ -20,6 +21,12 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const MAX_ROWS = 5000;
 const MAX_ERRORS = 200;
 
+function isSuperAdmin(user: {
+  role?: { name?: string | null } | null;
+}) {
+  return user.role?.name?.toLowerCase() === "superadmin";
+}
+
 function normalizeHeader(value: unknown): string {
   return String(value ?? "")
     .trim()
@@ -28,7 +35,7 @@ function normalizeHeader(value: unknown): string {
 }
 
 function parseActive(
-  value: unknown
+  value: unknown,
 ): { value: boolean | null; valid: boolean } {
   if (value === undefined || value === null || value === "") {
     return { value: true, valid: true };
@@ -51,16 +58,10 @@ function parseActive(
   return { value: null, valid: false };
 }
 
-function errorResponse(
-  error: string,
-  status: number
-) {
+function errorResponse(error: string, status: number) {
   return NextResponse.json(
-    {
-      success: false,
-      error,
-    },
-    { status }
+    { success: false, error },
+    { status },
   );
 }
 
@@ -69,9 +70,22 @@ export async function POST(request: Request) {
 
   if (response) return response;
 
+  if (!user) {
+    return errorResponse("Unauthorized.", 401);
+  }
+
   const permission = requirePermission(user, "tailor.manage");
 
   if (permission.response) return permission.response;
+
+  const superAdmin = isSuperAdmin(user);
+
+  if (!superAdmin && user.companyId == null) {
+    return errorResponse(
+      "User belum terhubung dengan perusahaan.",
+      403,
+    );
+  }
 
   try {
     const formData = await request.formData();
@@ -84,7 +98,7 @@ export async function POST(request: Request) {
     if (!file.name.toLowerCase().endsWith(".xlsx")) {
       return errorResponse(
         "Format file tidak valid. Gunakan file .xlsx.",
-        400
+        400,
       );
     }
 
@@ -95,7 +109,46 @@ export async function POST(request: Request) {
     if (file.size > MAX_FILE_SIZE) {
       return errorResponse(
         "Ukuran file maksimal adalah 5 MB.",
-        400
+        400,
+      );
+    }
+
+    // Tentukan perusahaan tujuan import.
+    let companyId: number;
+
+    if (superAdmin) {
+      const rawCompanyId = formData.get("companyId");
+      const requestedCompanyId = Number(rawCompanyId);
+
+      if (
+        rawCompanyId === null ||
+        rawCompanyId === "" ||
+        !Number.isSafeInteger(requestedCompanyId) ||
+        requestedCompanyId <= 0
+      ) {
+        return errorResponse(
+          "Super Admin harus memilih perusahaan yang valid.",
+          400,
+        );
+      }
+
+      companyId = requestedCompanyId;
+    } else {
+      companyId = user.companyId!;
+    }
+
+    const company = await prisma.company.findFirst({
+      where: {
+        id: companyId,
+        status: "ACTIVE",
+      },
+      select: { id: true },
+    });
+
+    if (!company) {
+      return errorResponse(
+        "Perusahaan tidak ditemukan atau tidak aktif.",
+        403,
       );
     }
 
@@ -111,7 +164,7 @@ export async function POST(request: Request) {
     if (!firstSheetName) {
       return errorResponse(
         "Workbook tidak memiliki sheet.",
-        400
+        400,
       );
     }
 
@@ -123,13 +176,13 @@ export async function POST(request: Request) {
         header: 1,
         defval: "",
         raw: false,
-      }
+      },
     );
 
     if (rawRows.length < 2) {
       return errorResponse(
         "Tidak ada data untuk diimpor. Isi data mulai baris kedua.",
-        400
+        400,
       );
     }
 
@@ -140,7 +193,7 @@ export async function POST(request: Request) {
     if (nameIndex === -1) {
       return errorResponse(
         'Kolom "Name" wajib tersedia pada baris pertama.',
-        400
+        400,
       );
     }
 
@@ -149,7 +202,7 @@ export async function POST(request: Request) {
     if (dataRows.length > MAX_ROWS) {
       return errorResponse(
         `Maksimal ${MAX_ROWS} baris data dalam satu kali import.`,
-        400
+        400,
       );
     }
 
@@ -157,11 +210,7 @@ export async function POST(request: Request) {
     const validRows: TailorImportRow[] = [];
     const seenNames = new Set<string>();
 
-    function addError(
-      row: number,
-      code: string,
-      message: string
-    ) {
+    function addError(row: number, code: string, message: string) {
       errors.push({ row, code, message });
     }
 
@@ -173,21 +222,12 @@ export async function POST(request: Request) {
       const rawActive =
         activeIndex === -1 ? "" : row[activeIndex];
 
-      // Lewati baris yang benar-benar kosong.
-      if (
-        row.every(
-          (value) => String(value ?? "").trim() === ""
-        )
-      ) {
+      if (row.every((value) => String(value ?? "").trim() === "")) {
         continue;
       }
 
       if (!name) {
-        addError(
-          rowNumber,
-          "",
-          "Nama tailor wajib diisi."
-        );
+        addError(rowNumber, "", "Nama tailor wajib diisi.");
         continue;
       }
 
@@ -195,7 +235,7 @@ export async function POST(request: Request) {
         addError(
           rowNumber,
           name,
-          "Nama tailor maksimal 150 karakter."
+          "Nama tailor maksimal 150 karakter.",
         );
         continue;
       }
@@ -206,7 +246,7 @@ export async function POST(request: Request) {
         addError(
           rowNumber,
           name,
-          'Is Active tidak valid. Gunakan TRUE/FALSE, YES/NO, 1/0, atau ACTIVE/INACTIVE.'
+          "Is Active tidak valid. Gunakan TRUE/FALSE, YES/NO, 1/0, atau ACTIVE/INACTIVE.",
         );
         continue;
       }
@@ -217,7 +257,7 @@ export async function POST(request: Request) {
         addError(
           rowNumber,
           name,
-          "Nama tailor duplikat di dalam file."
+          "Nama tailor duplikat di dalam file.",
         );
         continue;
       }
@@ -231,10 +271,11 @@ export async function POST(request: Request) {
       });
     }
 
-    // Cari nama yang sudah ada sebelum memasukkan data baru.
+    // Duplikasi hanya diperiksa dalam perusahaan tujuan.
     const existingTailors = validRows.length
       ? await prisma.tailor.findMany({
           where: {
+            companyId,
             name: {
               in: validRows.map((row) => row.name),
             },
@@ -246,9 +287,7 @@ export async function POST(request: Request) {
       : [];
 
     const existingNames = new Set(
-      existingTailors.map((tailor) =>
-        tailor.name.toLowerCase()
-      )
+      existingTailors.map((tailor) => tailor.name.toLowerCase()),
     );
 
     const newRows: TailorImportRow[] = [];
@@ -258,7 +297,7 @@ export async function POST(request: Request) {
         addError(
           row.rowNumber,
           row.name,
-          "Nama tailor sudah terdaftar dan dilewati."
+          "Nama tailor sudah terdaftar dan dilewati.",
         );
         continue;
       }
@@ -268,12 +307,11 @@ export async function POST(request: Request) {
 
     let imported = 0;
 
-    // Buat setiap data dalam transaksi terpisah agar satu
-    // kegagalan tidak membatalkan seluruh baris lainnya.
     for (const row of newRows) {
       try {
         await prisma.tailor.create({
           data: {
+            companyId,
             name: row.name,
             isActive: row.isActive,
           },
@@ -281,7 +319,6 @@ export async function POST(request: Request) {
 
         imported++;
       } catch (error) {
-        // Menangani duplikasi akibat import bersamaan.
         if (
           typeof error === "object" &&
           error !== null &&
@@ -291,38 +328,35 @@ export async function POST(request: Request) {
           addError(
             row.rowNumber,
             row.name,
-            "Nama tailor sudah terdaftar dan dilewati."
+            "Nama tailor sudah terdaftar dan dilewati.",
           );
           continue;
         }
 
         console.error(
           `Import tailor gagal pada baris ${row.rowNumber}:`,
-          error
+          error,
         );
 
         addError(
           row.rowNumber,
           row.name,
-          "Gagal menyimpan data tailor."
+          "Gagal menyimpan data tailor.",
         );
       }
     }
 
-    const skippedOrFailed = errors.length;
-    const visibleErrors = errors.slice(0, MAX_ERRORS);
+    const totalRows = dataRows.filter((row) =>
+      row.some((value) => String(value ?? "").trim() !== ""),
+    ).length;
 
     return NextResponse.json({
       success: true,
       data: {
-        totalRows: dataRows.filter((row) =>
-          row.some(
-            (value) => String(value ?? "").trim() !== ""
-          )
-        ).length,
+        totalRows,
         imported,
-        skippedOrFailed,
-        errors: visibleErrors,
+        skippedOrFailed: errors.length,
+        errors: errors.slice(0, MAX_ERRORS),
         errorsTruncated: errors.length > MAX_ERRORS,
       },
     });
@@ -331,7 +365,7 @@ export async function POST(request: Request) {
 
     return errorResponse(
       "Terjadi kesalahan saat mengimpor data tailor.",
-      500
+      500,
     );
   }
 }

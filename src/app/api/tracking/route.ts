@@ -5,14 +5,42 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { calculateSPKStatus } from "@/lib/spk-status";
 
+function isSuperAdmin(user: {
+  role?: { name?: string | null } | null;
+}) {
+  return user.role?.name?.toLowerCase() === "superadmin";
+}
+
 export async function GET(request: NextRequest) {
   const { user, response } = await requireAuth();
 
   if (response) return response;
 
+  if (!user) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Unauthorized.",
+      },
+      { status: 401 },
+    );
+  }
+
   const permission = requirePermission(user, "tracking.view");
 
   if (permission.response) return permission.response;
+
+  const superAdmin = isSuperAdmin(user);
+
+  if (!superAdmin && user.companyId == null) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "User belum terhubung dengan perusahaan.",
+      },
+      { status: 403 },
+    );
+  }
 
   try {
     const { searchParams } = new URL(request.url);
@@ -52,9 +80,15 @@ export async function GET(request: NextRequest) {
 
     const where = {
       deletedAt: null,
+
+      ...(superAdmin
+        ? {}
+        : { companyId: user.companyId! }),
+
       ...(parsedSpkId !== null
         ? { id: parsedSpkId }
         : {}),
+
       ...(search
         ? {
             OR: [

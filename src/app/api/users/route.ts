@@ -67,6 +67,13 @@ export async function GET() {
 
   if (response) return response;
 
+  if (!user) {
+    return NextResponse.json(
+      { success: false, error: "Unauthorized." },
+      { status: 401 },
+    );
+  }
+
   const permission = requirePermission(user, "user.view");
   if (permission.response) return permission.response;
 
@@ -194,6 +201,13 @@ export async function POST(request: NextRequest) {
   const { user, response } = await requireAuth();
 
   if (response) return response;
+
+  if (!user) {
+    return NextResponse.json(
+      { success: false, error: "Unauthorized." },
+      { status: 401 },
+    );
+  }
 
   const permission = requirePermission(user, "user.manage");
   if (permission.response) return permission.response;

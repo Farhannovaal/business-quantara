@@ -1,3 +1,4 @@
+
 import { requirePermission } from "@/lib/auth/authorization";
 import { requireAuth } from "@/lib/auth/require-auth";
 
@@ -12,6 +13,16 @@ export async function GET(request: NextRequest) {
     return response;
   }
 
+  if (!user) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Unauthorized.",
+      },
+      { status: 401 },
+    );
+  }
+
   const permission = requirePermission(
     user,
     "scanner.view",
@@ -22,8 +33,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const searchParams =
-      request.nextUrl.searchParams;
+    const searchParams = request.nextUrl.searchParams;
 
     const search =
       searchParams.get("search")?.trim() || "";
@@ -41,8 +51,7 @@ export async function GET(request: NextRequest) {
       Number(searchParams.get("limit") || 20);
 
     const page =
-      Number.isInteger(pageParam) &&
-      pageParam > 0
+      Number.isInteger(pageParam) && pageParam > 0
         ? pageParam
         : 1;
 
@@ -54,7 +63,13 @@ export async function GET(request: NextRequest) {
         : 20;
 
     const where: {
-      status?: "PENDING" | "VALID" | "INVALID" | "PROCESSED" | "DUPLICATE" | "REVIEW_REQUIRED";
+      status?:
+        | "PENDING"
+        | "VALID"
+        | "INVALID"
+        | "PROCESSED"
+        | "DUPLICATE"
+        | "REVIEW_REQUIRED";
       source?: "QR" | "BARCODE" | "OCR" | "MANUAL";
       OR?: Array<{
         documentNumber?: {
@@ -121,8 +136,7 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    const skip =
-      (page - 1) * limit;
+    const skip = (page - 1) * limit;
 
     const [documents, total] =
       await prisma.$transaction([
@@ -184,8 +198,7 @@ export async function GET(request: NextRequest) {
         page,
         limit,
         total,
-        totalPages:
-          Math.ceil(total / limit),
+        totalPages: Math.ceil(total / limit),
       },
     });
   } catch (error) {
@@ -197,8 +210,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error:
-          "Failed to load scanner history.",
+        error: "Failed to load scanner history.",
       },
       { status: 500 },
     );

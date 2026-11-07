@@ -55,6 +55,10 @@ export async function POST(request: Request) {
 
   if (response) return response;
 
+  if (!user) {
+    return jsonError("Unauthorized.", 401);
+  }
+
   const permission = requirePermission(user, "product.manage");
 
   if (permission.response) return permission.response;
@@ -107,17 +111,23 @@ export async function POST(request: Request) {
       }
 
       companyId = requestedCompanyId;
-
-      const company = await prisma.company.findUnique({
-        where: { id: companyId },
-        select: { id: true },
-      });
-
-      if (!company) {
-        return jsonError("Perusahaan tidak ditemukan.", 404);
-      }
     } else {
       companyId = user.companyId!;
+    }
+
+    const company = await prisma.company.findFirst({
+      where: {
+        id: companyId,
+        status: "ACTIVE",
+      },
+      select: { id: true },
+    });
+
+    if (!company) {
+      return jsonError(
+        "Perusahaan tidak ditemukan atau tidak aktif.",
+        403,
+      );
     }
 
     const bytes = await file.arrayBuffer();
@@ -200,6 +210,10 @@ export async function POST(request: Request) {
       const code = String(row[codeIndex] ?? "").trim();
       const name = String(row[nameIndex] ?? "").trim();
 
+      if (row.every((value) => String(value ?? "").trim() === "")) {
+        return;
+      }
+
       const active = parseActive(
         activeIndex < 0 ? undefined : row[activeIndex],
       );
@@ -217,8 +231,7 @@ export async function POST(request: Request) {
         errors.push({
           row: excelRow,
           code,
-          message:
-            "Code maksimal 100 karakter dan Name 255 karakter",
+          message: "Code maksimal 100 karakter dan Name 255 karakter",
         });
         return;
       }
@@ -227,13 +240,11 @@ export async function POST(request: Request) {
         errors.push({
           row: excelRow,
           code,
-          message:
-            "Is Active harus Active/Inactive atau true/false",
+          message: "Is Active harus Active/Inactive atau true/false",
         });
         return;
       }
 
-      // Cegah duplikat kode dalam file Excel.
       const key = code.toLowerCase();
 
       if (seenCodes.has(key)) {
@@ -260,16 +271,18 @@ export async function POST(request: Request) {
         success: true,
         message: "Tidak ada data valid untuk diimpor",
         data: {
-          totalRows: dataRows.length,
+          totalRows: dataRows.filter((row) =>
+            row.some((value) => String(value ?? "").trim() !== ""),
+          ).length,
           imported: 0,
-          skippedOrFailed: dataRows.length,
+          skippedOrFailed: errors.length,
           errors: errors.slice(0, 200),
           errorsTruncated: errors.length > 200,
         },
       });
     }
 
-    // Periksa kode yang sudah ada pada perusahaan tujuan.
+    // Periksa kode hanya dalam perusahaan tujuan.
     const existingProducts = await prisma.product.findMany({
       where: {
         companyId,
@@ -283,9 +296,7 @@ export async function POST(request: Request) {
     });
 
     const existingCodes = new Set(
-      existingProducts.map((product) =>
-        product.code.toLowerCase(),
-      ),
+      existingProducts.map((product) => product.code.toLowerCase()),
     );
 
     const newProducts = candidates.filter((item) => {
@@ -306,16 +317,17 @@ export async function POST(request: Request) {
         success: true,
         message: "Tidak ada produk baru untuk diimpor",
         data: {
-          totalRows: dataRows.length,
+          totalRows: dataRows.filter((row) =>
+            row.some((value) => String(value ?? "").trim() !== ""),
+          ).length,
           imported: 0,
-          skippedOrFailed: dataRows.length,
+          skippedOrFailed: errors.length,
           errors: errors.slice(0, 200),
           errorsTruncated: errors.length > 200,
         },
       });
     }
 
-    // Semua produk diikat ke perusahaan tujuan.
     const result = await prisma.product.createMany({
       data: newProducts.map(({ code, name, isActive }) => ({
         companyId,
@@ -326,13 +338,17 @@ export async function POST(request: Request) {
       skipDuplicates: true,
     });
 
-    const skippedOrFailed = dataRows.length - result.count;
+    const totalRows = dataRows.filter((row) =>
+      row.some((value) => String(value ?? "").trim() !== ""),
+    ).length;
+
+    const skippedOrFailed = totalRows - result.count;
 
     return NextResponse.json({
       success: true,
       message: "Import selesai",
       data: {
-        totalRows: dataRows.length,
+        totalRows,
         imported: result.count,
         skippedOrFailed,
         errors: errors.slice(0, 200),

@@ -1,8 +1,15 @@
+
 import { requirePermission } from "@/lib/auth/authorization";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { calculateSPKStatus } from "@/lib/spk-status";
+
+function isSuperAdmin(user: {
+  role?: { name?: string | null } | null;
+}) {
+  return user.role?.name?.toLowerCase() === "superadmin";
+}
 
 export async function GET() {
   const { user, response } = await requireAuth();
@@ -11,10 +18,32 @@ export async function GET() {
     return response;
   }
 
+  if (!user) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Unauthorized.",
+      },
+      { status: 401 },
+    );
+  }
+
   const permission = requirePermission(user, "scanner.view");
 
   if (permission.response) {
     return permission.response;
+  }
+
+  const superAdmin = isSuperAdmin(user);
+
+  if (!superAdmin && user.companyId == null) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "User belum terhubung dengan perusahaan.",
+      },
+      { status: 403 },
+    );
   }
 
   try {
@@ -22,6 +51,10 @@ export async function GET() {
       prisma.sPK.findMany({
         where: {
           status: "ACTIVE",
+          deletedAt: null,
+          ...(superAdmin
+            ? {}
+            : { companyId: user.companyId! }),
         },
         orderBy: {
           createdAt: "desc",
@@ -72,6 +105,9 @@ export async function GET() {
       prisma.employee.findMany({
         where: {
           isActive: true,
+          ...(superAdmin
+            ? {}
+            : { companyId: user.companyId! }),
         },
         orderBy: {
           name: "asc",
@@ -86,7 +122,8 @@ export async function GET() {
     const spkOptions = spks.flatMap((spk) =>
       spk.items.map((item) => {
         const productTransactions = spk.transactions.filter(
-          (transaction) => transaction.productId === item.productId,
+          (transaction) =>
+            transaction.productId === item.productId,
         );
 
         const summary = calculateSPKStatus(
@@ -96,7 +133,9 @@ export async function GET() {
 
         const nextTransactionTypes = transactionTypes.filter(
           (transactionType) =>
-            summary.nextTransactionTypes.includes(transactionType.code),
+            summary.nextTransactionTypes.includes(
+              transactionType.code,
+            ),
         );
 
         return {
@@ -120,8 +159,10 @@ export async function GET() {
             totalPenerimaan: summary.totalPenerimaan,
             totalQcRijek: summary.totalQcRijek,
             totalQcAcc: summary.totalQcAcc,
-            totalPengirimanRijek: summary.totalPengirimanRijek,
-            totalPenerimaanRijek: summary.totalPenerimaanRijek,
+            totalPengirimanRijek:
+              summary.totalPengirimanRijek,
+            totalPenerimaanRijek:
+              summary.totalPenerimaanRijek,
             sisaJahit: summary.sisaJahit,
             barangDiQc: summary.barangDiQc,
             jumlahRijek: summary.jumlahRijek,

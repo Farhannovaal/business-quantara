@@ -1,9 +1,8 @@
+
 import { requirePermission } from "@/lib/auth/authorization";
-
 import { requireAuth } from "@/lib/auth/require-auth";
-
 import { prisma } from "@/lib/prisma";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 type RouteContext = {
   params: Promise<{
@@ -11,42 +10,122 @@ type RouteContext = {
   }>;
 };
 
+function isSuperAdmin(user: {
+  role?: { name?: string | null } | null;
+}) {
+  return user.role?.name?.toLowerCase() === "superadmin";
+}
+
+function jsonError(error: string, status: number) {
+  return NextResponse.json(
+    {
+      success: false,
+      error,
+    },
+    { status },
+  );
+}
+
+function parseCompanyId(value: string | null): number | null {
+  if (!value) return null;
+
+  const companyId = Number(value);
+
+  if (!Number.isInteger(companyId) || companyId <= 0) {
+    return null;
+  }
+
+  return companyId;
+}
+
+async function resolveCompanyId(
+  request: NextRequest,
+  user: {
+    companyId?: number | null;
+    role?: { name?: string | null } | null;
+  },
+): Promise<
+  | { companyId: number; error?: never }
+  | { companyId?: never; error: NextResponse }
+> {
+  if (isSuperAdmin(user)) {
+    const companyIdParam =
+      request.nextUrl.searchParams.get("companyId");
+
+    const companyId = parseCompanyId(companyIdParam);
+
+    if (!companyId) {
+      return {
+        error: jsonError(
+          "Superadmin harus memilih companyId.",
+          400,
+        ),
+      };
+    }
+
+    const company = await prisma.company.findUnique({
+      where: {
+        id: companyId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!company) {
+      return {
+        error: jsonError("Company tidak ditemukan.", 404),
+      };
+    }
+
+    return { companyId };
+  }
+
+  if (user.companyId == null) {
+    return {
+      error: jsonError(
+        "User belum terhubung dengan perusahaan.",
+        403,
+      ),
+    };
+  }
+
+  // Tenant selalu menggunakan companyId dari session.
+  return {
+    companyId: user.companyId,
+  };
+}
+
 export async function GET(
-  _request: Request,
-  context: RouteContext
+  request: NextRequest,
+  context: RouteContext,
 ) {
   const { user, response } = await requireAuth();
 
-  if (response) {
-    return response;
-  }
-  const permission = requirePermission(
-    user,
-    "workflow.view"
-  );
+  if (response) return response;
+  if (!user) return jsonError("Unauthorized.", 401);
 
-  if (permission.response) {
-    return permission.response;
-  }
-
+  const permission = requirePermission(user, "workflow.view");
+  if (permission.response) return permission.response;
 
   try {
     const { id } = await context.params;
     const workflowId = Number(id);
 
-    if (!Number.isInteger(workflowId)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid workflow ID",
-        },
-        { status: 400 }
-      );
+    if (!Number.isInteger(workflowId) || workflowId <= 0) {
+      return jsonError("Invalid workflow ID", 400);
     }
 
-    const workflow = await prisma.workflow.findUnique({
+    const companyResult = await resolveCompanyId(request, user);
+
+    if (companyResult.error) {
+      return companyResult.error;
+    }
+
+    const workflow = await prisma.workflow.findFirst({
       where: {
         id: workflowId,
+        companyId: companyResult.companyId,
       },
       include: {
         steps: {
@@ -71,13 +150,7 @@ export async function GET(
     });
 
     if (!workflow) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Workflow not found",
-        },
-        { status: 404 }
-      );
+      return jsonError("Workflow not found", 404);
     }
 
     return NextResponse.json({
@@ -87,50 +160,50 @@ export async function GET(
   } catch (error) {
     console.error(
       "GET /api/workflows/[id] error:",
-      error
+      error,
     );
 
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to load workflow",
-      },
-      { status: 500 }
-    );
+    return jsonError("Failed to load workflow", 500);
   }
 }
 
 export async function PATCH(
-  request: Request,
-  context: RouteContext
+  request: NextRequest,
+  context: RouteContext,
 ) {
   const { user, response } = await requireAuth();
 
-  if (response) {
-    return response;
-  }
-  const permission = requirePermission(
-    user,
-    "workflow.manage"
-  );
+  if (response) return response;
+  if (!user) return jsonError("Unauthorized.", 401);
 
-  if (permission.response) {
-    return permission.response;
-  }
-
+  const permission = requirePermission(user, "workflow.manage");
+  if (permission.response) return permission.response;
 
   try {
     const { id } = await context.params;
     const workflowId = Number(id);
 
-    if (!Number.isInteger(workflowId)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid workflow ID",
-        },
-        { status: 400 }
-      );
+    if (!Number.isInteger(workflowId) || workflowId <= 0) {
+      return jsonError("Invalid workflow ID", 400);
+    }
+
+    const companyResult = await resolveCompanyId(request, user);
+
+    if (companyResult.error) {
+      return companyResult.error;
+    }
+
+    const ownershipWhere = {
+      id: workflowId,
+      companyId: companyResult.companyId,
+    };
+
+    const existingWorkflow = await prisma.workflow.findFirst({
+      where: ownershipWhere,
+    });
+
+    if (!existingWorkflow) {
+      return jsonError("Workflow not found", 404);
     }
 
     const body = await request.json();
@@ -146,12 +219,9 @@ export async function PATCH(
       const name = String(body.name).trim();
 
       if (!name) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Workflow name cannot be empty",
-          },
-          { status: 400 }
+        return jsonError(
+          "Workflow name cannot be empty",
+          400,
         );
       }
 
@@ -162,12 +232,9 @@ export async function PATCH(
       const code = String(body.code).trim();
 
       if (!code) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Workflow code cannot be empty",
-          },
-          { status: 400 }
+        return jsonError(
+          "Workflow code cannot be empty",
+          400,
         );
       }
 
@@ -182,14 +249,56 @@ export async function PATCH(
     }
 
     if (body.isActive !== undefined) {
-      data.isActive = Boolean(body.isActive);
+      if (typeof body.isActive !== "boolean") {
+        return jsonError(
+          "isActive must be a boolean",
+          400,
+        );
+      }
+
+      data.isActive = body.isActive;
     }
 
-    const workflow = await prisma.workflow.update({
-      where: {
-        id: workflowId,
-      },
+    if (data.name !== undefined || data.code !== undefined) {
+      const duplicate = await prisma.workflow.findFirst({
+        where: {
+          companyId: existingWorkflow.companyId,
+          id: {
+            not: workflowId,
+          },
+          OR: [
+            ...(data.name !== undefined
+              ? [{ name: data.name }]
+              : []),
+            ...(data.code !== undefined
+              ? [{ code: data.code }]
+              : []),
+          ],
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (duplicate) {
+        return jsonError(
+          "Workflow name or code already exists in this company.",
+          409,
+        );
+      }
+    }
+
+    const updated = await prisma.workflow.updateMany({
+      where: ownershipWhere,
       data,
+    });
+
+    if (updated.count === 0) {
+      return jsonError("Workflow not found", 404);
+    }
+
+    const workflow = await prisma.workflow.findFirst({
+      where: ownershipWhere,
     });
 
     return NextResponse.json({
@@ -199,57 +308,62 @@ export async function PATCH(
   } catch (error) {
     console.error(
       "PATCH /api/workflows/[id] error:",
-      error
+      error,
     );
 
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to update workflow",
-      },
-      { status: 500 }
-    );
+    return jsonError("Failed to update workflow", 500);
   }
 }
 
 export async function DELETE(
-  _request: Request,
-  context: RouteContext
+  request: NextRequest,
+  context: RouteContext,
 ) {
   const { user, response } = await requireAuth();
 
-  if (response) {
-    return response;
-  }
-  const permission = requirePermission(
-    user,
-    "workflow.manage"
-  );
+  if (response) return response;
+  if (!user) return jsonError("Unauthorized.", 401);
 
-  if (permission.response) {
-    return permission.response;
-  }
-
+  const permission = requirePermission(user, "workflow.manage");
+  if (permission.response) return permission.response;
 
   try {
     const { id } = await context.params;
     const workflowId = Number(id);
 
-    if (!Number.isInteger(workflowId)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid workflow ID",
-        },
-        { status: 400 }
-      );
+    if (!Number.isInteger(workflowId) || workflowId <= 0) {
+      return jsonError("Invalid workflow ID", 400);
     }
 
-    await prisma.workflow.delete({
-      where: {
-        id: workflowId,
+    const companyResult = await resolveCompanyId(request, user);
+
+    if (companyResult.error) {
+      return companyResult.error;
+    }
+
+    const ownershipWhere = {
+      id: workflowId,
+      companyId: companyResult.companyId,
+    };
+
+    const existingWorkflow = await prisma.workflow.findFirst({
+      where: ownershipWhere,
+      select: {
+        id: true,
       },
     });
+
+    if (!existingWorkflow) {
+      return jsonError("Workflow not found", 404);
+    }
+
+    const deleted = await prisma.workflow.deleteMany({
+      where: ownershipWhere,
+    });
+
+    if (deleted.count === 0) {
+      return jsonError("Workflow not found", 404);
+    }
 
     return NextResponse.json({
       success: true,
@@ -257,15 +371,9 @@ export async function DELETE(
   } catch (error) {
     console.error(
       "DELETE /api/workflows/[id] error:",
-      error
+      error,
     );
 
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to delete workflow",
-      },
-      { status: 500 }
-    );
+    return jsonError("Failed to delete workflow", 500);
   }
 }

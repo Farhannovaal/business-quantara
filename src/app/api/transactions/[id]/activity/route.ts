@@ -7,12 +7,31 @@ type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
-export async function GET(_request: Request, context: RouteContext) {
+export async function GET(
+  _request: Request,
+  context: RouteContext,
+) {
   const { user, response } = await requireAuth();
-  if (response) return response;
+
+  if (response) {
+    return response;
+  }
+
+  if (!user) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Unauthorized.",
+      },
+      { status: 401 },
+    );
+  }
 
   const permission = requirePermission(user, "activity.view");
-  if (permission.response) return permission.response;
+
+  if (permission.response) {
+    return permission.response;
+  }
 
   try {
     const { id } = await context.params;
@@ -20,19 +39,30 @@ export async function GET(_request: Request, context: RouteContext) {
 
     if (!Number.isSafeInteger(transactionId) || transactionId <= 0) {
       return NextResponse.json(
-        { success: false, error: "ID transaksi tidak valid." },
+        {
+          success: false,
+          error: "ID transaksi tidak valid.",
+        },
         { status: 400 },
       );
     }
 
     const transaction = await prisma.transaction.findUnique({
-      where: { id: transactionId },
-      select: { id: true, transactionNumber: true },
+      where: {
+        id: transactionId,
+      },
+      select: {
+        id: true,
+        transactionNumber: true,
+      },
     });
 
     if (!transaction) {
       return NextResponse.json(
-        { success: false, error: "Transaksi tidak ditemukan." },
+        {
+          success: false,
+          error: "Transaksi tidak ditemukan.",
+        },
         { status: 404 },
       );
     }
@@ -42,10 +72,18 @@ export async function GET(_request: Request, context: RouteContext) {
         entityType: "Transaction",
         entityId: String(transactionId),
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: {
+        createdAt: "desc",
+      },
       take: 100,
       include: {
-        user: { select: { id: true, name: true, email: true } },
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
       },
     });
 
@@ -56,8 +94,12 @@ export async function GET(_request: Request, context: RouteContext) {
     });
   } catch (error) {
     console.error("GET transaction activity error:", error);
+
     return NextResponse.json(
-      { success: false, error: "Gagal mengambil riwayat aktivitas transaksi." },
+      {
+        success: false,
+        error: "Gagal mengambil riwayat aktivitas transaksi.",
+      },
       { status: 500 },
     );
   }

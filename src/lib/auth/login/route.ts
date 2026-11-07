@@ -1,84 +1,135 @@
-import { cookies } from "next/headers";
-import { randomBytes } from "crypto";
 
-const SESSION_COOKIE = "bo_session";
+import { NextResponse } from "next/server";
 
-const SESSION_DURATION_SECONDS = 60 * 60 * 8; // 8 jam
+import { prisma } from "@/lib/prisma";
+import { verifyPassword } from "@/lib/auth/password";
+import { createSession } from "@/lib/auth/session";
 
-type SessionData = {
-  userId: number;
-  expiresAt: number;
-};
+const ACTIVE_COMPANY_COOKIE = "active_company_id";
 
-/**
- * Temporary in-memory session store.
- *
- * Ini hanya untuk development/testing.
- * Nanti kita pindahkan ke Redis agar session:
- * - tetap tersedia setelah restart
- * - bisa dipakai multi-instance
- * - lebih cocok untuk production
- */
-const sessions = new Map<string, SessionData>();
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
 
-export async function createSession(userId: number) {
-  const sessionId = randomBytes(32).toString("hex");
+    const email =
+      typeof body.email === "string"
+        ? body.email.trim().toLowerCase()
+        : "";
 
-  const expiresAt =
-    Date.now() +
-    SESSION_DURATION_SECONDS * 1000;
+    const password =
+      typeof body.password === "string"
+        ? body.password
+        : "";
 
-  sessions.set(sessionId, {
-    userId,
-    expiresAt,
-  });
+    if (!email || !password) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Email dan password wajib diisi.",
+        },
+        { status: 400 },
+      );
+    }
 
-  const cookieStore = await cookies();
+    const user = await prisma.user.findUnique({
+      where: {
+        email,
+      },
+      include: {
+        role: {
+          include: {
+            permissions: {
+              include: {
+                permission: true,
+              },
+            },
+          },
+        },
+      },
+    });
 
-  cookieStore.set(SESSION_COOKIE, sessionId, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: SESSION_DURATION_SECONDS,
-  });
+    if (!user) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Email atau password salah.",
+        },
+        { status: 401 },
+      );
+    }
 
-  return sessionId;
-}
+    if (user.status !== "ACTIVE") {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "User tidak aktif.",
+        },
+        { status: 403 },
+      );
+    }
 
-export async function getSession() {
-  const cookieStore = await cookies();
+    const passwordValid = await verifyPassword(
+      password,
+      user.passwordHash,
+    );
 
-  const sessionId =
-    cookieStore.get(SESSION_COOKIE)?.value;
+    if (!passwordValid) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Email atau password salah.",
+        },
+        { status: 401 },
+      );
+    }
 
-  if (!sessionId) {
-    return null;
+    await createSession(user.id);
+
+    const permissions =
+      user.role?.permissions.map(
+        (item) => item.permission.code,
+      ) ?? [];
+
+    const response = NextResponse.json({
+      success: true,
+      message: "Login berhasil.",
+      data: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+
+        role: user.role
+          ? {
+              id: user.role.id,
+              name: user.role.name,
+            }
+          : null,
+
+        permissions,
+      },
+    });
+
+    // Bersihkan active company dari sesi sebelumnya.
+    response.cookies.set({
+      name: ACTIVE_COMPANY_COOKIE,
+      value: "",
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 0,
+    });
+
+    return response;
+  } catch (error) {
+    console.error("Login error:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Terjadi kesalahan saat login.",
+      },
+      { status: 500 },
+    );
   }
-
-  const session = sessions.get(sessionId);
-
-  if (!session) {
-    return null;
-  }
-
-  if (session.expiresAt < Date.now()) {
-    sessions.delete(sessionId);
-    return null;
-  }
-
-  return session;
-}
-
-export async function destroySession() {
-  const cookieStore = await cookies();
-
-  const sessionId =
-    cookieStore.get(SESSION_COOKIE)?.value;
-
-  if (sessionId) {
-    sessions.delete(sessionId);
-  }
-
-  cookieStore.delete(SESSION_COOKIE);
 }

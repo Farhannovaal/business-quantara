@@ -1,7 +1,6 @@
+
 import { requirePermission } from "@/lib/auth/authorization";
-
 import { requireAuth } from "@/lib/auth/require-auth";
-
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
@@ -11,37 +10,68 @@ type RouteContext = {
   }>;
 };
 
+function isSuperAdmin(user: {
+  role?: { name?: string | null } | null;
+}) {
+  return user.role?.name?.toLowerCase() === "superadmin";
+}
+
+function jsonError(error: string, status: number) {
+  return NextResponse.json(
+    {
+      success: false,
+      error,
+    },
+    { status },
+  );
+}
+
 export async function PATCH(
   request: Request,
-  context: RouteContext
+  context: RouteContext,
 ) {
   const { user, response } = await requireAuth();
 
-  if (response) {
-    return response;
-  }
-  const permission = requirePermission(
-    user,
-    "transaction.manage"
-  );
+  if (response) return response;
+  if (!user) return jsonError("Unauthorized.", 401);
 
-  if (permission.response) {
-    return permission.response;
-  }
-
+  const permission = requirePermission(user, "transaction.manage");
+  if (permission.response) return permission.response;
 
   try {
     const { id } = await context.params;
     const transactionTypeId = Number(id);
 
-    if (!Number.isInteger(transactionTypeId)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid transaction type ID",
-        },
-        { status: 400 }
+    if (
+      !Number.isInteger(transactionTypeId) ||
+      transactionTypeId <= 0
+    ) {
+      return jsonError("Invalid transaction type ID", 400);
+    }
+
+    const superAdmin = isSuperAdmin(user);
+
+    if (!superAdmin && user.companyId == null) {
+      return jsonError(
+        "User belum terhubung dengan perusahaan.",
+        403,
       );
+    }
+
+    const ownershipWhere = {
+      id: transactionTypeId,
+      ...(superAdmin
+        ? {}
+        : { companyId: user.companyId! }),
+    };
+
+    const existingTransactionType =
+      await prisma.transactionType.findFirst({
+        where: ownershipWhere,
+      });
+
+    if (!existingTransactionType) {
+      return jsonError("Transaction type not found", 404);
     }
 
     const body = await request.json();
@@ -58,13 +88,7 @@ export async function PATCH(
       const code = String(body.code).trim();
 
       if (!code) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Code cannot be empty",
-          },
-          { status: 400 }
-        );
+        return jsonError("Code cannot be empty", 400);
       }
 
       data.code = code;
@@ -74,13 +98,7 @@ export async function PATCH(
       const name = String(body.name).trim();
 
       if (!name) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Name cannot be empty",
-          },
-          { status: 400 }
-        );
+        return jsonError("Name cannot be empty", 400);
       }
 
       data.name = name;
@@ -96,13 +114,13 @@ export async function PATCH(
     if (body.sequence !== undefined) {
       const sequence = Number(body.sequence);
 
-      if (!Number.isInteger(sequence) || sequence < 0) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Sequence must be a non-negative integer",
-          },
-          { status: 400 }
+      if (
+        !Number.isInteger(sequence) ||
+        sequence < 0
+      ) {
+        return jsonError(
+          "Sequence must be a non-negative integer",
+          400,
         );
       }
 
@@ -110,15 +128,55 @@ export async function PATCH(
     }
 
     if (body.isActive !== undefined) {
-      data.isActive = Boolean(body.isActive);
+      if (typeof body.isActive !== "boolean") {
+        return jsonError(
+          "isActive must be a boolean",
+          400,
+        );
+      }
+
+      data.isActive = body.isActive;
+    }
+
+    if (data.code !== undefined || data.name !== undefined) {
+      const duplicate = await prisma.transactionType.findFirst({
+        where: {
+          companyId: existingTransactionType.companyId,
+          id: { not: transactionTypeId },
+          OR: [
+            ...(data.code !== undefined
+              ? [{ code: data.code }]
+              : []),
+            ...(data.name !== undefined
+              ? [{ name: data.name }]
+              : []),
+          ],
+        },
+        select: { id: true },
+      });
+
+      if (duplicate) {
+        return jsonError(
+          "Transaction type code or name already exists in this company.",
+          409,
+        );
+      }
+    }
+
+    const updated = await prisma.transactionType.updateMany({
+      where: ownershipWhere,
+      data,
+    });
+
+    if (updated.count === 0) {
+      return jsonError("Transaction type not found", 404);
     }
 
     const transactionType =
-      await prisma.transactionType.update({
+      await prisma.transactionType.findUnique({
         where: {
           id: transactionTypeId,
         },
-        data,
       });
 
     return NextResponse.json({
@@ -128,82 +186,96 @@ export async function PATCH(
   } catch (error) {
     console.error(
       "PATCH /api/transaction-types/[id] error:",
-      error
+      error,
     );
 
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to update transaction type",
-      },
-      { status: 500 }
+    return jsonError(
+      "Failed to update transaction type",
+      500,
     );
   }
 }
 
 export async function DELETE(
   _request: Request,
-  context: RouteContext
+  context: RouteContext,
 ) {
   const { user, response } = await requireAuth();
 
-  if (response) {
-    return response;
-  }
-  const permission = requirePermission(
-    user,
-    "transaction.manage"
-  );
+  if (response) return response;
+  if (!user) return jsonError("Unauthorized.", 401);
 
-  if (permission.response) {
-    return permission.response;
-  }
-
+  const permission = requirePermission(user, "transaction.manage");
+  if (permission.response) return permission.response;
 
   try {
     const { id } = await context.params;
     const transactionTypeId = Number(id);
 
-    if (!Number.isInteger(transactionTypeId)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid transaction type ID",
-        },
-        { status: 400 }
+    if (
+      !Number.isInteger(transactionTypeId) ||
+      transactionTypeId <= 0
+    ) {
+      return jsonError("Invalid transaction type ID", 400);
+    }
+
+    const superAdmin = isSuperAdmin(user);
+
+    if (!superAdmin && user.companyId == null) {
+      return jsonError(
+        "User belum terhubung dengan perusahaan.",
+        403,
       );
     }
 
-    const transactionCount =
-      await prisma.transaction.count({
-        where: {
-          transactionTypeId,
-        },
+    const ownershipWhere = {
+      id: transactionTypeId,
+      ...(superAdmin
+        ? {}
+        : { companyId: user.companyId! }),
+    };
+
+    const existingTransactionType =
+      await prisma.transactionType.findFirst({
+        where: ownershipWhere,
       });
 
-    const workflowStepCount =
-      await prisma.workflowStep.count({
-        where: {
-          transactionTypeId,
-        },
-      });
+    if (!existingTransactionType) {
+      return jsonError("Transaction type not found", 404);
+    }
 
-    if (transactionCount > 0 || workflowStepCount > 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Transaction type cannot be deleted because it is already used. Deactivate it instead.",
-        },
-        { status: 409 }
+    const [transactionCount, workflowStepCount] =
+      await Promise.all([
+        prisma.transaction.count({
+          where: {
+            transactionTypeId,
+          },
+        }),
+
+        prisma.workflowStep.count({
+          where: {
+            transactionTypeId,
+          },
+        }),
+      ]);
+
+    if (
+      transactionCount > 0 ||
+      workflowStepCount > 0
+    ) {
+      return jsonError(
+        "Transaction type cannot be deleted because it is already used. Deactivate it instead.",
+        409,
       );
     }
 
-    await prisma.transactionType.delete({
-      where: {
-        id: transactionTypeId,
-      },
+    const deleted = await prisma.transactionType.deleteMany({
+      where: ownershipWhere,
     });
+
+    if (deleted.count === 0) {
+      return jsonError("Transaction type not found", 404);
+    }
 
     return NextResponse.json({
       success: true,
@@ -211,15 +283,12 @@ export async function DELETE(
   } catch (error) {
     console.error(
       "DELETE /api/transaction-types/[id] error:",
-      error
+      error,
     );
 
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to delete transaction type",
-      },
-      { status: 500 }
+    return jsonError(
+      "Failed to delete transaction type",
+      500,
     );
   }
 }

@@ -1,3 +1,4 @@
+
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 
@@ -16,6 +17,23 @@ export async function PATCH(
 
   if (response) {
     return response;
+  }
+
+  if (!user) {
+    return NextResponse.json(
+      { success: false, error: "Unauthorized." },
+      { status: 401 },
+    );
+  }
+
+  if (user.companyId == null) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "User tidak terhubung dengan perusahaan.",
+      },
+      { status: 403 },
+    );
   }
 
   const { id: rawId } = await context.params;
@@ -55,8 +73,11 @@ export async function PATCH(
   try {
     const result = await prisma.$transaction(
       async (tx) => {
-        const transaction = await tx.transaction.findUnique({
-          where: { id: transactionId },
+        const transaction = await tx.transaction.findFirst({
+          where: {
+            id: transactionId,
+            companyId: user.companyId!,
+          },
           include: {
             transactionType: {
               select: { code: true, name: true },
@@ -84,6 +105,7 @@ export async function PATCH(
         const dependentTransaction =
           await tx.transaction.findFirst({
             where: {
+              companyId: user.companyId!,
               spkId: transaction.spkId,
               productId: transaction.productId,
               status: "ACTIVE",
@@ -137,6 +159,7 @@ export async function PATCH(
         const updated = await tx.transaction.updateMany({
           where: {
             id: transaction.id,
+            companyId: user.companyId!,
             status: "ACTIVE",
           },
           data: {
@@ -199,7 +222,8 @@ export async function PATCH(
       return NextResponse.json(
         {
           success: false,
-          error: "Hanya pembuat transaksi atau administrator yang dapat membatalkan transaksi ini.",
+          error:
+            "Hanya pembuat transaksi atau administrator yang dapat membatalkan transaksi ini.",
         },
         { status: 403 },
       );
@@ -231,7 +255,8 @@ export async function PATCH(
       return NextResponse.json(
         {
           success: false,
-          error: "Pembatalan ditolak karena transaksi sudah digunakan pada tagihan penjahit.",
+          error:
+            "Pembatalan ditolak karena transaksi sudah digunakan pada tagihan penjahit.",
         },
         { status: 409 },
       );

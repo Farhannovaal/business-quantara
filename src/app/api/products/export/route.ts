@@ -16,6 +16,13 @@ export async function GET() {
 
   if (response) return response;
 
+  if (!user) {
+    return NextResponse.json(
+      { success: false, error: "Unauthorized." },
+      { status: 401 },
+    );
+  }
+
   const permission = requirePermission(user, "product.view");
 
   if (permission.response) return permission.response;
@@ -33,8 +40,6 @@ export async function GET() {
   }
 
   try {
-    // Super Admin dapat export lintas perusahaan.
-    // User lain hanya export produk milik perusahaannya.
     const products = await prisma.product.findMany({
       where: superAdmin
         ? {}

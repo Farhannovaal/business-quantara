@@ -1,3 +1,4 @@
+
 import { NextResponse } from "next/server";
 
 import {
@@ -35,6 +36,16 @@ export async function POST(request: Request) {
     return response;
   }
 
+  if (!user) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Unauthorized.",
+      },
+      { status: 401 },
+    );
+  }
+
   // ==================================================
   // PERMISSION
   // ==================================================
@@ -48,6 +59,23 @@ export async function POST(request: Request) {
     return permission.response;
   }
 
+  // ==================================================
+  // MULTI-TENANT AUTHORIZATION
+  // ==================================================
+
+  const isSuperAdmin =
+    user.role?.name?.toLowerCase() === "superadmin";
+
+  if (!isSuperAdmin && user.companyId == null) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "User belum terhubung dengan perusahaan.",
+      },
+      { status: 403 },
+    );
+  }
+
   try {
     // ==================================================
     // READ REQUEST BODY
@@ -56,9 +84,7 @@ export async function POST(request: Request) {
     const body = (await request.json()) as ExecuteQCBody;
 
     const spkId = Number(body.spkId);
-
     const productId = Number(body.productId);
-
     const employeeId = Number(body.employeeId);
 
     const accQuantity = Number(
@@ -79,7 +105,7 @@ export async function POST(request: Request) {
     // ==================================================
 
     if (
-      !Number.isInteger(spkId) ||
+      !Number.isSafeInteger(spkId) ||
       spkId <= 0
     ) {
       return NextResponse.json(
@@ -87,14 +113,12 @@ export async function POST(request: Request) {
           success: false,
           error: "SPK tidak valid.",
         },
-        {
-          status: 400,
-        },
+        { status: 400 },
       );
     }
 
     if (
-      !Number.isInteger(productId) ||
+      !Number.isSafeInteger(productId) ||
       productId <= 0
     ) {
       return NextResponse.json(
@@ -102,14 +126,12 @@ export async function POST(request: Request) {
           success: false,
           error: "Product tidak valid.",
         },
-        {
-          status: 400,
-        },
+        { status: 400 },
       );
     }
 
     if (
-      !Number.isInteger(employeeId) ||
+      !Number.isSafeInteger(employeeId) ||
       employeeId <= 0
     ) {
       return NextResponse.json(
@@ -117,14 +139,12 @@ export async function POST(request: Request) {
           success: false,
           error: "PIC QC tidak valid.",
         },
-        {
-          status: 400,
-        },
+        { status: 400 },
       );
     }
 
     if (
-      !Number.isInteger(accQuantity) ||
+      !Number.isSafeInteger(accQuantity) ||
       accQuantity < 0
     ) {
       return NextResponse.json(
@@ -132,14 +152,12 @@ export async function POST(request: Request) {
           success: false,
           error: "Jumlah ACC tidak valid.",
         },
-        {
-          status: 400,
-        },
+        { status: 400 },
       );
     }
 
     if (
-      !Number.isInteger(rejectQuantity) ||
+      !Number.isSafeInteger(rejectQuantity) ||
       rejectQuantity < 0
     ) {
       return NextResponse.json(
@@ -147,9 +165,7 @@ export async function POST(request: Request) {
           success: false,
           error: "Jumlah Rijek tidak valid.",
         },
-        {
-          status: 400,
-        },
+        { status: 400 },
       );
     }
 
@@ -160,16 +176,13 @@ export async function POST(request: Request) {
     const totalQuantity =
       accQuantity + rejectQuantity;
 
-    if (totalQuantity <= 0) {
+    if (!Number.isSafeInteger(totalQuantity) || totalQuantity <= 0) {
       return NextResponse.json(
         {
           success: false,
-          error:
-            "Jumlah ACC atau Rijek harus diisi.",
+          error: "Jumlah ACC atau Rijek harus diisi.",
         },
-        {
-          status: 400,
-        },
+        { status: 400 },
       );
     }
 
@@ -177,9 +190,13 @@ export async function POST(request: Request) {
     // LOAD SPK
     // ==================================================
 
-    const spk = await prisma.sPK.findUnique({
+    const spk = await prisma.sPK.findFirst({
       where: {
         id: spkId,
+        deletedAt: null,
+        ...(isSuperAdmin
+          ? {}
+          : { companyId: user.companyId! }),
       },
       include: {
         items: {
@@ -197,9 +214,7 @@ export async function POST(request: Request) {
           success: false,
           error: "SPK tidak ditemukan.",
         },
-        {
-          status: 404,
-        },
+        { status: 404 },
       );
     }
 
@@ -209,9 +224,31 @@ export async function POST(request: Request) {
           success: false,
           error: "SPK tidak aktif.",
         },
+        { status: 400 },
+      );
+    }
+
+    // ==================================================
+    // VALIDATE EMPLOYEE OWNERSHIP
+    // ==================================================
+
+    const employee = await prisma.employee.findFirst({
+      where: {
+        id: employeeId,
+        companyId: spk.companyId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!employee) {
+      return NextResponse.json(
         {
-          status: 400,
+          success: false,
+          error: "PIC QC tidak ditemukan dalam perusahaan SPK.",
         },
+        { status: 404 },
       );
     }
 
@@ -220,20 +257,16 @@ export async function POST(request: Request) {
     // ==================================================
 
     const spkItem = spk.items.find(
-      (item) =>
-        item.productId === productId,
+      (item) => item.productId === productId,
     );
 
     if (!spkItem) {
       return NextResponse.json(
         {
           success: false,
-          error:
-            "Product tidak terdaftar pada SPK ini.",
+          error: "Product tidak terdaftar pada SPK ini.",
         },
-        {
-          status: 400,
-        },
+        { status: 400 },
       );
     }
 
@@ -271,9 +304,7 @@ export async function POST(request: Request) {
     let totalQcAcc = 0;
 
     for (const transaction of spkTransactions) {
-      switch (
-        transaction.transactionType.code
-      ) {
+      switch (transaction.transactionType.code) {
         case "PENERIMAAN_DARI_PENJAHIT":
           totalPenerimaan += Number(
             transaction.quantity,
@@ -309,13 +340,10 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          error:
-            "Tidak ada barang yang tersedia untuk diproses QC.",
+          error: "Tidak ada barang yang tersedia untuk diproses QC.",
           maxQuantity: 0,
         },
-        {
-          status: 400,
-        },
+        { status: 400 },
       );
     }
 
@@ -328,9 +356,7 @@ export async function POST(request: Request) {
           maxQuantity: barangDiQc,
           requestedQuantity: totalQuantity,
         },
-        {
-          status: 400,
-        },
+        { status: 400 },
       );
     }
 
@@ -360,8 +386,7 @@ export async function POST(request: Request) {
     const rejectTransactionType =
       transactionTypes.find(
         (transactionType) =>
-          transactionType.code ===
-          "QC_RIJEK",
+          transactionType.code === "QC_RIJEK",
       );
 
     if (
@@ -371,12 +396,9 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          error:
-            "Transaction type QC belum tersedia.",
+          error: "Transaction type QC belum tersedia.",
         },
-        {
-          status: 500,
-        },
+        { status: 500 },
       );
     }
 
@@ -387,12 +409,9 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          error:
-            "Transaction type QC tidak aktif.",
+          error: "Transaction type QC tidak aktif.",
         },
-        {
-          status: 400,
-        },
+        { status: 400 },
       );
     }
 
@@ -400,107 +419,97 @@ export async function POST(request: Request) {
     // CREATE QC TRANSACTIONS
     // ==================================================
 
-    const result =
-      await prisma.$transaction(
-        async (tx) => {
-          const transactions = [];
+    const result = await prisma.$transaction(
+      async (tx) => {
+        const transactions = [];
 
-          // --------------------------------------------
-          // QC ACC
-          // --------------------------------------------
+        // --------------------------------------------
+        // QC ACC
+        // --------------------------------------------
 
-          if (accQuantity > 0) {
-            const accTransaction =
-              await createTransaction(
-                tx,
-                {
-                  spkId,
+        if (accQuantity > 0) {
+          const accTransaction =
+            await createTransaction(
+              tx,
+              {
+                spkId,
 
-                  transactionTypeId:
-                    accTransactionType.id,
+                transactionTypeId:
+                  accTransactionType.id,
 
-                  productId,
+                productId,
 
-                  tailorId:
-                    spk.tailorId,
+                tailorId: spk.tailorId,
 
-                  employeeId,
+                employeeId,
 
-                  quantity:
-                    accQuantity,
+                quantity: accQuantity,
 
-                  createdById:
-                    user.id,
-                },
-              );
-
-            transactions.push(
-              accTransaction,
-            );
-          }
-
-          // --------------------------------------------
-          // QC RIJEK
-          // --------------------------------------------
-
-          if (rejectQuantity > 0) {
-            const rejectTransaction =
-              await createTransaction(
-                tx,
-                {
-                  spkId,
-
-                  transactionTypeId:
-                    rejectTransactionType.id,
-
-                  productId,
-
-                  tailorId:
-                    spk.tailorId,
-
-                  employeeId,
-
-                  quantity:
-                    rejectQuantity,
-
-                  createdById:
-                    user.id,
-                },
-              );
-
-            transactions.push(
-              rejectTransaction,
-            );
-          }
-
-          // --------------------------------------------
-          // QC NOTES
-          // --------------------------------------------
-
-          if (notes) {
-            await tx.activityLog.create({
-              data: {
-                userId: user.id,
-
-                action: "QC_EXECUTE",
-
-                entityType: "SPK",
-
-                entityId: String(spkId),
-
-                description:
-                  `QC executed for ${spk.spkNumber}. ` +
-                  `Product: ${spkItem.product.name}. ` +
-                  `ACC: ${accQuantity}, ` +
-                  `Rijek: ${rejectQuantity}. ` +
-                  `Notes: ${notes}`,
+                createdById: user.id,
               },
-            });
-          }
+            );
 
-          return transactions;
-        },
-      );
+          transactions.push(accTransaction);
+        }
+
+        // --------------------------------------------
+        // QC RIJEK
+        // --------------------------------------------
+
+        if (rejectQuantity > 0) {
+          const rejectTransaction =
+            await createTransaction(
+              tx,
+              {
+                spkId,
+
+                transactionTypeId:
+                  rejectTransactionType.id,
+
+                productId,
+
+                tailorId: spk.tailorId,
+
+                employeeId,
+
+                quantity: rejectQuantity,
+
+                createdById: user.id,
+              },
+            );
+
+          transactions.push(rejectTransaction);
+        }
+
+        // --------------------------------------------
+        // QC NOTES
+        // --------------------------------------------
+
+        if (notes) {
+          await tx.activityLog.create({
+            data: {
+              companyId: spk.companyId,
+              userId: user.id,
+
+              action: "QC_EXECUTE",
+
+              entityType: "SPK",
+
+              entityId: String(spkId),
+
+              description:
+                `QC executed for ${spk.spkNumber}. ` +
+                `Product: ${spkItem.product.name}. ` +
+                `ACC: ${accQuantity}, ` +
+                `Rijek: ${rejectQuantity}. ` +
+                `Notes: ${notes}`,
+            },
+          });
+        }
+
+        return transactions;
+      },
+    );
 
     // ==================================================
     // RESPONSE
@@ -510,34 +519,23 @@ export async function POST(request: Request) {
       {
         success: true,
 
-        message:
-          "Hasil QC berhasil disimpan.",
+        message: "Hasil QC berhasil disimpan.",
 
         data: {
           spkId,
 
-          spkNumber:
-            spk.spkNumber,
+          spkNumber: spk.spkNumber,
 
           product: {
             id: spkItem.product.id,
-
-            code:
-              spkItem.product.code,
-
-            name:
-              spkItem.product.name,
-
-            spkQuantity:
-              spkItem.quantity,
+            code: spkItem.product.code,
+            name: spkItem.product.name,
+            spkQuantity: spkItem.quantity,
           },
 
           tailor: {
-            id:
-              spk.tailor.id,
-
-            name:
-              spk.tailor.name,
+            id: spk.tailor.id,
+            name: spk.tailor.name,
           },
 
           employeeId,
@@ -548,61 +546,44 @@ export async function POST(request: Request) {
 
           totalQuantity,
 
-          transactions:
-            result.map(
-              (transaction) => ({
-                id:
-                  transaction.id,
+          transactions: result.map(
+            (transaction) => ({
+              id: transaction.id,
 
-                transactionNumber:
-                  transaction.transactionNumber,
+              transactionNumber:
+                transaction.transactionNumber,
 
-                transactionType:
-                  transaction
-                    .transactionType
-                    .code,
+              transactionType:
+                transaction.transactionType.code,
 
-                quantity:
-                  Number(
-                    transaction.quantity,
-                  ),
+              quantity: Number(
+                transaction.quantity,
+              ),
 
-                createdAt:
-                  transaction.createdAt,
-              }),
-            ),
+              createdAt: transaction.createdAt,
+            }),
+          ),
         },
       },
-      {
-        status: 201,
-      },
+      { status: 201 },
     );
   } catch (error) {
     // ==================================================
     // TRANSACTION ENGINE ERROR
     // ==================================================
 
-    if (
-      error instanceof
-      TransactionEngineError
-    ) {
+    if (error instanceof TransactionEngineError) {
       return NextResponse.json(
         {
           success: false,
 
-          error:
-            error.message,
+          error: error.message,
 
-          code:
-            error.code,
+          code: error.code,
 
-          maxQuantity:
-            error.maxQuantity,
+          maxQuantity: error.maxQuantity,
         },
-        {
-          status:
-            error.status,
-        },
+        { status: error.status },
       );
     }
 
@@ -618,13 +599,9 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         success: false,
-
-        error:
-          "Gagal menyimpan hasil QC.",
+        error: "Gagal menyimpan hasil QC.",
       },
-      {
-        status: 500,
-      },
+      { status: 500 },
     );
   }
 }

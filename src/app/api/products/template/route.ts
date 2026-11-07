@@ -17,6 +17,16 @@ export async function GET() {
 
   if (response) return response;
 
+  if (!user) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Unauthorized.",
+      },
+      { status: 401 },
+    );
+  }
+
   const permission = requirePermission(user, "product.manage");
 
   if (permission.response) return permission.response;

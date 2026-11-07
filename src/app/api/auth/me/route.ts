@@ -1,57 +1,45 @@
 
 import { NextResponse } from "next/server";
-import { getAuthenticatedUser } from "@/lib/auth/require-auth";
+
+import { withApiAuth } from "@/lib/auth/api-guard";
 import { getEffectivePermissions } from "@/lib/auth/authorization";
 
-export async function GET() {
-  try {
-    const user = await getAuthenticatedUser();
+export const GET = withApiAuth(
+  async ({ user }) => {
+    return NextResponse.json({
+      success: true,
+      data: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        status: user.status,
 
-    if (!user) {
-      return NextResponse.json(
-        {
-          success: false,
-          authenticated: false,
-          error: "Unauthorized",
-        },
-        { status: 401 },
-      );
-    }
+        company: user.company
+          ? {
+              id: user.company.id,
+              name: user.company.name,
+              code: user.company.code,
+              slug: user.company.slug,
+              status: user.company.status,
+            }
+          : null,
 
-    const isSuperAdmin = user.role?.name === "Superadmin";
-    const permissions = getEffectivePermissions(user);
+        role: user.role
+          ? {
+              id: user.role.id,
+              name: user.role.name,
+            }
+          : null,
 
-    return NextResponse.json(
-      {
-        success: true,
-        authenticated: true,
-        user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          status: user.status,
-          role: user.role
-            ? {
-                id: user.role.id,
-                name: user.role.name,
-              }
-            : null,
-          isSuperAdmin,
-          permissions,
-        },
+        isSuperAdmin:
+          user.role?.name.trim().toLowerCase() ===
+          "superadmin",
+
+        permissions: getEffectivePermissions(user),
       },
-      { status: 200 },
-    );
-  } catch (error) {
-    console.error("GET /api/auth/me error:", error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        authenticated: false,
-        error: "Failed to get authenticated user",
-      },
-      { status: 500 },
-    );
+    });
+  },
+  {
+    tenant: "none",
   }
-}
+);

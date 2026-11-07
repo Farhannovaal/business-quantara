@@ -1,12 +1,9 @@
-
 @import "tailwindcss";
 
+/* Dark mode berdasarkan class .dark */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* ============================================================
-   THEME TOKENS
-   ============================================================ */
-
+/* Theme tokens */
 :root {
   color-scheme: light;
 
@@ -63,10 +60,6 @@
   --page-glow-secondary: rgba(139, 92, 246, 0.06);
 }
 
-/* ============================================================
-   TAILWIND CSS 4 THEME MAPPING
-   ============================================================ */
-
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -85,29 +78,17 @@
 
   --color-ring: var(--ring);
 
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-/* ============================================================
-   GLOBAL BOX MODEL
-   ============================================================ */
-
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
-
-/* ============================================================
-   ROOT
-   ============================================================ */
-
 html {
   width: 100%;
   min-height: 100%;
-  max-width: 100%;
-  overflow-x: clip;
   background-color: var(--background);
   color-scheme: light;
 }
@@ -117,12 +98,8 @@ html.dark {
 }
 
 body {
-  width: 100%;
   min-height: 100vh;
-  max-width: 100%;
   margin: 0;
-  overflow-x: clip;
-
   background:
     radial-gradient(
       circle at 85% 0%,
@@ -135,22 +112,11 @@ body {
       transparent 25%
     ),
     var(--background);
-
   color: var(--foreground);
-
-  font-family:
-    var(--font-geist-sans),
-    Arial,
-    Helvetica,
-    sans-serif;
-
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
-
-/* ============================================================
-   FORM ELEMENTS
-   ============================================================ */
 
 button,
 input,
@@ -158,14 +124,6 @@ select,
 textarea {
   font: inherit;
   max-width: 100%;
-}
-
-button {
-  cursor: pointer;
-}
-
-button:disabled {
-  cursor: not-allowed;
 }
 
 input,
@@ -177,51 +135,4 @@ textarea {
 input::placeholder,
 textarea::placeholder {
   color: var(--muted-foreground);
-}
-
-/* ============================================================
-   MEDIA
-   ============================================================ */
-
-img,
-svg,
-video,
-canvas {
-  max-width: 100%;
-}
-
-/* ============================================================
-   TABLE
-   ============================================================ */
-
-table {
-  max-width: 100%;
-}
-
-/*
-  Tabel yang lebar harus menggunakan overflow-x-auto
-  pada wrapper tabel, bukan pada body atau html.
-*/
-
-/* ============================================================
-   MOBILE / TABLET
-   ============================================================ */
-
-@media (max-width: 1279px) {
-  html,
-  body {
-    width: 100%;
-    max-width: 100vw;
-    overflow-x: clip;
-  }
-}
-
-/* ============================================================
-   SAFE AREA - MOBILE DEVICES
-   ============================================================ */
-
-@supports (padding: env(safe-area-inset-bottom)) {
-  body {
-    padding-bottom: 0;
-  }
 }

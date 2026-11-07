@@ -1,11 +1,11 @@
 
 import { NextResponse } from "next/server";
 import type {
-  User,
   PermissionOverrideEffect,
+  User,
 } from "@prisma/client";
 
-export type UserWithRolePermissions = User & {
+export type AuthorizationUser = Pick<User, "id"> & {
   role: {
     name: string;
     permissions: {
@@ -15,7 +15,7 @@ export type UserWithRolePermissions = User & {
     }[];
   } | null;
 
-  permissionOverrides: {
+  permissionOverrides?: {
     effect: PermissionOverrideEffect;
     permission: {
       code: string;
@@ -23,22 +23,39 @@ export type UserWithRolePermissions = User & {
   }[];
 };
 
+/**
+ * Centralized Superadmin detection.
+ */
 export function isSuperAdmin(
-  user: UserWithRolePermissions,
+  user:
+    | { role: { name: string } | null }
+    | null
+    | undefined
 ): boolean {
-  return user.role?.name === "Superadmin";
+  return (
+    user?.role?.name?.trim().toLowerCase() ===
+    "superadmin"
+  );
 }
 
+/**
+ * Calculate effective permissions.
+ *
+ * Priority:
+ * - Role permissions provide the baseline.
+ * - GRANT adds permission.
+ * - DENY removes permission.
+ * - Superadmin bypasses permission checks.
+ */
 export function getEffectivePermissions(
-  user: UserWithRolePermissions,
+  user: AuthorizationUser
 ): string[] {
-  const permissions = new Set<string>(
+  const permissions = new Set(
     user.role?.permissions.map(
-      (item) => item.permission.code,
-    ) ?? [],
+      (item) => item.permission.code
+    ) ?? []
   );
 
-  // Superadmin tidak dipengaruhi individual override.
   if (isSuperAdmin(user)) {
     return [...permissions];
   }
@@ -54,21 +71,32 @@ export function getEffectivePermissions(
   return [...permissions];
 }
 
+/**
+ * Check effective permission.
+ */
 export function hasPermission(
-  user: UserWithRolePermissions,
-  permissionCode: string,
+  user: AuthorizationUser,
+  permissionCode: string
 ): boolean {
   if (isSuperAdmin(user)) {
     return true;
   }
 
-  return getEffectivePermissions(user).includes(permissionCode);
+  return getEffectivePermissions(user).includes(
+    permissionCode
+  );
 }
 
+/**
+ * Require permission.
+ */
 export function requirePermission(
-  user: UserWithRolePermissions,
-  permissionCode: string,
-) {
+  user: AuthorizationUser,
+  permissionCode: string
+): {
+  allowed: boolean;
+  response: NextResponse | null;
+} {
   if (!hasPermission(user, permissionCode)) {
     return {
       allowed: false,
@@ -77,8 +105,9 @@ export function requirePermission(
           success: false,
           error: "Forbidden",
           permission: permissionCode,
+          message: "You do not have permission to perform this action.",
         },
-        { status: 403 },
+        { status: 403 }
       ),
     };
   }

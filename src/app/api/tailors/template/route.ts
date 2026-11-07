@@ -1,3 +1,4 @@
+
 import { requirePermission } from "@/lib/auth/authorization";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { NextResponse } from "next/server";
@@ -7,6 +8,16 @@ export async function GET() {
   const { user, response } = await requireAuth();
 
   if (response) return response;
+
+  if (!user) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Unauthorized.",
+      },
+      { status: 401 },
+    );
+  }
 
   const permission = requirePermission(user, "tailor.manage");
 
@@ -27,7 +38,7 @@ export async function GET() {
     XLSX.utils.book_append_sheet(
       workbook,
       dataSheet,
-      "Tailors"
+      "Tailors",
     );
 
     const instructionsSheet = XLSX.utils.aoa_to_sheet([
@@ -63,7 +74,7 @@ export async function GET() {
     XLSX.utils.book_append_sheet(
       workbook,
       instructionsSheet,
-      "Instructions"
+      "Instructions",
     );
 
     const buffer = XLSX.write(workbook, {
@@ -89,7 +100,7 @@ export async function GET() {
         success: false,
         error: "Failed to generate tailor template",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

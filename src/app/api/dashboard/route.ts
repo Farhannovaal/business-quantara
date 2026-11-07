@@ -1,7 +1,5 @@
 import { requirePermission } from "@/lib/auth/authorization";
-
 import { requireAuth } from "@/lib/auth/require-auth";
-
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
@@ -11,15 +9,24 @@ export async function GET() {
   if (response) {
     return response;
   }
-  const permission = requirePermission(
-    user,
-    "dashboard.view"
-  );
+
+  if (!user) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Unauthorized.",
+      },
+      {
+        status: 401,
+      },
+    );
+  }
+
+  const permission = requirePermission(user, "dashboard.view");
 
   if (permission.response) {
     return permission.response;
   }
-
 
   try {
     const startOfToday = new Date();
@@ -91,7 +98,7 @@ export async function GET() {
       },
       {
         status: 500,
-      }
+      },
     );
   }
 }

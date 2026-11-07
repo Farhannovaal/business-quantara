@@ -1,50 +1,77 @@
-import { requirePermission } from "@/lib/auth/authorization";
 
-import { requireAuth } from "@/lib/auth/require-auth";
-
-import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { requirePermission } from "@/lib/auth/authorization";
+import { requireAuth } from "@/lib/auth/require-auth";
+import { prisma } from "@/lib/prisma";
 
 type RouteContext = {
-  params: Promise<{
-    id: string;
-  }>;
+  params: Promise<{ id: string }>;
 };
+
+function isSuperAdmin(user: {
+  role?: { name?: string | null } | null;
+}) {
+  return user.role?.name?.toLowerCase() === "superadmin";
+}
+
+function jsonError(error: string, status: number) {
+  return NextResponse.json(
+    { success: false, error },
+    { status },
+  );
+}
+
+function parseId(id: string): number | null {
+  const value = Number(id);
+
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    return null;
+  }
+
+  return value;
+}
 
 export async function PATCH(
   request: Request,
-  context: RouteContext
+  context: RouteContext,
 ) {
   const { user, response } = await requireAuth();
 
-  if (response) {
-    return response;
-  }
-  const permission = requirePermission(
-    user,
-    "tailor.manage"
-  );
+  if (response) return response;
 
-  if (permission.response) {
-    return permission.response;
+  if (!user) {
+    return jsonError("Unauthorized.", 401);
   }
 
+  const permission = requirePermission(user, "tailor.manage");
+  if (permission.response) return permission.response;
+
+  const superAdmin = isSuperAdmin(user);
+
+  if (!superAdmin && user.companyId == null) {
+    return jsonError(
+      "User belum terhubung dengan perusahaan.",
+      403,
+    );
+  }
 
   try {
     const { id } = await context.params;
-    const tailorId = Number(id);
+    const tailorId = parseId(id);
 
-    if (!Number.isInteger(tailorId)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid tailor ID",
-        },
-        { status: 400 }
-      );
+    if (tailorId === null) {
+      return jsonError("Invalid tailor ID", 400);
     }
 
     const body = await request.json();
+
+    if (
+      body === null ||
+      typeof body !== "object" ||
+      Array.isArray(body)
+    ) {
+      return jsonError("Invalid request body", 400);
+    }
 
     const data: {
       name?: string;
@@ -52,30 +79,80 @@ export async function PATCH(
     } = {};
 
     if (body.name !== undefined) {
-      const name = String(body.name).trim();
-
-      if (!name) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Tailor name cannot be empty",
-          },
-          { status: 400 }
+      if (
+        typeof body.name !== "string" ||
+        !body.name.trim()
+      ) {
+        return jsonError(
+          "Tailor name cannot be empty",
+          400,
         );
       }
 
-      data.name = name;
+      data.name = body.name.trim();
     }
 
     if (body.isActive !== undefined) {
-      data.isActive = Boolean(body.isActive);
+      if (typeof body.isActive !== "boolean") {
+        return jsonError("isActive must be a boolean", 400);
+      }
+
+      data.isActive = body.isActive;
     }
 
-    const tailor = await prisma.tailor.update({
+    if (Object.keys(data).length === 0) {
+      return jsonError("No valid fields to update", 400);
+    }
+
+    const existing = await prisma.tailor.findFirst({
       where: {
         id: tailorId,
+        ...(superAdmin
+          ? {}
+          : { companyId: user.companyId! }),
+      },
+      select: {
+        id: true,
+        companyId: true,
+      },
+    });
+
+    if (!existing) {
+      return jsonError("Tailor not found", 404);
+    }
+
+    if (data.name !== undefined) {
+      const duplicate = await prisma.tailor.findFirst({
+        where: {
+          companyId: existing.companyId,
+          name: data.name,
+          NOT: { id: tailorId },
+        },
+        select: { id: true },
+      });
+
+      if (duplicate) {
+        return jsonError("Tailor name already exists", 409);
+      }
+    }
+
+    const result = await prisma.tailor.updateMany({
+      where: {
+        id: tailorId,
+        companyId: existing.companyId,
       },
       data,
+    });
+
+    if (result.count === 0) {
+      return jsonError("Tailor not found", 404);
+    }
+
+    const tailor = await prisma.tailor.findFirst({
+      where: {
+        id: tailorId,
+        companyId: existing.companyId,
+      },
     });
 
     return NextResponse.json({
@@ -84,102 +161,103 @@ export async function PATCH(
     });
   } catch (error) {
     console.error("PATCH /api/tailors/[id] error:", error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to update tailor",
-      },
-      { status: 500 }
-    );
+    return jsonError("Failed to update tailor", 500);
   }
 }
 
 export async function DELETE(
   _request: Request,
-  context: RouteContext
+  context: RouteContext,
 ) {
   const { user, response } = await requireAuth();
 
-  if (response) {
-    return response;
-  }
-  const permission = requirePermission(
-    user,
-    "tailor.manage"
-  );
+  if (response) return response;
 
-  if (permission.response) {
-    return permission.response;
+  if (!user) {
+    return jsonError("Unauthorized.", 401);
   }
 
+  const permission = requirePermission(user, "tailor.manage");
+  if (permission.response) return permission.response;
+
+  const superAdmin = isSuperAdmin(user);
+
+  if (!superAdmin && user.companyId == null) {
+    return jsonError(
+      "User belum terhubung dengan perusahaan.",
+      403,
+    );
+  }
 
   try {
     const { id } = await context.params;
-    const tailorId = Number(id);
+    const tailorId = parseId(id);
 
-    if (!Number.isInteger(tailorId)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Invalid tailor ID",
-        },
-        { status: 400 }
-      );
+    if (tailorId === null) {
+      return jsonError("Invalid tailor ID", 400);
+    }
+
+    const tailor = await prisma.tailor.findFirst({
+      where: {
+        id: tailorId,
+        ...(superAdmin
+          ? {}
+          : { companyId: user.companyId! }),
+      },
+      select: {
+        id: true,
+        companyId: true,
+      },
+    });
+
+    if (!tailor) {
+      return jsonError("Tailor not found", 404);
     }
 
     const transactionCount = await prisma.transaction.count({
       where: {
         tailorId,
+        companyId: tailor.companyId,
       },
     });
 
     if (transactionCount > 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Tailor cannot be deleted because it is already used by transactions. Deactivate it instead.",
-        },
-        { status: 409 }
+      return jsonError(
+        "Tailor cannot be deleted because it is already used by transactions. Deactivate it instead.",
+        409,
       );
     }
 
     const spkCount = await prisma.sPK.count({
       where: {
         tailorId,
+        companyId: tailor.companyId,
       },
     });
 
     if (spkCount > 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "Tailor cannot be deleted because it is already used by SPK. Deactivate it instead.",
-        },
-        { status: 409 }
+      return jsonError(
+        "Tailor cannot be deleted because it is already used by SPK. Deactivate it instead.",
+        409,
       );
     }
 
-    await prisma.tailor.delete({
+    const result = await prisma.tailor.deleteMany({
       where: {
         id: tailorId,
+        companyId: tailor.companyId,
       },
     });
+
+    if (result.count === 0) {
+      return jsonError("Tailor not found", 404);
+    }
 
     return NextResponse.json({
       success: true,
     });
   } catch (error) {
     console.error("DELETE /api/tailors/[id] error:", error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to delete tailor",
-      },
-      { status: 500 }
-    );
+    return jsonError("Failed to delete tailor", 500);
   }
 }

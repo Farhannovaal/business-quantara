@@ -1,3 +1,4 @@
+
 import { NextRequest, NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
@@ -8,6 +9,12 @@ import {
   type QCMonitoringItem,
 } from "@/lib/qc/calculator";
 
+function isSuperAdmin(user: {
+  role?: { name?: string | null } | null;
+}) {
+  return user.role?.name?.toLowerCase() === "superadmin";
+}
+
 export async function GET(request: NextRequest) {
   const { user, response } = await requireAuth();
 
@@ -15,115 +22,121 @@ export async function GET(request: NextRequest) {
     return response;
   }
 
-  const permission = requirePermission(
-    user,
-    "qc.view",
-  );
+  if (!user) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Unauthorized.",
+      },
+      { status: 401 },
+    );
+  }
+
+  const permission = requirePermission(user, "qc.view");
 
   if (permission.response) {
     return permission.response;
   }
 
+  const superAdmin = isSuperAdmin(user);
+
+  if (!superAdmin && user.companyId == null) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "User belum terhubung dengan perusahaan.",
+      },
+      { status: 403 },
+    );
+  }
+
   try {
-    const searchParams =
-      request.nextUrl.searchParams;
+    const searchParams = request.nextUrl.searchParams;
 
     const search =
-      searchParams
-        .get("search")
-        ?.trim()
-        .toLowerCase() || "";
+      searchParams.get("search")?.trim().toLowerCase() || "";
 
     const status =
-      searchParams
-        .get("status")
-        ?.trim()
-        .toUpperCase() || "";
+      searchParams.get("status")?.trim().toUpperCase() || "";
 
-    const spks =
-      await prisma.sPK.findMany({
-        where: {
-          deletedAt: null,
-          status: {
-            not: "CANCELLED",
-          },
+    // Ambil SPK sesuai hak akses perusahaan.
+    const spks = await prisma.sPK.findMany({
+      where: {
+        deletedAt: null,
+        status: {
+          not: "CANCELLED",
+        },
 
-          ...(search
-            ? {
-                OR: [
-                  {
-                    spkNumber: {
+        ...(superAdmin
+          ? {}
+          : {
+              companyId: user.companyId!,
+            }),
+
+        ...(search
+          ? {
+              OR: [
+                {
+                  spkNumber: {
+                    contains: search,
+                  },
+                },
+                {
+                  items: {
+                    some: {
+                      product: {
+                        name: {
+                          contains: search,
+                        },
+                      },
+                    },
+                  },
+                },
+                {
+                  items: {
+                    some: {
+                      product: {
+                        code: {
+                          contains: search,
+                        },
+                      },
+                    },
+                  },
+                },
+                {
+                  tailor: {
+                    name: {
                       contains: search,
                     },
                   },
-                  {
-                    items: {
-                      some: {
-                        product: {
-                          name: {
-                            contains: search,
-                          },
-                        },
-                      },
-                    },
-                  },
-                  {
-                    items: {
-                      some: {
-                        product: {
-                          code: {
-                            contains: search,
-                          },
-                        },
-                      },
-                    },
-                  },
-                  {
-                    tailor: {
-                      name: {
-                        contains: search,
-                      },
-                    },
-                  },
-                ],
-              }
-            : {}),
-        },
+                },
+              ],
+            }
+          : {}),
+      },
 
-        select: {
-          id: true,
-        },
+      select: {
+        id: true,
+      },
 
-        orderBy: {
-          createdAt: "desc",
-        },
-      });
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
 
     const results: QCMonitoringItem[] = [];
 
     for (const spk of spks) {
-      const items =
-        await calculateQCMonitoring(
-          spk.id,
-        );
+      const items = await calculateQCMonitoring(spk.id);
 
       for (const item of items) {
-        /**
-         * Jangan tampilkan product yang
-         * belum menerima barang ke QC.
-         */
+        // Jangan tampilkan product yang belum menerima barang ke QC.
         if (item.totalDiterima === 0) {
           continue;
         }
 
-        /**
-         * Filter status dilakukan per product,
-         * bukan per SPK.
-         */
-        if (
-          status &&
-          item.status !== status
-        ) {
+        // Filter status dilakukan per product, bukan per SPK.
+        if (status && item.status !== status) {
           continue;
         }
 
@@ -133,66 +146,52 @@ export async function GET(request: NextRequest) {
 
     const summary = {
       totalDiterima: results.reduce(
-        (total, item) =>
-          total + item.totalDiterima,
+        (total, item) => total + item.totalDiterima,
         0,
       ),
 
       totalSudahQC: results.reduce(
-        (total, item) =>
-          total + item.totalSudahQC,
+        (total, item) => total + item.totalSudahQC,
         0,
       ),
 
       totalAcc: results.reduce(
-        (total, item) =>
-          total + item.totalAcc,
+        (total, item) => total + item.totalAcc,
         0,
       ),
 
       totalRijek: results.reduce(
-        (total, item) =>
-          total + item.totalRijek,
+        (total, item) => total + item.totalRijek,
         0,
       ),
 
       sisaQC: results.reduce(
-        (total, item) =>
-          total + item.sisaQC,
+        (total, item) => total + item.sisaQC,
         0,
       ),
 
       waiting: results.filter(
-        (item) =>
-          item.status === "WAITING",
+        (item) => item.status === "WAITING",
       ).length,
 
       inProgress: results.filter(
-        (item) =>
-          item.status ===
-          "IN_PROGRESS",
+        (item) => item.status === "IN_PROGRESS",
       ).length,
 
       completed: results.filter(
-        (item) =>
-          item.status ===
-          "COMPLETED",
+        (item) => item.status === "COMPLETED",
       ).length,
     };
 
     return NextResponse.json({
       success: true,
-
       data: {
         summary,
         items: results,
       },
     });
   } catch (error) {
-    console.error(
-      "GET QC monitoring error:",
-      error,
-    );
+    console.error("GET QC monitoring error:", error);
 
     return NextResponse.json(
       {

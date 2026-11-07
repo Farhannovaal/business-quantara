@@ -1,7 +1,8 @@
+
 import { requireAuth } from "@/lib/auth/require-auth";
 import { requirePermission } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/prisma";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 type RouteContext = {
   params: Promise<{
@@ -9,42 +10,137 @@ type RouteContext = {
   }>;
 };
 
+async function resolveWorkflowAccess(
+  workflowId: number,
+  user: {
+    id: number;
+    companyId: number | null;
+    role?: { name?: string | null } | null;
+  },
+  request: NextRequest,
+) {
+  const isSuperAdmin =
+    user.role?.name?.toLowerCase() === "superadmin";
+
+  let companyId: number;
+
+  if (isSuperAdmin) {
+    const requestedCompanyId = Number(
+      request.nextUrl.searchParams.get("companyId"),
+    );
+
+    if (
+      !Number.isSafeInteger(requestedCompanyId) ||
+      requestedCompanyId <= 0
+    ) {
+      return {
+        error: "Company ID wajib dipilih.",
+        status: 400,
+      } as const;
+    }
+
+    const company = await prisma.company.findUnique({
+      where: { id: requestedCompanyId },
+      select: { id: true },
+    });
+
+    if (!company) {
+      return {
+        error: "Perusahaan tidak ditemukan.",
+        status: 404,
+      } as const;
+    }
+
+    companyId = company.id;
+  } else {
+    if (user.companyId == null) {
+      return {
+        error: "User belum terhubung dengan perusahaan.",
+        status: 403,
+      } as const;
+    }
+
+    companyId = user.companyId;
+  }
+
+  const workflow = await prisma.workflow.findFirst({
+    where: {
+      id: workflowId,
+      companyId,
+    },
+    select: {
+      id: true,
+      companyId: true,
+    },
+  });
+
+  if (!workflow) {
+    return {
+      error: "Workflow not found.",
+      status: 404,
+    } as const;
+  }
+
+  return { workflow } as const;
+}
+
 export async function GET(
-  _request: Request,
-  context: RouteContext
+  request: NextRequest,
+  context: RouteContext,
 ) {
   const { user, response } = await requireAuth();
 
-  if (response) {
-    return response;
+  if (response) return response;
+
+  if (!user) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Unauthorized.",
+      },
+      { status: 401 },
+    );
   }
-  const permission = requirePermission(
-    user,
-    "workflow.view"
-  );
+
+  const permission = requirePermission(user, "workflow.view");
 
   if (permission.response) {
     return permission.response;
   }
 
-
   try {
     const { id } = await context.params;
     const workflowId = Number(id);
 
-    if (!Number.isInteger(workflowId)) {
+    if (!Number.isSafeInteger(workflowId) || workflowId <= 0) {
       return NextResponse.json(
         {
           success: false,
           error: "Invalid workflow ID",
         },
-        { status: 400 }
+        { status: 400 },
+      );
+    }
+
+    const access = await resolveWorkflowAccess(
+      workflowId,
+      user,
+      request,
+    );
+
+    if ("error" in access) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: access.error,
+        },
+        { status: access.status },
       );
     }
 
     const steps = await prisma.workflowStep.findMany({
       where: {
-        workflowId,
+        workflowId: access.workflow.id,
       },
       include: {
         transactionType: true,
@@ -66,92 +162,134 @@ export async function GET(
         success: false,
         error: "Failed to load workflow steps",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 export async function POST(
-  request: Request,
-  context: RouteContext
+  request: NextRequest,
+  context: RouteContext,
 ) {
   const { user, response } = await requireAuth();
 
-  if (response) {
-    return response;
+  if (response) return response;
+
+  if (!user) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Unauthorized.",
+      },
+      { status: 401 },
+    );
   }
-  const permission = requirePermission(
-    user,
-    "workflow.manage"
-  );
+
+  const permission = requirePermission(user, "workflow.manage");
 
   if (permission.response) {
     return permission.response;
   }
 
-
   try {
     const { id } = await context.params;
     const workflowId = Number(id);
 
-    if (!Number.isInteger(workflowId)) {
+    if (!Number.isSafeInteger(workflowId) || workflowId <= 0) {
       return NextResponse.json(
         {
           success: false,
           error: "Invalid workflow ID",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    const body = await request.json();
+    const access = await resolveWorkflowAccess(
+      workflowId,
+      user,
+      request,
+    );
 
-    const transactionTypeId = Number(body.transactionTypeId);
-    const sequence = Number(body.sequence);
+    if ("error" in access) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: access.error,
+        },
+        { status: access.status },
+      );
+    }
 
-    const isRequired = body.isRequired !== false;
-    const isActive = body.isActive !== false;
+    const body: unknown = await request.json();
 
-    if (!Number.isInteger(transactionTypeId)) {
+    if (
+      body === null ||
+      typeof body !== "object" ||
+      Array.isArray(body)
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Invalid request body.",
+        },
+        { status: 400 },
+      );
+    }
+
+    const input = body as Record<string, unknown>;
+
+    const transactionTypeId = Number(input.transactionTypeId);
+    const sequence = Number(input.sequence);
+
+    const isRequired = input.isRequired !== false;
+    const isActive = input.isActive !== false;
+
+    if (
+      !Number.isSafeInteger(transactionTypeId) ||
+      transactionTypeId <= 0
+    ) {
       return NextResponse.json(
         {
           success: false,
           error: "Transaction type is required",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    if (!Number.isInteger(sequence) || sequence < 1) {
+    if (!Number.isSafeInteger(sequence) || sequence < 1) {
       return NextResponse.json(
         {
           success: false,
           error: "Sequence must be a positive integer",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    const workflow = await prisma.workflow.findUnique({
-      where: {
-        id: workflowId,
-      },
-    });
-
-    if (!workflow) {
+    if (
+      (input.isRequired !== undefined &&
+        typeof input.isRequired !== "boolean") ||
+      (input.isActive !== undefined &&
+        typeof input.isActive !== "boolean")
+    ) {
       return NextResponse.json(
         {
           success: false,
-          error: "Workflow not found",
+          error: "Invalid step status.",
         },
-        { status: 404 }
+        { status: 400 },
       );
     }
 
+    // TransactionType harus berasal dari perusahaan yang sama
+    // dengan Workflow yang sedang dikelola.
     const transactionType =
-      await prisma.transactionType.findUnique({
+      await prisma.transactionType.findFirst({
         where: {
           id: transactionTypeId,
+          companyId: access.workflow.companyId,
         },
       });
 
@@ -159,16 +297,16 @@ export async function POST(
       return NextResponse.json(
         {
           success: false,
-          error: "Transaction type not found",
+          error: "Transaction type not found for this company",
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
     const existingSequence =
       await prisma.workflowStep.findFirst({
         where: {
-          workflowId,
+          workflowId: access.workflow.id,
           sequence,
         },
       });
@@ -179,14 +317,14 @@ export async function POST(
           success: false,
           error: `Sequence ${sequence} already exists in this workflow`,
         },
-        { status: 409 }
+        { status: 409 },
       );
     }
 
     const existingTransactionType =
       await prisma.workflowStep.findFirst({
         where: {
-          workflowId,
+          workflowId: access.workflow.id,
           transactionTypeId,
         },
       });
@@ -197,13 +335,13 @@ export async function POST(
           success: false,
           error: "This transaction type is already in the workflow",
         },
-        { status: 409 }
+        { status: 409 },
       );
     }
 
     const step = await prisma.workflowStep.create({
       data: {
-        workflowId,
+        workflowId: access.workflow.id,
         transactionTypeId,
         sequence,
         isRequired,
@@ -219,7 +357,7 @@ export async function POST(
         success: true,
         data: step,
       },
-      { status: 201 }
+      { status: 201 },
     );
   } catch (error) {
     console.error("POST workflow step error:", error);
@@ -229,7 +367,7 @@ export async function POST(
         success: false,
         error: "Failed to create workflow step",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
