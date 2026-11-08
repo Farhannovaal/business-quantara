@@ -11,9 +11,6 @@ import {
   usePathname,
 
   useRouter,
-
-  useSearchParams,
-
 } from "next/navigation";
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -566,7 +563,6 @@ export default function AppShell({
 
   const router = useRouter();
 
-  const searchParams = useSearchParams();
 
   const mobileMenuRef = useRef<HTMLDivElement>(null);
 
@@ -926,7 +922,8 @@ const handleCompanyChange = async (companyId: string) => {
       // Update the UI immediately; the HttpOnly cookie remains the source of truth.
       setSelectedCompanyId(companyId);
 
-      const params = new URLSearchParams(searchParams.toString());
+      // Preserve the current query string without useSearchParams().
+      const params = new URLSearchParams(window.location.search);
 
       params.set("companyId", companyId);
 
