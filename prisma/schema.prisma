@@ -574,6 +574,7 @@ model TailorBill {
   paidAt      DateTime?
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
+  isDeleted Boolean @default(false)
 
   company Company?         @relation(fields: [companyId], references: [id], onDelete: Restrict)
   tailor  Tailor           @relation(fields: [tailorId], references: [id], onDelete: Restrict)

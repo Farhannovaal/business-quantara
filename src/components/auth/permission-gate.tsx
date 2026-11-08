@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -7,9 +8,14 @@ import {
 } from "react";
 
 type AuthUser = {
+  id?: number | string;
+  name?: string;
+  email?: string;
   role?: {
-    name: string;
+    id?: number;
+    name?: string;
   } | null;
+  isSuperAdmin?: boolean;
   permissions?: string[];
 };
 
@@ -24,63 +30,69 @@ export default function PermissionGate({
   children,
   fallback = null,
 }: PermissionGateProps) {
-  const [allowed, setAllowed] =
-    useState<boolean | null>(null);
+  const [allowed, setAllowed] = useState<boolean | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
     async function checkPermission() {
       try {
-        const response = await fetch(
-          "/api/auth/me",
-          {
-            credentials: "include",
-            cache: "no-store",
-          }
-        );
+        const response = await fetch("/api/auth/me", {
+          method: "GET",
+          credentials: "include",
+          cache: "no-store",
+        });
 
         if (!response.ok) {
           if (!cancelled) {
             setAllowed(false);
           }
-
           return;
         }
 
-        const result =
-          await response.json();
+        const result = await response.json();
 
-        const user =
-          result?.user as AuthUser | undefined;
+        const user = result?.data as AuthUser | undefined;
 
-        const permissions =
-          user?.permissions ?? [];
+        if (!user) {
+          if (!cancelled) {
+            setAllowed(false);
+          }
+          return;
+        }
 
-        const roleName =
-          user?.role?.name?.toLowerCase();
+        const roleName = user.role?.name?.trim().toLowerCase();
 
-        /*
-         * Administrator memiliki seluruh permission.
-         */
         if (
-          roleName === "administrator" || roleName === "superadmin"
+          user.isSuperAdmin === true ||
+          roleName === "superadmin"
         ) {
           if (!cancelled) {
             setAllowed(true);
           }
-
           return;
         }
 
-        if (!cancelled) {
-          setAllowed(
-            permissions.includes(
-              permission
-            )
-          );
+        if (roleName === "administrator") {
+          if (!cancelled) {
+            setAllowed(true);
+          }
+          return;
         }
-      } catch {
+
+        const permissions = Array.isArray(user.permissions)
+          ? user.permissions
+          : [];
+
+        if (!cancelled) {
+          setAllowed(permissions.includes(permission));
+        }
+      } catch (error) {
+        console.error(
+          "Failed to check permission:",
+          error
+        );
+
         if (!cancelled) {
           setAllowed(false);
         }
@@ -94,10 +106,6 @@ export default function PermissionGate({
     };
   }, [permission]);
 
-  /*
-   * Jangan menampilkan action sebelum
-   * permission selesai diperiksa.
-   */
   if (allowed === null) {
     return null;
   }

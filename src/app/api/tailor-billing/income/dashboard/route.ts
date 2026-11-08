@@ -71,6 +71,7 @@ export const GET = withApiAuth(
         where: {
           companyId,
           status: "PAID",
+          isDeleted: false,
 
           paidAt: {
             gte: startDate,
@@ -79,8 +80,6 @@ export const GET = withApiAuth(
 
           ...(tailorId ? { tailorId } : {}),
 
-          // Hanya ambil tagihan yang masih memiliki
-          // minimal satu item dari SPK aktif perusahaan ini.
           items: {
             some: {
               spk: {

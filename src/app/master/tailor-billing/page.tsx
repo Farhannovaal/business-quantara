@@ -28,6 +28,8 @@ import {
 
   Send,
 
+  Trash2,
+
   X,
 
 } from "lucide-react";
@@ -183,7 +185,13 @@ export default function TailorBillingPage() {
 
       }
 
-      setBills(extractArray<TailorBill>(result.data));
+      const fetchedBills = extractArray<
+        TailorBill & { isDeleted?: boolean }
+      >(result.data);
+
+      setBills(
+        fetchedBills.filter((bill) => bill.isDeleted !== true)
+      );
 
     } catch (err) {
 
@@ -771,6 +779,59 @@ export default function TailorBillingPage() {
     }
 
   }
+
+  async function deleteBill(bill: TailorBill) {
+  const isHardDelete =
+    bill.status === "DRAFT" ||
+    bill.status === "CANCELLED";
+
+  const actionDescription = isHardDelete
+    ? "dihapus permanen beserta seluruh itemnya"
+    : "disembunyikan dari daftar tagihan tanpa menghapus histori pembayaran";
+
+  const confirmed = window.confirm(
+    `Yakin ingin menghapus tagihan ${bill.billNumber}?\n\n` +
+    `Status: ${bill.status}\n` +
+    `Tagihan akan ${actionDescription}.\n\n` +
+    `Tindakan ini tidak dapat dibatalkan.`,
+  );
+
+  if (!confirmed) return;
+
+  try {
+    setProcessingId(bill.id);
+    setError("");
+    setSuccess("");
+
+    const response = await fetch(
+      `/api/tailor-billing/${bill.id}`,
+      {
+        method: "DELETE",
+      },
+    );
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(
+        result.error || "Gagal menghapus tagihan.",
+      );
+    }
+
+    setSuccess(
+      result.message || "Tagihan berhasil dihapus.",
+    );
+
+    setShowDetail(false);
+    setSelectedBill(null);
+
+    await fetchBills();
+  } catch (err) {
+    setError(getErrorMessage(err));
+  } finally {
+    setProcessingId(null);
+  }
+}
 
   async function refresh() {
 
@@ -2205,6 +2266,23 @@ export default function TailorBillingPage() {
                     </>
 
                   )}
+
+                  <PermissionGate permission="tailor-billing.delete">
+                      <button
+                        type="button"
+                        disabled={processingId === selectedBill.id}
+                        onClick={() => deleteBill(selectedBill)}
+                        className="inline-flex h-10 items-center gap-2 rounded-lg border border-rose-300 bg-rose-50 px-4 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-800/60 dark:bg-rose-950/30 dark:text-rose-300 dark:hover:bg-rose-900/40"
+                      >
+                        {processingId === selectedBill.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+
+                        Delete
+                      </button>
+                    </PermissionGate>
 
                 </div>
 
