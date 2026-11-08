@@ -1,4 +1,6 @@
+
 import { Prisma } from "@prisma/client";
+
 import { prisma } from "@/lib/prisma";
 import { calculateSPKStatus } from "@/lib/spk-status";
 
@@ -32,8 +34,13 @@ function isSerializationConflict(error: unknown) {
 export async function createTailorBill(
   input: CreateTailorBillInput,
   userId: number,
+  companyId: number,
 ) {
-  if (!Number.isInteger(input.tailorId) || input.tailorId <= 0) {
+  if (!Number.isSafeInteger(companyId) || companyId <= 0) {
+    throw new Error("Perusahaan tidak valid.");
+  }
+
+  if (!Number.isSafeInteger(input.tailorId) || input.tailorId <= 0) {
     throw new Error("Penjahit tidak valid.");
   }
 
@@ -41,10 +48,7 @@ export async function createTailorBill(
     throw new Error("Minimal satu item harus dipilih.");
   }
 
-  const uniqueItemMap = new Map<
-    string,
-    CreateTailorBillItemInput
-  >();
+  const uniqueItemMap = new Map<string, CreateTailorBillItemInput>();
 
   for (const rawItem of input.items) {
     const item = {
@@ -93,12 +97,18 @@ export async function createTailorBill(
     try {
       return await prisma.$transaction(
         async (tx) => {
-          const tailor = await tx.tailor.findUnique({
-            where: { id: input.tailorId },
+          // Penjahit wajib berasal dari perusahaan aktif.
+          const tailor = await tx.tailor.findFirst({
+            where: {
+              id: input.tailorId,
+              companyId,
+            },
           });
 
           if (!tailor) {
-            throw new Error("Penjahit tidak ditemukan.");
+            throw new Error(
+              "Penjahit tidak ditemukan pada perusahaan aktif.",
+            );
           }
 
           if (!tailor.isActive) {
@@ -116,18 +126,27 @@ export async function createTailorBill(
           const now = new Date();
 
           for (const item of uniqueItems) {
-            const spk = await tx.sPK.findUnique({
-              where: { id: item.spkId },
+            // SPK wajib berasal dari perusahaan aktif dan belum dihapus.
+            const spk = await tx.sPK.findFirst({
+              where: {
+                id: item.spkId,
+                companyId,
+                deletedAt: null,
+              },
               include: {
                 items: {
-                  include: { product: true },
+                  include: {
+                    product: true,
+                  },
                 },
                 transactions: {
                   where: {
                     productId: item.productId,
                     status: "ACTIVE",
                   },
-                  include: { transactionType: true },
+                  include: {
+                    transactionType: true,
+                  },
                   orderBy: [
                     { createdAt: "asc" },
                     { id: "asc" },
@@ -138,12 +157,14 @@ export async function createTailorBill(
 
             if (!spk) {
               throw new Error(
-                `SPK dengan ID ${item.spkId} tidak ditemukan.`,
+                `SPK dengan ID ${item.spkId} tidak ditemukan pada perusahaan aktif.`,
               );
             }
 
             if (spk.status === "CANCELLED") {
-              throw new Error(`SPK ${spk.spkNumber} sudah dibatalkan.`);
+              throw new Error(
+                `SPK ${spk.spkNumber} sudah dibatalkan.`,
+              );
             }
 
             if (spk.tailorId !== input.tailorId) {
@@ -162,6 +183,13 @@ export async function createTailorBill(
               );
             }
 
+            // Pastikan produk pada item SPK berasal dari perusahaan aktif.
+            if (spkItem.product.companyId !== companyId) {
+              throw new Error(
+                `Product ${item.productId} bukan milik perusahaan aktif.`,
+              );
+            }
+
             const status = calculateSPKStatus(
               spk.transactions.map((transaction) => ({
                 quantity: transaction.quantity,
@@ -171,16 +199,23 @@ export async function createTailorBill(
               })),
             );
 
+            // Quantity yang sudah ditagihkan hanya dihitung
+            // dari bill milik perusahaan aktif.
             const alreadyBilled =
               await tx.tailorBillItem.aggregate({
                 where: {
                   spkId: spk.id,
                   productId: item.productId,
                   bill: {
-                    status: { not: "CANCELLED" },
+                    companyId,
+                    status: {
+                      not: "CANCELLED",
+                    },
                   },
                 },
-                _sum: { quantity: true },
+                _sum: {
+                  quantity: true,
+                },
               });
 
             const totalAlreadyBilled = Number(
@@ -209,13 +244,23 @@ export async function createTailorBill(
                 tailorId: spk.tailorId,
                 productId: item.productId,
                 isActive: true,
-                effectiveFrom: { lte: now },
+                effectiveFrom: {
+                  lte: now,
+                },
                 OR: [
-                  { effectiveTo: null },
-                  { effectiveTo: { gte: now } },
+                  {
+                    effectiveTo: null,
+                  },
+                  {
+                    effectiveTo: {
+                      gte: now,
+                    },
+                  },
                 ],
               },
-              orderBy: { effectiveFrom: "desc" },
+              orderBy: {
+                effectiveFrom: "desc",
+              },
             });
 
             if (!tailorRate) {
@@ -250,13 +295,21 @@ export async function createTailorBill(
             throw new Error("Total billing tidak valid.");
           }
 
+          // Sequence tetap menggunakan mekanisme global per tanggal
+          // agar nomor bill tidak bertabrakan antar perusahaan.
           const sequenceDate =
-            `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
+            `${now.getFullYear()}` +
+            `${String(now.getMonth() + 1).padStart(2, "0")}` +
+            `${String(now.getDate()).padStart(2, "0")}`;
 
           const sequence = await tx.tailorBillSequence.upsert({
-            where: { date: sequenceDate },
+            where: {
+              date: sequenceDate,
+            },
             update: {
-              lastValue: { increment: 1 },
+              lastValue: {
+                increment: 1,
+              },
             },
             create: {
               date: sequenceDate,
@@ -269,8 +322,11 @@ export async function createTailorBill(
             now,
           );
 
+          // Simpan bill dengan companyId dari tenant,
+          // bukan dari request body.
           const bill = await tx.tailorBill.create({
             data: {
+              companyId,
               billNumber,
               tailorId: input.tailorId,
               status: "DRAFT",

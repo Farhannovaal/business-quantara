@@ -1,100 +1,81 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
-import { requirePermission } from "@/lib/auth/authorization";
-import { requireAuth } from "@/lib/auth/require-auth";
+import { withApiAuth } from "@/lib/auth/api-guard";
 import { getHistoricalProduction } from "@/lib/historical-production";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(request: NextRequest) {
-  // Autentikasi terlebih dahulu.
-  const { user, response } = await requireAuth();
+export const GET = withApiAuth(
+  async ({ request, tenant }) => {
+    const companyId = tenant!.id;
 
-  if (response) {
-    return response;
-  }
+    try {
+      const searchParams = request.nextUrl.searchParams;
 
-  if (!user) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Unauthorized.",
-      },
-      { status: 401 },
-    );
-  }
+      const startDate = searchParams.get("startDate");
+      const endDate = searchParams.get("endDate");
 
-  // Pertahankan kontrol akses laporan.
-  const permission = requirePermission(
-    user,
-    "dashboard.view",
-  );
+      if (!startDate || !endDate) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Parameter startDate dan endDate wajib diisi dengan format YYYY-MM-DD.",
+          },
+          {
+            status: 400,
+          }
+        );
+      }
 
-  if (permission.response) {
-    return permission.response;
-  }
+      const data = await getHistoricalProduction({
+        companyId,
+        startDate,
+        endDate,
+      });
 
-  try {
-    const searchParams = request.nextUrl.searchParams;
+      return NextResponse.json(
+        {
+          success: true,
+          data,
+        },
+        {
+          status: 200,
+          headers: {
+            "Cache-Control": "no-store",
+          },
+        }
+      );
+    } catch (error) {
+      console.error(
+        "[GET /api/reports/production]",
+        error
+      );
 
-    const startDate = searchParams.get("startDate");
-    const endDate = searchParams.get("endDate");
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Terjadi kesalahan saat mengambil laporan produksi.";
 
-    if (!startDate || !endDate) {
+      const isDateValidationError =
+        /tanggal|format/i.test(message);
+
       return NextResponse.json(
         {
           success: false,
-          error:
-            "Parameter startDate dan endDate wajib diisi dengan format YYYY-MM-DD.",
+          error: isDateValidationError
+            ? message
+            : "Terjadi kesalahan internal saat mengambil laporan produksi.",
         },
         {
-          status: 400,
-        },
+          status: isDateValidationError ? 400 : 500,
+        }
       );
     }
-
-    const data = await getHistoricalProduction({
-      startDate,
-      endDate,
-    });
-
-    return NextResponse.json(
-      {
-        success: true,
-        data,
-      },
-      {
-        status: 200,
-        headers: {
-          "Cache-Control": "no-store",
-        },
-      },
-    );
-  } catch (error) {
-    console.error(
-      "[GET /api/reports/production]",
-      error,
-    );
-
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Terjadi kesalahan saat mengambil laporan produksi.";
-
-    const isDateValidationError =
-      /tanggal|format/i.test(message);
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: isDateValidationError
-          ? message
-          : "Terjadi kesalahan internal saat mengambil laporan produksi.",
-      },
-      {
-        status: isDateValidationError ? 400 : 500,
-      },
-    );
+  },
+  {
+    tenant: "required",
+    permission: "dashboard.view",
   }
-}
+);

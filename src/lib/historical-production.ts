@@ -10,6 +10,10 @@ export type DateRange = {
   endDate: string;
 };
 
+type HistoricalProductionParams = DateRange & {
+  companyId: number;
+};
+
 type ProductionSummary = {
   totalPengiriman: number;
   totalPenerimaan: number;
@@ -99,10 +103,13 @@ function addSummary(
   target.totalPenerimaan += source.totalPenerimaan;
   target.totalQcRijek += source.totalQcRijek;
   target.totalQcAcc += source.totalQcAcc;
+
   target.totalPengirimanRijek +=
     source.totalPengirimanRijek;
+
   target.totalPenerimaanRijek +=
     source.totalPenerimaanRijek;
+
   target.sisaJahit += source.sisaJahit;
   target.barangDiQc += source.barangDiQc;
   target.jumlahRijek += source.jumlahRijek;
@@ -155,44 +162,60 @@ function calculateProgress(
 }
 
 export async function getHistoricalProduction(
-  range: DateRange
+  range: HistoricalProductionParams
 ) {
+  const { companyId } = range;
+
+  if (!Number.isInteger(companyId) || companyId <= 0) {
+    throw new Error("Company ID tidak valid.");
+  }
+
   const { start, endExclusive } = parseDateRange(range);
 
   const [
     spks,
     periodTransactions,
   ] = await Promise.all([
+    // Ambil SPK hanya dari perusahaan aktif.
     prisma.sPK.findMany({
       where: {
+        companyId,
+
         // SPK yang di-soft-delete tidak masuk laporan.
         deletedAt: null,
+
         createdAt: {
           lt: endExclusive,
         },
       },
+
       orderBy: {
         createdAt: "asc",
       },
+
       select: {
         id: true,
         spkNumber: true,
         status: true,
         createdAt: true,
+
         tailor: {
           select: {
             id: true,
             name: true,
           },
         },
+
         items: {
           orderBy: {
             id: "asc",
           },
+
           select: {
             id: true,
             productId: true,
             quantity: true,
+
             product: {
               select: {
                 id: true,
@@ -202,12 +225,16 @@ export async function getHistoricalProduction(
             },
           },
         },
+
         transactions: {
           where: {
+            companyId,
+
             createdAt: {
               lt: endExclusive,
             },
           },
+
           orderBy: [
             {
               createdAt: "asc",
@@ -216,6 +243,7 @@ export async function getHistoricalProduction(
               id: "asc",
             },
           ],
+
           select: {
             id: true,
             transactionNumber: true,
@@ -224,6 +252,7 @@ export async function getHistoricalProduction(
             quantity: true,
             status: true,
             createdAt: true,
+
             transactionType: {
               select: {
                 code: true,
@@ -235,8 +264,12 @@ export async function getHistoricalProduction(
       },
     }),
 
+    // Aktivitas transaksi hanya dari perusahaan aktif
+    // dan SPK yang belum di-soft-delete.
     prisma.transaction.findMany({
       where: {
+        companyId,
+
         createdAt: {
           gte: start,
           lt: endExclusive,
@@ -246,10 +279,12 @@ export async function getHistoricalProduction(
         // bukan di dalam SELECT.
         spk: {
           is: {
+            companyId,
             deletedAt: null,
           },
         },
       },
+
       orderBy: [
         {
           createdAt: "desc",
@@ -258,6 +293,7 @@ export async function getHistoricalProduction(
           id: "desc",
         },
       ],
+
       select: {
         id: true,
         transactionNumber: true,
@@ -266,27 +302,32 @@ export async function getHistoricalProduction(
         quantity: true,
         status: true,
         createdAt: true,
+
         spk: {
           select: {
             spkNumber: true,
           },
         },
+
         product: {
           select: {
             code: true,
             name: true,
           },
         },
+
         tailor: {
           select: {
             name: true,
           },
         },
+
         employee: {
           select: {
             name: true,
           },
         },
+
         transactionType: {
           select: {
             code: true,
@@ -297,7 +338,7 @@ export async function getHistoricalProduction(
     }),
   ]);
 
-  /*
+  /**
    * Hitung aktivitas dalam periode laporan.
    * Transaksi dari SPK yang sudah di-soft-delete
    * sudah dikecualikan oleh query Prisma di atas.
@@ -316,7 +357,7 @@ export async function getHistoricalProduction(
     activityQuantity += transaction.quantity;
   }
 
-  /*
+  /**
    * Hitung posisi produksi sampai akhir tanggal laporan.
    * Hanya SPK yang tidak di-soft-delete yang diproses.
    */
@@ -355,15 +396,18 @@ export async function getHistoricalProduction(
         product: item.product,
         targetQuantity: itemTarget,
         completedQuantity: itemCompleted,
+
         progressPercent: calculateProgress(
           itemCompleted,
           itemTarget
         ),
+
         summary: {
           ...summary,
           nextTransactionTypes:
             calculated.nextTransactionTypes ?? [],
         },
+
         currentStatus: spk.status,
       };
     });
@@ -400,6 +444,7 @@ export async function getHistoricalProduction(
       summary: spkSummary,
       targetQuantity: spkTarget,
       completedQuantity: spkCompleted,
+
       progressPercent: calculateProgress(
         spkCompleted,
         spkTarget
@@ -426,10 +471,12 @@ export async function getHistoricalProduction(
       totals: positionTotals,
       targetQuantity,
       completedQuantity,
+
       progressPercent: calculateProgress(
         completedQuantity,
         targetQuantity
       ),
+
       spks: historicalSPKs,
     },
 

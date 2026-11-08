@@ -1,104 +1,102 @@
-import { requirePermission } from "@/lib/auth/authorization";
-import { requireAuth } from "@/lib/auth/require-auth";
-import { prisma } from "@/lib/prisma";
+
 import { NextResponse } from "next/server";
 
-export async function GET() {
-  const { user, response } = await requireAuth();
+import { withApiAuth } from "@/lib/auth/api-guard";
+import { prisma } from "@/lib/prisma";
 
-  if (response) {
-    return response;
-  }
+export const dynamic = "force-dynamic";
 
-  if (!user) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Unauthorized.",
-      },
-      {
-        status: 401,
-      },
-    );
-  }
+export const GET = withApiAuth(
+  async ({ tenant }) => {
+    const companyId = tenant!.id;
 
-  const permission = requirePermission(user, "dashboard.view");
+    try {
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
 
-  if (permission.response) {
-    return permission.response;
-  }
+      const endOfToday = new Date();
+      endOfToday.setHours(23, 59, 59, 999);
 
-  try {
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
-
-    const endOfToday = new Date();
-    endOfToday.setHours(23, 59, 59, 999);
-
-    const [
-      activeSpks,
-      todayTransactions,
-      activeProducts,
-      recentTransactions,
-    ] = await Promise.all([
-      prisma.sPK.count({
-        where: {
-          status: "ACTIVE",
-        },
-      }),
-
-      prisma.transaction.count({
-        where: {
-          createdAt: {
-            gte: startOfToday,
-            lte: endOfToday,
-          },
-        },
-      }),
-
-      prisma.product.count({
-        where: {
-          isActive: true,
-        },
-      }),
-
-      prisma.transaction.findMany({
-        take: 5,
-        orderBy: {
-          createdAt: "desc",
-        },
-        include: {
-          transactionType: true,
-          spk: true,
-          product: true,
-          tailor: true,
-          employee: true,
-        },
-      }),
-    ]);
-
-    return NextResponse.json({
-      success: true,
-
-      stats: {
+      const [
         activeSpks,
         todayTransactions,
         activeProducts,
-      },
+        recentTransactions,
+      ] = await Promise.all([
+        // Total SPK aktif milik perusahaan.
+        prisma.sPK.count({
+          where: {
+            companyId,
+            status: "ACTIVE",
+            deletedAt: null,
+          },
+        }),
 
-      recentTransactions,
-    });
-  } catch (error) {
-    console.error("Dashboard error:", error);
+        // Total transaksi hari ini milik perusahaan.
+        prisma.transaction.count({
+          where: {
+            companyId,
+            createdAt: {
+              gte: startOfToday,
+              lte: endOfToday,
+            },
+          },
+        }),
 
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to load dashboard data",
-      },
-      {
-        status: 500,
-      },
-    );
+        // Total produk aktif milik perusahaan.
+        prisma.product.count({
+          where: {
+            companyId,
+            isActive: true,
+          },
+        }),
+
+        // Lima transaksi terakhir milik perusahaan.
+        prisma.transaction.findMany({
+          where: {
+            companyId,
+          },
+          take: 5,
+          orderBy: {
+            createdAt: "desc",
+          },
+          include: {
+            transactionType: true,
+            spk: true,
+            product: true,
+            tailor: true,
+            employee: true,
+          },
+        }),
+      ]);
+
+      return NextResponse.json({
+        success: true,
+
+        stats: {
+          activeSpks,
+          todayTransactions,
+          activeProducts,
+        },
+
+        recentTransactions,
+      });
+    } catch (error) {
+      console.error("Dashboard error:", error);
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Failed to load dashboard data",
+        },
+        {
+          status: 500,
+        }
+      );
+    }
+  },
+  {
+    tenant: "required",
+    permission: "dashboard.view",
   }
-}
+);

@@ -587,11 +587,12 @@ export default function AppShell({
   const [companiesLoading, setCompaniesLoading] = useState(false);
 
   const [companyError, setCompanyError] = useState("");
+
   const [changingCompany, setChangingCompany] = useState(false);
 
   const isSuperAdmin = authUser?.isSuperAdmin === true;
 
-  const selectedCompanyId = searchParams.get("companyId") ?? "";
+  const [selectedCompanyId, setSelectedCompanyId] = useState("");
 
   const selectedCompany = companies.find(
 
@@ -604,13 +605,9 @@ export default function AppShell({
     (company) => company.status === "ACTIVE",
 
   );
-
   // ------------------------------------------------------------
-
   // AUTHENTICATION
-
   // ------------------------------------------------------------
-
   useEffect(() => {
 
     let cancelled = false;
@@ -694,13 +691,9 @@ export default function AppShell({
     };
 
   }, []);
-
   // ------------------------------------------------------------
-
   // LOAD COMPANIES FOR SUPERADMIN
-
   // ------------------------------------------------------------
-
   useEffect(() => {
 
     if (authLoading || !isSuperAdmin) {
@@ -745,14 +738,43 @@ export default function AppShell({
 
         }
 
+        const companyList: Company[] = Array.isArray(result.data)
+          ? result.data
+          : [];
+
+        // Restore the last selected company from the HttpOnly cookie.
+        const activeCompanyResponse = await fetch(
+          "/api/auth/active-company",
+          {
+            method: "GET",
+            credentials: "include",
+            cache: "no-store",
+          },
+        );
+
+        const activeCompanyResult = await activeCompanyResponse.json();
+
+        if (!activeCompanyResponse.ok || !activeCompanyResult.success) {
+          throw new Error(
+            activeCompanyResult.message ||
+              activeCompanyResult.error ||
+              "Gagal mengambil active company.",
+          );
+        }
+
         if (!cancelled) {
+          setCompanies(companyList);
 
-          setCompanies(
-
-            Array.isArray(result.data) ? result.data : [],
-
+          const activeCompanyId = activeCompanyResult.data?.companyId;
+          const validCompany = companyList.find(
+            (company) =>
+              company.status === "ACTIVE" &&
+              String(company.id) === String(activeCompanyId),
           );
 
+          setSelectedCompanyId(
+            validCompany ? String(validCompany.id) : "",
+          );
         }
 
       } catch (error) {
@@ -794,13 +816,9 @@ export default function AppShell({
     };
 
   }, [authLoading, isSuperAdmin]);
-
   // ------------------------------------------------------------
-
   // NAVIGATION STATE
-
   // ------------------------------------------------------------
-
   useEffect(() => {
 
     setMobileMenuOpen(false);
@@ -846,9 +864,7 @@ export default function AppShell({
         !mobileMenuRef.current.contains(target)
 
       ) {
-
-        // Mobile menu is closed through its overlay/button.
-
+  // Mobile menu is closed through its overlay/button.
       }
 
     }
@@ -862,61 +878,86 @@ export default function AppShell({
     };
 
   }, []);
-
   // ------------------------------------------------------------
-
   // COMPANY SELECTION
-
   // ------------------------------------------------------------
-
 const handleCompanyChange = async (companyId: string) => {
+
     if (!companyId || changingCompany) return;
 
     setChangingCompany(true);
+
     setCompanyError("");
 
     try {
+
       const response = await fetch("/api/auth/active-company", {
+
         method: "POST",
+
         credentials: "include",
+
         headers: {
+
           "Content-Type": "application/json",
+
         },
+
         body: JSON.stringify({
+
           companyId: Number(companyId),
+
         }),
+
       });
 
       const result = await response.json();
 
       if (!response.ok || !result.success) {
+
         throw new Error(
+
           result.message || "Failed to change company."
+
         );
+
       }
 
+      // Update the UI immediately; the HttpOnly cookie remains the source of truth.
+      setSelectedCompanyId(companyId);
+
       const params = new URLSearchParams(searchParams.toString());
+
       params.set("companyId", companyId);
 
       const query = params.toString();
 
       router.replace(query ? `${pathname}?${query}` : pathname);
+
       router.refresh();
+
     } catch (error) {
+
       console.error("[AppShell] Change company failed:", error);
 
       setCompanyError(
+
         error instanceof Error
+
           ? error.message
+
           : "Failed to change company."
+
       );
+
     } finally {
+
       setChangingCompany(false);
+
     }
+
   };
-
   // Keep companyId in every internal navigation link.
-
   const getCompanyHref = useCallback(
 
     (href: string) => {
@@ -940,13 +981,9 @@ const handleCompanyChange = async (companyId: string) => {
     [isSuperAdmin, selectedCompanyId],
 
   );
-
   // ------------------------------------------------------------
-
   // LOGOUT
-
   // ------------------------------------------------------------
-
   async function handleLogout() {
 
     if (loggingOut) return;
@@ -984,13 +1021,9 @@ const handleCompanyChange = async (companyId: string) => {
     }
 
   }
-
   // ------------------------------------------------------------
-
   // PERMISSIONS
-
   // ------------------------------------------------------------
-
   if (pathname === "/login") {
 
     return <>{children}</>;
@@ -1032,13 +1065,9 @@ const handleCompanyChange = async (companyId: string) => {
     visibleMobileItems,
 
   );
-
   // ------------------------------------------------------------
-
   // COMPANY SELECTOR
-
   // ------------------------------------------------------------
-
   const companySelector = (
 
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card px-4 py-3 shadow-sm sm:px-6 xl:px-8">
@@ -1114,13 +1143,9 @@ const handleCompanyChange = async (companyId: string) => {
     </div>
 
   );
-
   // ------------------------------------------------------------
-
   // COMPANY ACCESS GUARD
-
   // ------------------------------------------------------------
-
   const companySelectionRequired =
 
     isSuperAdmin &&
@@ -1232,13 +1257,9 @@ const handleCompanyChange = async (companyId: string) => {
     </div>
 
   );
-
   // ------------------------------------------------------------
-
   // MAIN LAYOUT
-
   // ------------------------------------------------------------
-
   return (
 
     <div className="min-h-screen bg-background text-foreground">
@@ -1595,13 +1616,15 @@ const handleCompanyChange = async (companyId: string) => {
 
             ) : (
 
-              children
+              <div key={selectedCompanyId}>{children}</div>
 
             )
 
           ) : (
 
-            children
+            <div key={authUser?.company?.id ?? "user-company"}>
+              {children}
+            </div>
 
           )}
 
@@ -1901,7 +1924,7 @@ const handleCompanyChange = async (companyId: string) => {
 
       {visibleMobileItems.length > 0 && (
 
-        <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card/95 px-1 pb-[max(env(safe-area-inset-bottom),0.35rem)] pt-2 shadow-[0_-12px_35px_rgba(0,0,0,0.25)] backdrop-blur-xl xl:hidden">
+        <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card/95 px-1 pb-[max(env(safe-area-inset-bottom),0.35rem)] pt-2 shadow-[0\_-12px_35px_rgba(0,0,0,0.25)] backdrop-blur-xl xl:hidden">
 
           <div className="mx-auto flex max-w-xl items-stretch justify-around gap-1">
 
@@ -1956,13 +1979,7 @@ const handleCompanyChange = async (companyId: string) => {
   );
 
 }
-
-// ------------------------------------------------------------
-
-// USER AVATAR
-
-// ------------------------------------------------------------
-
+  // ------------------------------------------------------------  // USER AVATAR  // ------------------------------------------------------------
 function UserAvatar({ name }: { name?: string }) {
 
   return (
@@ -1976,13 +1993,7 @@ function UserAvatar({ name }: { name?: string }) {
   );
 
 }
-
-// ------------------------------------------------------------
-
-// USER MENU
-
-// ------------------------------------------------------------
-
+  // ------------------------------------------------------------  // USER MENU  // ------------------------------------------------------------
 function UserMenu({
 
   user,
@@ -2068,13 +2079,7 @@ function UserMenu({
   );
 
 }
-
-// ------------------------------------------------------------
-
-// MOBILE NAV ITEM
-
-// ------------------------------------------------------------
-
+  // ------------------------------------------------------------  // MOBILE NAV ITEM  // ------------------------------------------------------------
 function MobileNavItem({
 
   href,

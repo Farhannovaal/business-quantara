@@ -1,235 +1,164 @@
-
 import { NextResponse } from "next/server";
-import { requirePermission } from "@/lib/auth/authorization";
-import { requireAuth } from "@/lib/auth/require-auth";
+import { withApiAuth } from "@/lib/auth/api-guard";
 import { prisma } from "@/lib/prisma";
 
-function isSuperAdmin(user: {
-  role?: { name?: string | null } | null;
-}) {
-  return user.role?.name?.toLowerCase() === "superadmin";
-}
-
-export async function GET() {
-  const { user, response } = await requireAuth();
-
-  if (response) return response;
-
-  if (!user) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Unauthorized.",
-      },
-      { status: 401 },
-    );
-  }
-
-  const permission = requirePermission(user, "tailor.view");
-  if (permission.response) return permission.response;
-
-  const superAdmin = isSuperAdmin(user);
-
-  if (!superAdmin && user.companyId == null) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: "User belum terhubung dengan perusahaan.",
-      },
-      { status: 403 },
-    );
-  }
-
-  try {
-    const tailors = await prisma.tailor.findMany({
-      where: superAdmin
-        ? {}
-        : { companyId: user.companyId! },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
-
-    return NextResponse.json({
-      success: true,
-      data: tailors,
-    });
-  } catch (error) {
-    console.error("GET /api/tailors error:", error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to load tailors",
-      },
-      { status: 500 },
-    );
-  }
-}
-
-export async function POST(request: Request) {
-  const { user, response } = await requireAuth();
-
-  if (response) return response;
-
-  if (!user) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Unauthorized.",
-      },
-      { status: 401 },
-    );
-  }
-
-  const permission = requirePermission(user, "tailor.manage");
-  if (permission.response) return permission.response;
-
-  const superAdmin = isSuperAdmin(user);
-
-  if (!superAdmin && user.companyId == null) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: "User belum terhubung dengan perusahaan.",
-      },
-      { status: 403 },
-    );
-  }
-
-  try {
-    const body = await request.json();
-
-    if (
-      body === null ||
-      typeof body !== "object" ||
-      Array.isArray(body)
-    ) {
+export const GET = withApiAuth(
+  async ({ tenant }) => {
+    if (!tenant) {
       return NextResponse.json(
         {
           success: false,
-          error: "Invalid request body",
+          error: "Company context is unavailable.",
         },
-        { status: 400 },
+        { status: 403 },
       );
     }
 
-    const name =
-      typeof body.name === "string" ? body.name.trim() : "";
+    try {
+      const tailors = await prisma.tailor.findMany({
+        where: {
+          companyId: tenant.id,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
 
-    let isActive = true;
+      return NextResponse.json({
+        success: true,
+        data: tailors,
+      });
+    } catch (error) {
+      console.error("GET /api/tailors error:", error);
 
-    if (body.isActive !== undefined) {
-      if (typeof body.isActive !== "boolean") {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "isActive must be a boolean",
-          },
-          { status: 400 },
-        );
-      }
-
-      isActive = body.isActive;
-    }
-
-    if (!name) {
       return NextResponse.json(
         {
           success: false,
-          error: "Tailor name is required",
+          error: "Failed to load tailors",
         },
-        { status: 400 },
+        { status: 500 },
+      );
+    }
+  },
+  {
+    tenant: "required",
+    permission: "tailor.view",
+  },
+);
+
+export const POST = withApiAuth(
+  async ({ request, tenant }) => {
+    if (!tenant) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Company context is unavailable.",
+        },
+        { status: 403 },
       );
     }
 
-    let companyId: number;
-
-    if (superAdmin) {
-      const requestedCompanyId = Number(body.companyId);
+    try {
+      const body = await request.json().catch(() => null);
 
       if (
-        body.companyId === undefined ||
-        body.companyId === null ||
-        body.companyId === "" ||
-        !Number.isInteger(requestedCompanyId) ||
-        requestedCompanyId <= 0
+        body === null ||
+        typeof body !== "object" ||
+        Array.isArray(body)
       ) {
         return NextResponse.json(
           {
             success: false,
-            error: "Super Admin harus memilih perusahaan yang valid.",
+            error: "Invalid request body",
           },
           { status: 400 },
         );
       }
 
-      companyId = requestedCompanyId;
+      const name =
+        typeof body.name === "string"
+          ? body.name.trim()
+          : "";
 
-      const company = await prisma.company.findUnique({
-        where: { id: companyId },
-        select: { id: true },
-      });
+      let isActive = true;
 
-      if (!company) {
+      if (body.isActive !== undefined) {
+        if (typeof body.isActive !== "boolean") {
+          return NextResponse.json(
+            {
+              success: false,
+              error: "isActive must be a boolean",
+            },
+            { status: 400 },
+          );
+        }
+
+        isActive = body.isActive;
+      }
+
+      if (!name) {
         return NextResponse.json(
           {
             success: false,
-            error: "Perusahaan tidak ditemukan.",
+            error: "Tailor name is required",
           },
-          { status: 404 },
+          { status: 400 },
         );
       }
-    } else {
-      companyId = user.companyId!;
-    }
 
-    const existingTailor = await prisma.tailor.findUnique({
-      where: {
-        companyId_name: {
+      const companyId = tenant.id;
+
+      const existingTailor = await prisma.tailor.findUnique({
+        where: {
+          companyId_name: {
+            companyId,
+            name,
+          },
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (existingTailor) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Tailor name already exists",
+          },
+          { status: 409 },
+        );
+      }
+
+      const tailor = await prisma.tailor.create({
+        data: {
           companyId,
           name,
+          isActive,
         },
-      },
-      select: {
-        id: true,
-      },
-    });
+      });
 
-    if (existingTailor) {
+      return NextResponse.json(
+        {
+          success: true,
+          data: tailor,
+        },
+        { status: 201 },
+      );
+    } catch (error) {
+      console.error("POST /api/tailors error:", error);
+
       return NextResponse.json(
         {
           success: false,
-          error: "Tailor name already exists",
+          error: "Failed to create tailor",
         },
-        { status: 409 },
+        { status: 500 },
       );
     }
-
-    const tailor = await prisma.tailor.create({
-      data: {
-        companyId,
-        name,
-        isActive,
-      },
-    });
-
-    return NextResponse.json(
-      {
-        success: true,
-        data: tailor,
-      },
-      { status: 201 },
-    );
-  } catch (error) {
-    console.error("POST /api/tailors error:", error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to create tailor",
-      },
-      { status: 500 },
-    );
-  }
-}
+  },
+  {
+    tenant: "required",
+    permission: "tailor.manage",
+  },
+);

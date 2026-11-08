@@ -29,12 +29,16 @@ export type TailorBillingSummary = {
 
 export async function calculateTailorBilling(
   spkId: number,
+  companyId: number
 ): Promise<TailorBillingSummary[]> {
   const spk = await prisma.sPK.findFirst({
     where: {
       id: spkId,
+      companyId,
       deletedAt: null,
-      status: { not: "CANCELLED" },
+      status: {
+        not: "CANCELLED",
+      },
     },
     include: {
       tailor: true,
@@ -48,6 +52,7 @@ export async function calculateTailorBilling(
       },
       transactions: {
         where: {
+          companyId,
           status: "ACTIVE",
         },
         include: {
@@ -61,6 +66,7 @@ export async function calculateTailorBilling(
       tailorBillItems: {
         where: {
           bill: {
+            companyId,
             status: {
               not: "CANCELLED",
             },
@@ -70,20 +76,19 @@ export async function calculateTailorBilling(
     },
   });
 
-  // SPK tidak ditemukan, sudah dihapus, atau dibatalkan.
-  // Jangan menghasilkan data billing untuk SPK tersebut.
+  // SPK tidak ditemukan, bukan milik tenant,
+  // sudah dihapus, atau dibatalkan.
   if (!spk) {
     return [];
   }
 
   const now = new Date();
-
   const results: TailorBillingSummary[] = [];
 
   for (const spkItem of spk.items) {
     const productTransactions = spk.transactions.filter(
       (transaction) =>
-        transaction.productId === spkItem.productId,
+        transaction.productId === spkItem.productId
     );
 
     const status = calculateSPKStatus(
@@ -92,21 +97,24 @@ export async function calculateTailorBilling(
         transactionType: {
           code: transaction.transactionType.code,
         },
-      })),
+      }))
     );
 
     const totalAlreadyBilled = spk.tailorBillItems
-      .filter((item) => item.productId === spkItem.productId)
+      .filter(
+        (item) => item.productId === spkItem.productId
+      )
       .reduce(
         (total, item) => total + Number(item.quantity),
-        0,
+        0
       );
 
     const billableQuantity = Math.max(
       Number(status.totalQcAcc) - totalAlreadyBilled,
-      0,
+      0
     );
 
+    // Tailor dan product ID berasal dari SPK tenant aktif.
     const tailorRate = await prisma.tailorRate.findFirst({
       where: {
         tailorId: spk.tailorId,
@@ -144,10 +152,10 @@ export async function calculateTailorBilling(
       totalQcRijek: Number(status.totalQcRijek),
       totalQcAcc: Number(status.totalQcAcc),
       totalPengirimanRijek: Number(
-        status.totalPengirimanRijek,
+        status.totalPengirimanRijek
       ),
       totalPenerimaanRijek: Number(
-        status.totalPenerimaanRijek,
+        status.totalPenerimaanRijek
       ),
       sisaJahit: Number(status.sisaJahit),
       barangDiQc: Number(status.barangDiQc),

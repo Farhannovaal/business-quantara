@@ -1,62 +1,71 @@
-import { requirePermission } from "@/lib/auth/authorization";
-import { requireAuth } from "@/lib/auth/require-auth";
-import { NextRequest, NextResponse } from "next/server";
+
+import { NextResponse } from "next/server";
+
+import { withApiAuth } from "@/lib/auth/api-guard";
 import { getHistoricalProduction } from "@/lib/historical-production";
 
-export async function GET(request: NextRequest) {
-  const { user, response } = await requireAuth();
+export const dynamic = "force-dynamic";
 
-  if (response) return response;
+export const GET = withApiAuth(
+  async ({ request, tenant }) => {
+    const companyId = tenant!.id;
 
-  if (!user) {
-    return NextResponse.json(
-      { success: false, error: "Unauthorized." },
-      { status: 401 },
-    );
-  }
+    const startDate =
+      request.nextUrl.searchParams.get("startDate") ?? "";
 
-  const permission = requirePermission(user, "dashboard.view");
+    const endDate =
+      request.nextUrl.searchParams.get("endDate") ?? "";
 
-  if (permission.response) return permission.response;
-
-  const startDate = request.nextUrl.searchParams.get("startDate") ?? "";
-  const endDate = request.nextUrl.searchParams.get("endDate") ?? "";
-
-  if (!startDate || !endDate) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Parameter startDate dan endDate wajib diisi (YYYY-MM-DD).",
-      },
-      { status: 400 },
-    );
-  }
-
-  try {
-    const data = await getHistoricalProduction({ startDate, endDate });
-
-    return NextResponse.json({
-      success: true,
-      data,
-    });
-  } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Gagal menghitung data historis.";
-
-    const status = /tanggal|format/i.test(message) ? 400 : 500;
-
-    if (status === 500) {
-      console.error("GET historical dashboard error:", error);
+    if (!startDate || !endDate) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Parameter startDate dan endDate wajib diisi (YYYY-MM-DD).",
+        },
+        { status: 400 }
+      );
     }
 
-    return NextResponse.json(
-      {
-        success: false,
-        error: message,
-      },
-      { status },
-    );
+    try {
+      const data = await getHistoricalProduction({
+        companyId,
+        startDate,
+        endDate,
+      });
+
+      return NextResponse.json({
+        success: true,
+        data,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Gagal menghitung data historis.";
+
+      const status = /tanggal|format/i.test(message)
+        ? 400
+        : 500;
+
+      if (status === 500) {
+        console.error(
+          "GET historical dashboard error:",
+          error
+        );
+      }
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: message,
+        },
+        { status }
+      );
+    }
+  },
+  {
+    tenant: "required",
+    permission: "dashboard.view",
   }
-}
+);

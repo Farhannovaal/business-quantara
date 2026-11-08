@@ -1,106 +1,93 @@
-
-import { requirePermission } from "@/lib/auth/authorization";
-import { requireAuth } from "@/lib/auth/require-auth";
 import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 
-export async function GET() {
-  const { user, response } = await requireAuth();
+import { withApiAuth } from "@/lib/auth/api-guard";
 
-  if (response) return response;
+export const GET = withApiAuth(
+  async () => {
+    try {
+      const workbook = XLSX.utils.book_new();
 
-  if (!user) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Unauthorized.",
-      },
-      { status: 401 },
-    );
-  }
+      const dataSheet = XLSX.utils.aoa_to_sheet([
+        ["Name", "Is Active"],
+      ]);
 
-  const permission = requirePermission(user, "tailor.manage");
+      dataSheet["!cols"] = [
+        { wch: 30 },
+        { wch: 15 },
+      ];
 
-  if (permission.response) return permission.response;
+      XLSX.utils.book_append_sheet(
+        workbook,
+        dataSheet,
+        "Tailors",
+      );
 
-  try {
-    const workbook = XLSX.utils.book_new();
+      const instructionsSheet = XLSX.utils.aoa_to_sheet([
+        ["Column", "Required", "Description", "Accepted Values"],
+        [
+          "Name",
+          "Yes",
+          "Nama tailor. Harus unik dan maksimal 150 karakter.",
+          "Teks",
+        ],
+        [
+          "Is Active",
+          "No",
+          "Status aktif tailor. Jika kosong, default TRUE.",
+          "TRUE/FALSE, YES/NO, 1/0, ACTIVE/INACTIVE",
+        ],
+        [],
+        ["Important Notes"],
+        ["1. Jangan mengubah nama kolom pada sheet Tailors."],
+        ["2. Jangan menghapus kolom wajib Name."],
+        ["3. Nama tailor yang sudah ada akan dilewati."],
+        ["4. Simpan file dalam format Excel .xlsx."],
+        ["5. Maksimal ukuran file import adalah 5 MB."],
+      ]);
 
-    const dataSheet = XLSX.utils.aoa_to_sheet([
-      ["Name", "Is Active"],
-    ]);
+      instructionsSheet["!cols"] = [
+        { wch: 20 },
+        { wch: 12 },
+        { wch: 65 },
+        { wch: 45 },
+      ];
 
-    dataSheet["!cols"] = [
-      { wch: 30 },
-      { wch: 15 },
-    ];
+      XLSX.utils.book_append_sheet(
+        workbook,
+        instructionsSheet,
+        "Instructions",
+      );
 
-    XLSX.utils.book_append_sheet(
-      workbook,
-      dataSheet,
-      "Tailors",
-    );
+      const buffer = XLSX.write(workbook, {
+        type: "buffer",
+        bookType: "xlsx",
+      });
 
-    const instructionsSheet = XLSX.utils.aoa_to_sheet([
-      ["Column", "Required", "Description", "Accepted Values"],
-      [
-        "Name",
-        "Yes",
-        "Nama tailor. Harus unik dan maksimal 150 karakter.",
-        "Teks",
-      ],
-      [
-        "Is Active",
-        "No",
-        "Status aktif tailor. Jika kosong, default TRUE.",
-        "TRUE/FALSE, YES/NO, 1/0, ACTIVE/INACTIVE",
-      ],
-      [],
-      ["Important Notes"],
-      ["1. Jangan mengubah nama kolom pada sheet Tailors."],
-      ["2. Jangan menghapus kolom wajib Name."],
-      ["3. Nama tailor yang sudah ada akan dilewati."],
-      ["4. Simpan file dalam format Excel .xlsx."],
-      ["5. Maksimal ukuran file import adalah 5 MB."],
-    ]);
+      return new NextResponse(buffer, {
+        status: 200,
+        headers: {
+          "Content-Type":
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "Content-Disposition":
+            'attachment; filename="tailor-import-template.xlsx"',
+          "Cache-Control": "no-store",
+        },
+      });
+    } catch (error) {
+      console.error("GET /api/tailors/template error:", error);
 
-    instructionsSheet["!cols"] = [
-      { wch: 20 },
-      { wch: 12 },
-      { wch: 65 },
-      { wch: 45 },
-    ];
-
-    XLSX.utils.book_append_sheet(
-      workbook,
-      instructionsSheet,
-      "Instructions",
-    );
-
-    const buffer = XLSX.write(workbook, {
-      type: "buffer",
-      bookType: "xlsx",
-    });
-
-    return new NextResponse(buffer, {
-      status: 200,
-      headers: {
-        "Content-Type":
-          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "Content-Disposition":
-          'attachment; filename="tailor-import-template.xlsx"',
-        "Cache-Control": "no-store",
-      },
-    });
-  } catch (error) {
-    console.error("GET /api/tailors/template error:", error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to generate tailor template",
-      },
-      { status: 500 },
-    );
-  }
-}
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Failed to generate tailor template",
+        },
+        { status: 500 },
+      );
+    }
+  },
+  {
+    tenant: "required",
+    permission: "tailor.manage",
+  },
+);
