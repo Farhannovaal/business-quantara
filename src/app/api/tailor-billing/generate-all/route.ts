@@ -98,7 +98,8 @@ export const POST = withApiAuth(
               })),
               notes: "Generated automatically from Dashboard.",
             },
-            user.id
+            user.id,
+            companyId
           );
 
           bills.push({

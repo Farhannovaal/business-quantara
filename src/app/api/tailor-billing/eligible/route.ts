@@ -41,8 +41,6 @@ export const GET = withApiAuth(
             }
           }
         } catch (error) {
-          // SPK tanpa tarif tidak membuat seluruh halaman gagal.
-          // UI dapat menampilkan informasi bahwa tarif belum tersedia.
           console.warn(
             `Skip billing calculation for SPK ${spk.id}:`,
             error
