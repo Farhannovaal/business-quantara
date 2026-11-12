@@ -16,6 +16,33 @@ type CreateTailorBillInput = {
   notes?: string | null;
 };
 
+/**
+ * Mengambil tanggal berdasarkan kalender Asia/Jakarta.
+ *
+ * Representasi dibuat konsisten dengan calculator.ts.
+ *
+ * Contoh:
+ * 13 November 2026
+ * menjadi 2026-11-13T00:00:00.000Z.
+ *
+ * Catatan:
+ * Format ini mengikuti representasi tanggal yang saat ini
+ * digunakan oleh kolom effectiveFrom di database.
+ */
+function getJakartaDateReference(): Date {
+  const jakartaDate = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+
+  return new Date(`${jakartaDate}T00:00:00.000Z`);
+}
+
+/**
+ * Membuat nomor billing.
+ */
 function generateBillNumber(sequence: number, date: Date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -24,6 +51,9 @@ function generateBillNumber(sequence: number, date: Date) {
   return `BILL-${year}${month}${day}-${String(sequence).padStart(6, "0")}`;
 }
 
+/**
+ * Memeriksa serialization conflict Prisma.
+ */
 function isSerializationConflict(error: unknown) {
   return (
     error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -31,24 +61,53 @@ function isSerializationConflict(error: unknown) {
   );
 }
 
+/**
+ * Membuat billing penjahit.
+ *
+ * Flow:
+ * 1. Validasi input.
+ * 2. Validasi tenant dan penjahit.
+ * 3. Validasi SPK dan produk.
+ * 4. Hitung transaksi dan QC ACC.
+ * 5. Hitung quantity yang sudah ditagihkan.
+ * 6. Hitung quantity yang dapat ditagihkan.
+ * 7. Ambil tarif berdasarkan periode efektif.
+ * 8. Hitung nominal billing.
+ * 9. Generate nomor billing.
+ * 10. Simpan draft dan detail billing.
+ * 11. Simpan activity log.
+ */
 export async function createTailorBill(
   input: CreateTailorBillInput,
   userId: number,
-  companyId: number,
+  companyId: number
 ) {
+  // STEP 1: Validasi company.
   if (!Number.isSafeInteger(companyId) || companyId <= 0) {
     throw new Error("Perusahaan tidak valid.");
   }
 
-  if (!Number.isSafeInteger(input.tailorId) || input.tailorId <= 0) {
+  // STEP 2: Validasi tailor.
+  if (
+    !Number.isSafeInteger(input.tailorId) ||
+    input.tailorId <= 0
+  ) {
     throw new Error("Penjahit tidak valid.");
   }
 
+  // STEP 3: Validasi items.
   if (!Array.isArray(input.items) || input.items.length === 0) {
     throw new Error("Minimal satu item harus dipilih.");
   }
 
-  const uniqueItemMap = new Map<string, CreateTailorBillItemInput>();
+  /**
+   * STEP 4:
+   * Gabungkan item dengan kombinasi SPK dan produk yang sama.
+   */
+  const uniqueItemMap = new Map<
+    string,
+    CreateTailorBillItemInput
+  >();
 
   for (const rawItem of input.items) {
     const item = {
@@ -65,7 +124,9 @@ export async function createTailorBill(
       !Number.isSafeInteger(item.productId) ||
       item.productId <= 0
     ) {
-      throw new Error(`Product untuk SPK ${item.spkId} tidak valid.`);
+      throw new Error(
+        `Product untuk SPK ${item.spkId} tidak valid.`
+      );
     }
 
     if (
@@ -73,7 +134,7 @@ export async function createTailorBill(
       item.quantity <= 0
     ) {
       throw new Error(
-        `Quantity SPK ${item.spkId} / product ${item.productId} harus berupa angka bulat lebih dari 0.`,
+        `Quantity SPK ${item.spkId} / product ${item.productId} harus berupa angka bulat lebih dari 0.`
       );
     }
 
@@ -93,11 +154,18 @@ export async function createTailorBill(
 
   const uniqueItems = Array.from(uniqueItemMap.values());
 
+  /**
+   * STEP 5:
+   * Retry jika terjadi serialization conflict.
+   */
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       return await prisma.$transaction(
         async (tx) => {
-          // Penjahit wajib berasal dari perusahaan aktif.
+          /**
+           * STEP 6:
+           * Validasi penjahit berdasarkan tenant aktif.
+           */
           const tailor = await tx.tailor.findFirst({
             where: {
               id: input.tailorId,
@@ -107,7 +175,7 @@ export async function createTailorBill(
 
           if (!tailor) {
             throw new Error(
-              "Penjahit tidak ditemukan pada perusahaan aktif.",
+              "Penjahit tidak ditemukan pada perusahaan aktif."
             );
           }
 
@@ -123,10 +191,22 @@ export async function createTailorBill(
             amount: number;
           }> = [];
 
+          // Waktu aktual untuk timestamp dan nomor billing.
           const now = new Date();
 
+          // Referensi tanggal tarif berdasarkan kalender Jakarta.
+          // Harus sama dengan calculator.ts.
+          const rateReferenceDate = getJakartaDateReference();
+
+          /**
+           * STEP 7:
+           * Proses seluruh item billing.
+           */
           for (const item of uniqueItems) {
-            // SPK wajib berasal dari perusahaan aktif dan belum dihapus.
+            /**
+             * STEP 7A:
+             * Ambil SPK milik tenant aktif.
+             */
             const spk = await tx.sPK.findFirst({
               where: {
                 id: item.spkId,
@@ -142,6 +222,7 @@ export async function createTailorBill(
                 transactions: {
                   where: {
                     productId: item.productId,
+                    companyId,
                     status: "ACTIVE",
                   },
                   include: {
@@ -157,50 +238,61 @@ export async function createTailorBill(
 
             if (!spk) {
               throw new Error(
-                `SPK dengan ID ${item.spkId} tidak ditemukan pada perusahaan aktif.`,
+                `SPK dengan ID ${item.spkId} tidak ditemukan pada perusahaan aktif.`
               );
             }
 
             if (spk.status === "CANCELLED") {
               throw new Error(
-                `SPK ${spk.spkNumber} sudah dibatalkan.`,
+                `SPK ${spk.spkNumber} sudah dibatalkan.`
               );
             }
 
             if (spk.tailorId !== input.tailorId) {
               throw new Error(
-                `SPK ${spk.spkNumber} bukan milik penjahit yang dipilih.`,
+                `SPK ${spk.spkNumber} bukan milik penjahit yang dipilih.`
               );
             }
 
+            /**
+             * STEP 7B:
+             * Pastikan produk terdapat pada SPK.
+             */
             const spkItem = spk.items.find(
-              (value) => value.productId === item.productId,
+              (value) => value.productId === item.productId
             );
 
             if (!spkItem) {
               throw new Error(
-                `Product ${item.productId} tidak terdapat pada SPK ${spk.spkNumber}.`,
+                `Product ${item.productId} tidak terdapat pada SPK ${spk.spkNumber}.`
               );
             }
 
-            // Pastikan produk pada item SPK berasal dari perusahaan aktif.
             if (spkItem.product.companyId !== companyId) {
               throw new Error(
-                `Product ${item.productId} bukan milik perusahaan aktif.`,
+                `Product ${item.productId} bukan milik perusahaan aktif.`
               );
             }
 
+            /**
+             * STEP 7C:
+             * Hitung status transaksi dan QC ACC.
+             */
             const status = calculateSPKStatus(
               spk.transactions.map((transaction) => ({
                 quantity: transaction.quantity,
                 transactionType: {
                   code: transaction.transactionType.code,
                 },
-              })),
+              }))
             );
 
-            // Quantity yang sudah ditagihkan hanya dihitung
-            // dari bill milik perusahaan aktif.
+            /**
+             * STEP 7D:
+             * Hitung quantity yang sudah pernah ditagihkan.
+             *
+             * Billing CANCELLED tidak dihitung.
+             */
             const alreadyBilled =
               await tx.tailorBillItem.aggregate({
                 where: {
@@ -219,33 +311,48 @@ export async function createTailorBill(
               });
 
             const totalAlreadyBilled = Number(
-              alreadyBilled._sum.quantity ?? 0,
+              alreadyBilled._sum.quantity ?? 0
             );
 
+            /**
+             * STEP 7E:
+             * Hitung quantity yang masih dapat ditagihkan.
+             *
+             * Formula:
+             * QC ACC - Already Billed.
+             */
             const billableQuantity = Math.max(
               Number(status.totalQcAcc) - totalAlreadyBilled,
-              0,
+              0
             );
 
             if (billableQuantity <= 0) {
               throw new Error(
-                `SPK ${spk.spkNumber} - ${spkItem.product.name} tidak memiliki quantity yang dapat ditagihkan.`,
+                `SPK ${spk.spkNumber} - ${spkItem.product.name} tidak memiliki quantity yang dapat ditagihkan.`
               );
             }
 
             if (item.quantity > billableQuantity) {
               throw new Error(
-                `SPK ${spk.spkNumber} - ${spkItem.product.name} hanya dapat ditagihkan ${billableQuantity} pcs.`,
+                `SPK ${spk.spkNumber} - ${spkItem.product.name} hanya dapat ditagihkan ${billableQuantity} pcs.`
               );
             }
 
+            /**
+             * STEP 7F:
+             * Cari tarif berdasarkan tenant, tailor, produk,
+             * status aktif, dan periode efektif.
+             *
+             * Pencarian ini harus sama dengan calculator.ts.
+             */
             const tailorRate = await tx.tailorRate.findFirst({
               where: {
+                companyId,
                 tailorId: spk.tailorId,
                 productId: item.productId,
                 isActive: true,
                 effectiveFrom: {
-                  lte: now,
+                  lte: rateReferenceDate,
                 },
                 OR: [
                   {
@@ -253,7 +360,7 @@ export async function createTailorBill(
                   },
                   {
                     effectiveTo: {
-                      gte: now,
+                      gte: rateReferenceDate,
                     },
                   },
                 ],
@@ -265,15 +372,31 @@ export async function createTailorBill(
 
             if (!tailorRate) {
               throw new Error(
-                `Tarif ${tailor.name} - ${spkItem.product.name} belum tersedia.`,
+                `Tarif ${tailor.name} - ${spkItem.product.name} belum tersedia atau belum berlaku.`
               );
             }
 
+            /**
+             * STEP 7G:
+             * Validasi nominal tarif.
+             */
             const rate = Number(tailorRate.rate);
 
-            if (!Number.isFinite(rate) || rate < 0) {
+            if (!Number.isFinite(rate) || rate <= 0) {
               throw new Error(
-                `Tarif ${tailor.name} - ${spkItem.product.name} tidak valid.`,
+                `Tarif ${tailor.name} - ${spkItem.product.name} tidak valid.`
+              );
+            }
+
+            /**
+             * STEP 7H:
+             * Hitung nominal item.
+             */
+            const amount = item.quantity * rate;
+
+            if (!Number.isFinite(amount)) {
+              throw new Error(
+                `Nominal billing ${spkItem.product.name} tidak valid.`
               );
             }
 
@@ -282,21 +405,30 @@ export async function createTailorBill(
               productId: item.productId,
               quantity: item.quantity,
               rate,
-              amount: item.quantity * rate,
+              amount,
             });
           }
 
+          /**
+           * STEP 8:
+           * Hitung subtotal seluruh item.
+           */
           const subtotal = preparedItems.reduce(
             (total, item) => total + item.amount,
-            0,
+            0
           );
 
           if (!Number.isFinite(subtotal)) {
             throw new Error("Total billing tidak valid.");
           }
 
-          // Sequence tetap menggunakan mekanisme global per tanggal
-          // agar nomor bill tidak bertabrakan antar perusahaan.
+          /**
+           * STEP 9:
+           * Generate sequence nomor billing.
+           *
+           * Tetap menggunakan mekanisme sequence global
+           * sesuai implementasi sebelumnya.
+           */
           const sequenceDate =
             `${now.getFullYear()}` +
             `${String(now.getMonth() + 1).padStart(2, "0")}` +
@@ -319,11 +451,13 @@ export async function createTailorBill(
 
           const billNumber = generateBillNumber(
             sequence.lastValue,
-            now,
+            now
           );
 
-          // Simpan bill dengan companyId dari tenant,
-          // bukan dari request body.
+          /**
+           * STEP 10:
+           * Buat billing dengan status DRAFT.
+           */
           const bill = await tx.tailorBill.create({
             data: {
               companyId,
@@ -355,6 +489,10 @@ export async function createTailorBill(
             },
           });
 
+          /**
+           * STEP 11:
+           * Simpan activity log.
+           */
           await tx.activityLog.create({
             data: {
               userId,
@@ -369,7 +507,7 @@ export async function createTailorBill(
         },
         {
           isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-        },
+        }
       );
     } catch (error) {
       if (isSerializationConflict(error) && attempt < 2) {
@@ -381,6 +519,6 @@ export async function createTailorBill(
   }
 
   throw new Error(
-    "Billing gagal dibuat karena terjadi konflik transaksi. Silakan coba kembali.",
+    "Billing gagal dibuat karena terjadi konflik transaksi. Silakan coba kembali."
   );
 }
