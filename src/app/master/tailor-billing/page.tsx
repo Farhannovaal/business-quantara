@@ -333,9 +333,9 @@ export default function TailorBillingPage() {
     return selectedItems.reduce((total, selected) => {
 
       const item = eligible.find(
-
-        (entry) => entry.spkId === selected.spkId,
-
+        (entry) =>
+          entry.spkId === selected.spkId &&
+          entry.productId === selected.productId
       );
 
       if (!item) {
@@ -396,112 +396,92 @@ export default function TailorBillingPage() {
 
   }
 
-  function isSelected(spkId: number) {
-
-    return selectedItems.some((item) => item.spkId === spkId);
-
-  }
-
-  function getSelectedQuantity(spkId: number) {
-
-    return (
-
-      selectedItems.find((item) => item.spkId === spkId)?.quantity || 0
-
+  function isSelected(spkId: number, productId: number): boolean {
+    return selectedItems.some(
+      (item) =>
+        item.spkId === spkId &&
+        item.productId === productId,
     );
-
   }
 
-  function toggleItem(item: BillingSummary) {
+  function getSelectedQuantity(
+    spkId: number,
+    productId: number,
+  ): number {
+    return (
+      selectedItems.find(
+        (item) =>
+          item.spkId === spkId &&
+          item.productId === productId,
+      )?.quantity ?? 0
+    );
+  }
 
-    const exists = isSelected(item.spkId);
+  function toggleItem(item: BillingSummary): void {
+    const exists = isSelected(item.spkId, item.productId);
 
     if (exists) {
-
       setSelectedItems((current) =>
-
-        current.filter((selected) => selected.spkId !== item.spkId),
-
+        current.filter(
+          (selected) =>
+            !(
+              selected.spkId === item.spkId &&
+              selected.productId === item.productId
+            ),
+        ),
       );
-
       return;
-
     }
 
     setSelectedItems((current) => [
-
       ...current,
-
       {
-
         spkId: item.spkId,
-
         productId: item.productId,
-
         quantity: item.billableQuantity,
-
       },
-
     ]);
-
   }
 
-  function changeQuantity(item: BillingSummary, value: string) {
-
+  function changeQuantity(
+    item: BillingSummary,
+    value: string,
+  ): void {
     let quantity = Number(value);
 
     if (!Number.isFinite(quantity)) {
-
       quantity = 0;
-
     }
 
     quantity = Math.floor(quantity);
-
     quantity = Math.max(0, quantity);
-
     quantity = Math.min(quantity, item.billableQuantity);
 
     setSelectedItems((current) => {
-
       const exists = current.some(
-
-        (selected) => selected.spkId === item.spkId,
-
+        (selected) =>
+          selected.spkId === item.spkId &&
+          selected.productId === item.productId,
       );
 
       if (!exists) {
-
         return [
-
           ...current,
-
           {
-
             spkId: item.spkId,
-
             productId: item.productId,
-
             quantity,
-
           },
-
         ];
-
       }
 
       return current.map((selected) =>
-
-        selected.spkId === item.spkId
-
+        selected.spkId === item.spkId &&
+        selected.productId === item.productId
           ? { ...selected, quantity }
-
           : selected,
-
       );
-
     });
-
   }
 
   async function createBill() {
@@ -521,19 +501,15 @@ export default function TailorBillingPage() {
       }
 
       const validItems = selectedItems.filter(
-
-        (item) => item.quantity > 0,
-
+        (item) =>
+          Number.isInteger(item.quantity) &&
+          item.quantity > 0,
       );
 
       if (validItems.length === 0) {
-
         throw new Error(
-
-          "Pilih minimal satu SPK dengan quantity lebih dari 0.",
-
+          "Pilih minimal satu produk dengan quantity lebih dari 0.",
         );
-
       }
 
       const response = await fetch("/api/tailor-billing", {
@@ -1501,7 +1477,7 @@ export default function TailorBillingPage() {
 
                           }{" "}
 
-                          item dipilih
+                          produk dipilih
 
                         </div>
 
@@ -1511,9 +1487,9 @@ export default function TailorBillingPage() {
 
                         {eligibleForSelectedTailor.map((item) => {
 
-                          const selected = isSelected(item.spkId);
+                          const selected = isSelected(item.spkId, item.productId);
 
-                          const quantity = getSelectedQuantity(item.spkId);
+                          const quantity = getSelectedQuantity(item.spkId, item.productId);
 
                           const amount = quantity * Number(item.rate);
 
@@ -1521,7 +1497,7 @@ export default function TailorBillingPage() {
 
                             <div
 
-                              key={item.spkId}
+                              key={`${item.spkId}-${item.productId}`}
 
                               className={`rounded-xl border p-4 transition ${
 

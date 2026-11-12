@@ -95,27 +95,83 @@ export default function TailorRatesPage() {
     }
   }
 
+    async function fetchAllProducts(): Promise<Product[]> {
+    const limit = 100;
+
+    const firstResponse = await fetch(
+      `/api/products?page=1&limit=${limit}`,
+      { cache: "no-store" }
+    );
+
+    const firstResult = await firstResponse.json();
+
+    if (!firstResponse.ok || !firstResult.success) {
+      throw new Error(
+        firstResult.error || "Gagal mengambil data produk."
+      );
+    }
+
+    const allProducts: Product[] = [
+      ...(Array.isArray(firstResult.data) ? firstResult.data : []),
+    ];
+
+    const totalPages = Math.max(
+      1,
+      Number(firstResult.pagination?.totalPages) || 1
+    );
+
+    for (let page = 2; page <= totalPages; page++) {
+      const response = await fetch(
+        `/api/products?page=${page}&limit=${limit}`,
+        { cache: "no-store" }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(
+          result.error || `Gagal mengambil produk halaman ${page}.`
+        );
+      }
+
+      if (Array.isArray(result.data)) {
+        allProducts.push(...result.data);
+      }
+    }
+
+    return Array.from(
+      new Map(
+        allProducts.map((product) => [product.id, product])
+      ).values()
+    );
+  }
+
   async function fetchFormData() {
     try {
       setLoadingFormData(true);
-      const [tailorResponse, productResponse] = await Promise.all([
+      setError("");
+
+      const [tailorResponse, allProducts] = await Promise.all([
         fetch("/api/tailors", { cache: "no-store" }),
-        fetch("/api/products", { cache: "no-store" }),
+        fetchAllProducts(),
       ]);
-      const [tailorResult, productResult] = await Promise.all([
-        tailorResponse.json(),
-        productResponse.json(),
-      ]);
+
+      const tailorResult = await tailorResponse.json();
+
       if (!tailorResponse.ok || !tailorResult.success) {
-        throw new Error(tailorResult.error || "Gagal mengambil data penjahit.");
+        throw new Error(
+          tailorResult.error || "Gagal mengambil data penjahit."
+        );
       }
-      if (!productResponse.ok || !productResult.success) {
-        throw new Error(productResult.error || "Gagal mengambil data produk.");
-      }
+
       setTailors(tailorResult.data || []);
-      setProducts(productResult.data || []);
+      setProducts(allProducts);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal mengambil data form.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Gagal mengambil data form."
+      );
     } finally {
       setLoadingFormData(false);
     }

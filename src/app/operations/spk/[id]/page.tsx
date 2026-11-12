@@ -656,7 +656,7 @@ export default function SPKDetailPage() {
 
             <SummaryCard
 
-              label="Total Barang"
+              label="Total Dalam Proses"
 
               value={spk.summary.jumlahBarang}
 
