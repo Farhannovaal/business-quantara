@@ -1424,7 +1424,7 @@ export default function Home() {
 
  <tr className="border-b border-border bg-gradient-to-r from-muted to-card">
 
- {['SPK','Product','Penjahit','Qty SPK','Jahit','QC','Rijek','Proses','Next Action'].map((head, i) => (
+ {['SPK','Product','Penjahit','Qty SPK','Sisa Jahit','QC','Rijek','Sedang Proses','Next Action'].map((head, i) => (
 
  <th key={head} className={`px-6 py-3 text-xs font-bold uppercase tracking-wide text-muted-foreground ${i >= 3 && i <= 7 ? 'text-right' : ''}`}>{head}</th>
 
