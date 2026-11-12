@@ -34,6 +34,11 @@ function parsePositiveInteger(
  *
  * Tenant:
  * - Mengambil produk dari company milik user yang login.
+ *
+ * Features:
+ * - Server-side pagination.
+ * - Server-side search.
+ * - Product summary (total, active, inactive).
  */
 export const GET = withApiAuth(
   async ({ request, tenant }) => {
@@ -49,6 +54,7 @@ export const GET = withApiAuth(
 
     const searchParams = request.nextUrl.searchParams;
 
+    // Pagination
     const page = parsePositiveInteger(
       searchParams.get("page"),
       1
@@ -70,8 +76,11 @@ export const GET = withApiAuth(
     }
 
     const limit = Math.min(requestedLimit, 100);
+
+    // Search
     const search = searchParams.get("search")?.trim();
 
+    // Tenant-scoped query
     const where: Prisma.ProductWhereInput = {
       companyId: tenant.id,
 
@@ -93,30 +102,66 @@ export const GET = withApiAuth(
         : {}),
     };
 
-    const [products, total] = await Promise.all([
-      prisma.product.findMany({
-        where,
-        skip: (page - 1) * limit,
-        take: limit,
-        orderBy: {
-          createdAt: "desc",
-        },
-      }),
+    // Fetch products, total count, and status summary.
+    const [products, total, productStatus] =
+      await Promise.all([
+        prisma.product.findMany({
+          where,
+          skip: (page - 1) * limit,
+          take: limit,
+          orderBy: [
+            {
+              createdAt: "desc",
+            },
+            {
+              id: "desc",
+            },
+          ],
+        }),
 
-      prisma.product.count({
-        where,
-      }),
-    ]);
+        prisma.product.count({
+          where,
+        }),
+
+        prisma.product.groupBy({
+          by: ["isActive"],
+          where,
+          _count: {
+            _all: true,
+          },
+        }),
+      ]);
+
+    const activeCount =
+      productStatus.find(
+        (item) => item.isActive
+      )?._count._all ?? 0;
+
+    const inactiveCount =
+      productStatus.find(
+        (item) => !item.isActive
+      )?._count._all ?? 0;
+
+    const totalPages = Math.ceil(total / limit);
 
     return NextResponse.json({
       success: true,
+
       data: products,
+
       pagination: {
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit),
+        totalPages,
       },
+
+      summary: {
+        total,
+        active: activeCount,
+        inactive: inactiveCount,
+      },
+
       company: {
         id: tenant.id,
         name: tenant.name,

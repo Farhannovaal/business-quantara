@@ -41,7 +41,7 @@ type MasterDataImportExportProps = {
   resource: MasterDataResource;
   viewPermission: string;
   managePermission: string;
-  onImported: () => Promise<void>;
+  onImported: () => void | Promise<void>;
 };
 
 const buttonClass =
