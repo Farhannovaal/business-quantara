@@ -1408,7 +1408,7 @@ export default function Home() {
 
  <div className="rounded-2xl bg-muted/50 p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Total Process</p><p className="mt-1 text-lg font-bold text-foreground">{formatNumber(productionSummary.total)} pcs</p></div>
 
- <div className="rounded-2xl bg-muted/50 p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Jahit</p><p className="mt-1 text-lg font-bold text-muted-foreground">{formatNumber(productionSummary.jahit)} pcs</p></div>
+ <div className="rounded-2xl bg-muted/50 p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Sisa Jahit</p><p className="mt-1 text-lg font-bold text-muted-foreground">{formatNumber(productionSummary.jahit)} pcs</p></div>
 
  <div className="rounded-2xl bg-muted/50 p-3"><p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">QC</p><p className="mt-1 text-lg font-bold text-foreground">{formatNumber(productionSummary.qc)} pcs</p></div>
 
